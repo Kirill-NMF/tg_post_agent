@@ -204,3 +204,9 @@ Cancellation is intentionally conservative in this phase: queued and `retry_sche
 Retry backoff is deterministic exponential delay with a cap so tests can assert exact outcomes. Jitter can be added later if production contention requires it.
 
 Structured worker logs include job ids, types, statuses, attempts, and payload keys only. Payload values, transcripts, provider responses, and secrets must remain out of logs.
+
+## Phase 6 Implementation Note
+
+The `TRANSCRIBE_AUDIO` handler now has real foundation wiring for Telegram download, temp audio storage, ffprobe/ffmpeg processing, transcription adapter calls, transcript persistence, and cleanup. The handler saves the transcript and moves the project to `planning`, but it does not invoke Gemini planning yet.
+
+Normal bot startup still does not auto-start a background worker loop. A caller must explicitly create audio pipeline handlers and invoke `JobWorker.processOne(...)` or a future approved loop.

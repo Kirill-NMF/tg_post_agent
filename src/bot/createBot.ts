@@ -33,14 +33,29 @@ export function createBot(token: string, router: BotRouter): Bot {
 }
 
 function sourceAudioFromMessage(message: {
-  voice?: { file_id: string };
-  audio?: { file_id: string; file_name?: string; mime_type?: string };
-  document?: { file_id: string; file_name?: string; mime_type?: string };
+  voice?: { file_id: string; duration?: number; file_size?: number };
+  audio?: { file_id: string; file_name?: string; mime_type?: string; duration?: number; file_size?: number };
+  document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
 }): SourceAudioInput | undefined {
-  if (message.voice) return { kind: "voice", telegramFileId: message.voice.file_id };
-  if (message.audio) return { kind: "audio", telegramFileId: message.audio.file_id, fileName: message.audio.file_name, mimeType: message.audio.mime_type };
+  if (message.voice) return { kind: "voice", telegramFileId: message.voice.file_id, durationSeconds: message.voice.duration, sizeBytes: message.voice.file_size };
+  if (message.audio) {
+    return {
+      kind: "audio",
+      telegramFileId: message.audio.file_id,
+      fileName: message.audio.file_name,
+      mimeType: message.audio.mime_type,
+      durationSeconds: message.audio.duration,
+      sizeBytes: message.audio.file_size
+    };
+  }
   if (message.document?.mime_type?.startsWith("audio/")) {
-    return { kind: "audio_document", telegramFileId: message.document.file_id, fileName: message.document.file_name, mimeType: message.document.mime_type };
+    return {
+      kind: "audio_document",
+      telegramFileId: message.document.file_id,
+      fileName: message.document.file_name,
+      mimeType: message.document.mime_type,
+      sizeBytes: message.document.file_size
+    };
   }
   return undefined;
 }

@@ -16,4 +16,14 @@ describe("env config", () => {
     expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", DATABASE_URL: "postgres://db" }).databaseUrl).toBe("postgres://db");
     expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TEST_DATABASE_URL: "postgres://test-db" }).databaseUrl).toBe("postgres://test-db");
   });
+
+  it("uses safe audio/transcription defaults and validates download byte limit", () => {
+    const config = loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123" });
+    expect(config.audioTempDir).toBe(".runtime/audio");
+    expect(config.telegramApiBaseUrl).toBe("https://api.telegram.org");
+    expect(config.telegramMaxDownloadBytes).toBe(20 * 1024 * 1024);
+    expect(config.openaiTranscriptionModel).toBe("whisper-1");
+
+    expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TELEGRAM_MAX_DOWNLOAD_BYTES: "0" })).toThrow("positive integer");
+  });
 });

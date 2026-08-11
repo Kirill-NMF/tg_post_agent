@@ -36,6 +36,8 @@ export type SourceAudioInput = {
   telegramFileId: string;
   fileName?: string;
   mimeType?: string;
+  durationSeconds?: number;
+  sizeBytes?: number;
 };
 
 export type PlanPostSlice = {

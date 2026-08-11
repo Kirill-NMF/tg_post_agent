@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ModelAdapters } from "../domain/modelContracts.js";
+import type { AudioSourceMetadata } from "../domain/audioTypes.js";
 import type {
   BotResponse,
   FormattingOption,
@@ -11,12 +12,14 @@ import type {
   TelegramChatId,
   TelegramUserId
 } from "../domain/types.js";
+import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 
 export class ProjectService {
   constructor(
     private readonly projects: ProjectRepository,
-    private readonly models: ModelAdapters
+    private readonly models: ModelAdapters,
+    private readonly jobs?: JobRepository
   ) {}
 
   async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
@@ -48,6 +51,18 @@ export class ProjectService {
     }
 
     project.messages.push(message("source_audio", source.telegramFileId));
+    if (this.jobs) {
+      await this.jobs.enqueue({
+        type: "TRANSCRIBE_AUDIO",
+        projectId: project.id,
+        dedupeKey: `project:${project.id}:source-transcription`,
+        payload: { source: toAudioSourceMetadata(source) }
+      });
+      project.state = "transcribing";
+      await this.projects.save(project);
+      return [{ kind: "message", text: "Аудио принято. Начинаю расшифровку; я пришлю варианты плана, когда обработка закончится." }];
+    }
+
     const transcript = await unwrap(this.models.transcribeSource({ projectId: project.id, source }));
     project.transcript = transcript.transcript;
 
@@ -283,6 +298,17 @@ export class ProjectService {
 
 function message(kind: ProjectMessageKind, text: string) {
   return { kind, text, createdAt: new Date() };
+}
+
+function toAudioSourceMetadata(source: SourceAudioInput): AudioSourceMetadata {
+  return {
+    kind: "source_audio",
+    telegramFileId: source.telegramFileId,
+    originalFileName: source.fileName,
+    mimeType: source.mimeType,
+    durationSeconds: source.durationSeconds,
+    sizeBytes: source.sizeBytes
+  };
 }
 
 async function unwrap<T>(resultPromise: Promise<{ ok: true; value: T } | { ok: false; error: { message: string } }>): Promise<T> {

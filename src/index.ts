@@ -3,6 +3,7 @@ import { createBot } from "./bot/createBot.js";
 import { BotRouter } from "./bot/router.js";
 import { loadConfig } from "./config/env.js";
 import { createDb, createDbPool } from "./db/connection.js";
+import { PgJobRepository } from "./repositories/pgJobRepository.js";
 import { InMemoryProjectRepository } from "./repositories/inMemoryProjectRepository.js";
 import { PgProjectRepository } from "./repositories/pgProjectRepository.js";
 import { TelegramAuthService } from "./services/authService.js";
@@ -10,11 +11,11 @@ import { ProjectService } from "./services/projectService.js";
 
 export function buildApplication(env: NodeJS.ProcessEnv) {
   const config = loadConfig(env);
-  const repository = config.databaseUrl
-    ? new PgProjectRepository(createDb(createDbPool({ databaseUrl: config.databaseUrl })))
-    : new InMemoryProjectRepository();
+  const db = config.databaseUrl ? createDb(createDbPool({ databaseUrl: config.databaseUrl })) : undefined;
+  const repository = db ? new PgProjectRepository(db) : new InMemoryProjectRepository();
+  const jobRepository = db ? new PgJobRepository(db) : undefined;
   const modelAdapters = new MockModelAdapters();
-  const projectService = new ProjectService(repository, modelAdapters);
+  const projectService = new ProjectService(repository, modelAdapters, jobRepository);
   const authService = new TelegramAuthService(config.allowedTelegramIds);
   const router = new BotRouter(authService, projectService);
   return { config, router, bot: createBot(config.botToken, router) };

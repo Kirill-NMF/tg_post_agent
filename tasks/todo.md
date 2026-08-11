@@ -94,3 +94,21 @@ Phase 5 is Postgres Job Worker. Durable persistence must be verified before addi
 ## Next Gate After Phase 5
 
 Phase 6 should add the audio intake/transcription pipeline or the next approved development-plan step. Real model/audio provider integration remains gated behind explicit phase approval and the existing prompt/job contracts.
+
+## Phase 6. Audio Intake/Transcription Pipeline Foundation
+
+- [x] Add typed audio source, prepared audio, and transcription result contracts.
+- [x] Add Telegram file download client with configurable base URL and 20 MB default cloud Bot API limit.
+- [x] Add project/job scoped temp audio storage with safe path resolution and idempotent cleanup.
+- [x] Add ffprobe/ffmpeg audio normalization and deterministic chunk ordering.
+- [x] Add OpenAI transcription adapter with `whisper-1` default model and env-backed key/model config.
+- [x] Add `TRANSCRIBE_AUDIO` worker handler that downloads, processes, transcribes, persists transcript, moves project to `planning`, and cleans temp files.
+- [x] Keep transcript hidden from normal user-facing bot responses.
+- [x] Add optional job enqueue path for source audio when a job repository is configured, while preserving mock synchronous flow without jobs.
+- [x] Add redacted observability events for audio download/preparation/transcript persistence.
+- [x] Document env names, 20 MB Bot API cloud limit, temp retention, and explicit worker invocation.
+- [x] Stop before Gemini planning, Claude/GPT formatting, Telethon E2E, channel publishing, frontend, mini app, Redis/BullMQ/S3, Docker, or worker autostart.
+
+## Next Gate After Phase 6
+
+Phase 7 should add Gemini planning over the persisted transcript. Do not add draft generation, formatting, channel publishing, or broader deployment work before the matching phase approval.
