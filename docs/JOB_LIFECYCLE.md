@@ -36,13 +36,13 @@ Handlers enqueue jobs, move the project to the appropriate in-progress state, an
 
 ```text
 queued -> running -> succeeded
-queued -> running -> retry_scheduled -> queued
+queued -> running -> retry_scheduled -> running
 queued -> running -> failed
 queued -> cancelled
 running -> cancelled
 ```
 
-`retry_scheduled` means the job failed in a retryable way and has a future `run_after`.
+`retry_scheduled` means the job failed in a retryable way and has a future `run_after`. Once `run_after <= now()`, the job becomes eligible for claim directly; Phase 5 does not require a separate transition back to `queued`.
 
 ## State Transition Rules
 
@@ -70,7 +70,7 @@ The worker claims jobs with criteria equivalent to:
 ```text
 status in ('queued', 'retry_scheduled')
 and run_after <= now()
-order by created_at
+order by run_after asc, created_at asc
 limit 1
 for update skip locked
 ```
