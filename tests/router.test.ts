@@ -15,12 +15,12 @@ function router() {
 describe("BotRouter", () => {
   it("enforces Telegram ID allowlist before state handling", async () => {
     const responses = await router().handleText({ telegramUserId: "999", chatId: "200", text: "/start" });
-    expect(message(responses[0]).text).toContain("not allowed");
+    expect(message(responses[0]).text).toContain("не разрешён");
   });
 
   it("routes /start and source audio to the service", async () => {
     const botRouter = router();
-    expect(message((await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "/start" }))[0]).text).toContain("Send a voice");
+    expect(message((await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "/start" }))[0]).text).toContain("Пришлите");
 
     const planning = await botRouter.handleAudio({
       telegramUserId: "100",
@@ -35,8 +35,16 @@ describe("BotRouter", () => {
     await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "/start" });
     await botRouter.handleAudio({ telegramUserId: "100", chatId: "200", audio: { kind: "voice", telegramFileId: "voice-id" } });
 
-    expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "plan:one_post" }))[0]).text).toContain("rewrite mode");
+    expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "plan:one_post" }))[0]).text).toContain("режим");
     expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "rewrite:clean_up" }))[0]).text).toContain("Mock draft");
+  });
+
+  it("returns fallback router text without mojibake", async () => {
+    const botRouter = router();
+    const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "unknown:action" }))[0]);
+
+    expect(response.text).toContain("Неизвестное действие");
+    expect(response.text).not.toMatch(/\?{3,}|�|Ð|Ñ|Р[Ѐ-ӿ]/);
   });
 });
 

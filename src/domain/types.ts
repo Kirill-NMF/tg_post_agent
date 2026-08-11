@@ -4,13 +4,19 @@ export type ProjectId = string;
 export type PostId = string;
 
 export type ProjectState =
+  | "idle"
   | "awaiting_audio"
+  | "transcribing"
   | "planning"
   | "rewrite_mode"
+  | "draft_generating"
   | "draft_editing"
   | "format_choice"
+  | "formatting"
   | "formatted_editing"
-  | "final";
+  | "done"
+  | "cancelled"
+  | "failed";
 
 export type RewriteMode = "clean_up" | "make_post";
 export type FormattingOption = "option_1" | "option_2";

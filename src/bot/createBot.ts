@@ -26,7 +26,7 @@ export function createBot(token: string, router: BotRouter): Bot {
       return;
     }
 
-    await ctx.reply("Send text, voice, audio, or an audio document.");
+    await ctx.reply("Пришлите текст, voice, audio или audio-файл.");
   });
 
   return bot;

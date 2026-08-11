@@ -31,18 +31,18 @@ export class BotRouter {
     if (event.text.trim() === "/start") return this.projects.start(event.telegramUserId, event.chatId);
 
     const activeProject = this.projects.getActiveProject(event.telegramUserId);
-    if (!activeProject) return [{ kind: "message", text: "????????? /start, ????? ?????? ??????." }];
+    if (!activeProject) return [{ kind: "message", text: "Отправьте /start, чтобы начать проект." }];
 
     if (activeProject.state === "planning") return this.projects.revisePlan(event.telegramUserId, event.text);
     if (activeProject.state === "draft_editing") return this.projects.reviseDraft(event.telegramUserId, event.text);
     if (activeProject.state === "formatted_editing") return this.projects.reviseFormatting(event.telegramUserId, event.text);
-    return [{ kind: "message", text: "????????? ?????? ?????? ?? ?????????. ??????????? ?????? ???????? ????." }];
+    return [{ kind: "message", text: "Текстовая правка сейчас не ожидается. Используйте кнопки текущего шага." }];
   }
 
   async handleAudio(event: RouterAudioEvent): Promise<BotResponse[]> {
     if (!this.auth.isAllowed(event.telegramUserId)) return unauthorized();
     const activeProject = this.projects.getActiveProject(event.telegramUserId);
-    if (!activeProject) return [{ kind: "message", text: "????????? /start ????? ?????." }];
+    if (!activeProject) return [{ kind: "message", text: "Отправьте /start перед аудио." }];
 
     if (activeProject.state === "awaiting_audio") {
       return this.projects.submitSourceAudio(event.telegramUserId, event.audio);
@@ -62,12 +62,12 @@ export class BotRouter {
     if (event.action === "final:accept") return this.projects.finalizeCurrentPost(event.telegramUserId);
     if (event.action === "series:next") return this.projects.startNextPost(event.telegramUserId);
 
-    return [{ kind: "message", text: "??????????? ????????. ?????????? ??????? ??? ??? ????????? /start." }];
+    return [{ kind: "message", text: "Неизвестное действие. Продолжите текущий шаг или отправьте /start." }];
   }
 }
 
 function unauthorized(): BotResponse[] {
-  return [{ kind: "message", text: "This Telegram ID is not allowed for the MVP." }];
+  return [{ kind: "message", text: "Этот Telegram ID не разрешён для MVP." }];
 }
 
 function isPlanOption(value: string | undefined): value is PlanOptionId {

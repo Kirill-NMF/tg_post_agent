@@ -33,7 +33,7 @@ export class ProjectService {
       updatedAt: now
     };
     this.projects.save(project);
-    return [{ kind: "message", text: "Send a voice, audio, or audio document as the source for a new project." }];
+    return [{ kind: "message", text: "Пришлите voice, audio или audio-файл как источник для нового проекта." }];
   }
 
   getActiveProject(telegramUserId: TelegramUserId): Project | undefined {
@@ -43,7 +43,7 @@ export class ProjectService {
   async submitSourceAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     if (project.state !== "awaiting_audio") {
-      return [{ kind: "message", text: "Source audio is not expected now. Continue the current step or send /start." }];
+      return [{ kind: "message", text: "Сейчас аудио-источник не ожидается. Продолжите текущий шаг или отправьте /start." }];
     }
 
     project.messages.push(message("source_audio", source.telegramFileId));
@@ -68,7 +68,7 @@ export class ProjectService {
   async revisePlan(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     if (project.state !== "planning" || !project.transcript || !project.planOptions) {
-      return [{ kind: "message", text: "Plan edits are available only on the planning screen." }];
+      return [{ kind: "message", text: "Правки плана доступны только на экране планирования." }];
     }
 
     project.messages.push(message("planning_edit", latestUserEdit));
@@ -82,18 +82,18 @@ export class ProjectService {
     );
     project.planOptions = revised.options;
     this.projects.save(project);
-    return [{ kind: "message", text: "Plan updated. Choose option 1/2/3.", buttons: planButtons() }];
+    return [{ kind: "message", text: "План обновлён. Выберите вариант 1/2/3.", buttons: planButtons() }];
   }
 
   async choosePlan(telegramUserId: TelegramUserId, optionId: PlanOptionId): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     if (project.state !== "planning" || !project.planOptions) {
-      return [{ kind: "message", text: "Create a plan from audio first." }];
+      return [{ kind: "message", text: "Сначала нужен план из аудио." }];
     }
 
     const selectedPlan = project.planOptions.find((option) => option.optionId === optionId);
     if (!selectedPlan) {
-      return [{ kind: "message", text: "Unknown plan option. Choose 1, 2, or 3." }];
+      return [{ kind: "message", text: "Такого варианта плана нет. Выберите 1, 2 или 3." }];
     }
 
     project.selectedPlan = selectedPlan;
@@ -101,26 +101,26 @@ export class ProjectService {
     project.posts = selectedPlan.posts.map((slice) => ({ id: `${project.id}_post_${slice.index}`, index: slice.index, planSlice: slice }));
     project.state = "rewrite_mode";
     this.projects.save(project);
-    return [{ kind: "message", text: "Choose rewrite mode.", buttons: rewriteButtons() }];
+    return [{ kind: "message", text: "Выберите режим переписывания.", buttons: rewriteButtons() }];
   }
 
   async chooseRewriteMode(telegramUserId: TelegramUserId, rewriteMode: RewriteMode): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     if (project.state !== "rewrite_mode" || !project.selectedPlan || !project.transcript || !project.currentPostIndex) {
-      return [{ kind: "message", text: "Rewrite mode can be selected after choosing a plan." }];
+      return [{ kind: "message", text: "Режим можно выбрать после выбора плана." }];
     }
 
     project.rewriteMode = rewriteMode;
     const draft = await this.generateDraftForCurrentPost(project);
     this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: [{ label: "Format", action: "format:open" }] }];
+    return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "draft_editing" || !post?.currentDraft) {
-      return [{ kind: "message", text: "Draft edits are available only after draft generation." }];
+      return [{ kind: "message", text: "Правки черновика доступны только после генерации черновика." }];
     }
 
     project.messages.push(message("draft_edit", latestUserEdit));
@@ -130,30 +130,30 @@ export class ProjectService {
     post.currentDraft = updated.updatedDraft.fullText;
     project.messages.push(message("draft", post.currentDraft));
     this.projects.save(project);
-    return [{ kind: "message", text: post.currentDraft, buttons: [{ label: "Format", action: "format:open" }] }];
+    return [{ kind: "message", text: post.currentDraft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
   openFormatChoice(telegramUserId: TelegramUserId): BotResponse[] {
     const project = this.requireActive(telegramUserId);
     if (project.state !== "draft_editing" || !currentPost(project)?.currentDraft) {
-      return [{ kind: "message", text: "Formatting is available after a draft." }];
+      return [{ kind: "message", text: "Оформление доступно после черновика." }];
     }
     project.state = "format_choice";
     this.projects.save(project);
-    return [{ kind: "message", text: "Choose formatting option.", buttons: formatButtons() }];
+    return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatButtons() }];
   }
 
   async formatCurrentPost(telegramUserId: TelegramUserId, formattingOption: FormattingOption): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "format_choice" || !post?.currentDraft) {
-      return [{ kind: "message", text: "Open formatting from the draft first." }];
+      return [{ kind: "message", text: "Сначала откройте оформление из черновика." }];
     }
 
     const formatted = await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }));
     const preservation = await unwrap(this.models.checkPreservation({ projectId: project.id, draftText: post.currentDraft, formattedText: formatted.formattedText, formattingOption }));
     if (!preservation.passed) {
-      return [{ kind: "message", text: "Mock preservation check rejected formatting. Try another option." }];
+      return [{ kind: "message", text: "Mock preservation check не пропустил оформление. Попробуйте другой вариант." }];
     }
 
     post.formattedText = formatted.formattedText;
@@ -167,7 +167,7 @@ export class ProjectService {
     const project = this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "formatted_editing" || !post?.formattedText || !post.currentDraft || !post.formattingOption) {
-      return [{ kind: "message", text: "Formatting edits are available only after formatting the post." }];
+      return [{ kind: "message", text: "Правки оформления доступны только после оформления поста." }];
     }
 
     project.messages.push(message("formatting_edit", latestUserEdit));
@@ -191,7 +191,7 @@ export class ProjectService {
       this.models.checkPreservation({ projectId: project.id, draftText: post.currentDraft, formattedText: revision.formattedText, formattingOption: post.formattingOption })
     );
     if (!preservation.passed) {
-      return [{ kind: "message", text: "Formatting edit looks like a text change. Return to draft editing." }];
+      return [{ kind: "message", text: "Правка оформления выглядит как изменение текста. Вернитесь к черновику." }];
     }
 
     post.formattedText = revision.formattedText;
@@ -203,40 +203,40 @@ export class ProjectService {
     const project = this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "formatted_editing" || !post?.formattedText) {
-      return [{ kind: "message", text: "Final output is available after formatting." }];
+      return [{ kind: "message", text: "Финал доступен после оформления." }];
     }
 
-    project.state = "final";
+    project.state = "done";
     project.messages.push(message("final", post.formattedText));
     this.projects.save(project);
 
     return [
       { kind: "message", text: post.formattedText, buttons: nextPostButtons(project) },
-      { kind: "document", filename: `post-${post.index}.txt`, content: post.formattedText, caption: "Text artifact placeholder" }
+      { kind: "document", filename: `post-${post.index}.txt`, content: post.formattedText, caption: "Текстовый артефакт поста" }
     ];
   }
 
   async startNextPost(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
-    if (project.state !== "final" || !project.selectedPlan || !project.currentPostIndex || !project.rewriteMode) {
-      return [{ kind: "message", text: "Next post is available only after finalizing the current one." }];
+    if (project.state !== "done" || !project.selectedPlan || !project.currentPostIndex || !project.rewriteMode) {
+      return [{ kind: "message", text: "Следующий пост доступен только после финализации текущего." }];
     }
 
     const nextIndex = (project.currentPostIndex + 1) as 1 | 2 | 3;
     if (nextIndex > project.selectedPlan.postCount) {
-      return [{ kind: "message", text: "There are no more posts in the series." }];
+      return [{ kind: "message", text: "В серии больше нет постов." }];
     }
 
     project.currentPostIndex = nextIndex;
     const draft = await this.generateDraftForCurrentPost(project);
     this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: [{ label: "Format", action: "format:open" }] }];
+    return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
   async handleEditAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
     const project = this.requireActive(telegramUserId);
     if (!["planning", "draft_editing", "formatted_editing"].includes(project.state)) {
-      return [{ kind: "message", text: "Voice edit is not expected now." }];
+      return [{ kind: "message", text: "Voice-правка сейчас не ожидается." }];
     }
 
     const edit = await unwrap(
@@ -302,16 +302,16 @@ function recentEditMessages(project: Project): string[] {
 
 function planButtons() {
   return [
-    { label: "1 post", action: "plan:one_post" },
-    { label: "2 posts", action: "plan:two_posts" },
-    { label: "3 posts", action: "plan:three_posts" }
+    { label: "1 пост", action: "plan:one_post" },
+    { label: "2 поста", action: "plan:two_posts" },
+    { label: "3 поста", action: "plan:three_posts" }
   ];
 }
 
 function rewriteButtons() {
   return [
-    { label: "Clean up transcript", action: "rewrite:clean_up" },
-    { label: "Make post", action: "rewrite:make_post" }
+    { label: "Почистить", action: "rewrite:clean_up" },
+    { label: "Сделать пост", action: "rewrite:make_post" }
   ];
 }
 
@@ -323,10 +323,10 @@ function formatButtons() {
 }
 
 function finalButtons(project: Project) {
-  const buttons = [{ label: "Done", action: "final:accept" }];
+  const buttons = [{ label: "Готово", action: "final:accept" }];
   const post = currentPost(project);
   if (post && project.selectedPlan && post.index < project.selectedPlan.postCount) {
-    buttons.push({ label: "Make next post", action: "series:next" });
+    buttons.push({ label: "Делать следующий пост", action: "series:next" });
   }
   return buttons;
 }
@@ -334,7 +334,7 @@ function finalButtons(project: Project) {
 function nextPostButtons(project: Project) {
   const post = currentPost(project);
   if (!post || !project.selectedPlan || post.index >= project.selectedPlan.postCount) return undefined;
-  return [{ label: "Make next post", action: "series:next" }];
+  return [{ label: "Делать следующий пост", action: "series:next" }];
 }
 
 function renderPlanOptions(ids: PlanOptionId[]): string {

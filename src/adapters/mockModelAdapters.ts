@@ -45,7 +45,7 @@ export class MockModelAdapters implements ModelAdapters {
   }
 
   async formatPost(input: Parameters<ModelAdapters["formatPost"]>[0]): Promise<AdapterResult<{ formattedText: string; formattingNotes: string[] }>> {
-    const formattedText = input.formattingOption === "option_2" ? `? ${input.draftText}` : input.draftText;
+    const formattedText = input.formattingOption === "option_2" ? `✨ ${input.draftText}` : input.draftText;
     return ok({ formattedText, formattingNotes: [`Mock ${input.formattingOption} formatting.`] });
   }
 
@@ -103,5 +103,5 @@ function buildPlanOptions(): PlanOption[] {
 }
 
 function normalizeForMockCheck(value: string): string {
-  return value.replace(/^[?\-]\s*/gm, "").replace(/\s+/g, " ").trim();
+  return value.replace(/^[✨•\-]\s*/gm, "").replace(/\s+/g, " ").trim();
 }

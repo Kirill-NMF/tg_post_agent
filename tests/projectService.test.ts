@@ -16,16 +16,18 @@ describe("ProjectService mock state machine", () => {
   it("runs the main audio-to-final-post path without Telegram network", async () => {
     const { projects } = service();
 
-    expect(message(projects.start("100", "200")[0]).text).toContain("Send a voice");
+    expect(message(projects.start("100", "200")[0]).text).toContain("Пришлите");
     const planning = await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
     expect(message(planning[0]).text).toContain("one_post");
     expect(projects.getActiveProject("100")?.state).toBe("planning");
 
     const rewrite = await projects.choosePlan("100", "two_posts");
     expect(message(rewrite[0]).buttons?.map((button) => button.action)).toEqual(["rewrite:clean_up", "rewrite:make_post"]);
+    expect(message(rewrite[0]).buttons?.map((button) => button.label)).toEqual(["Почистить", "Сделать пост"]);
 
     const draft = await projects.chooseRewriteMode("100", "make_post");
     expect(message(draft[0]).text).toContain("Mock draft 1");
+    expect(message(draft[0]).buttons?.[0]).toEqual({ label: "Оформить", action: "format:open" });
     expect(projects.getActiveProject("100")?.state).toBe("draft_editing");
 
     const revised = await projects.reviseDraft("100", "shorten intro");
@@ -42,6 +44,8 @@ describe("ProjectService mock state machine", () => {
     expect(final).toHaveLength(2);
     expect(final[1]).toMatchObject({ kind: "document", filename: "post-1.txt" });
     expect(final[0]?.kind === "message" ? final[0].buttons?.[0]?.action : undefined).toBe("series:next");
+    expect(final[0]?.kind === "message" ? final[0].buttons?.[0]?.label : undefined).toBe("Делать следующий пост");
+    expect(projects.getActiveProject("100")?.state).toBe("done");
   });
 
   it("supports mock next post flow for series", async () => {
