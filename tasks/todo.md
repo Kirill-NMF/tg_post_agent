@@ -5,7 +5,7 @@
 - [x] Initialize /opt/tg_post_agent Git repository.
 - [x] Copy approved project spec documents.
 - [x] Add repository-level AGENTS.md.
-- [ ] Commit and push bootstrap docs.
+- [x] Commit and push bootstrap docs.
 
 ## Phase 1. Architecture & Data Model
 
@@ -16,3 +16,7 @@
 - [x] Produce initial data model/schema design.
 - [x] Define state machine and job lifecycle.
 - [x] Stop before app implementation.
+
+## Next Gate
+
+Phase 2 is Prompt Contracts. It must define typed model prompt contracts before app code or real model integrations are added.
