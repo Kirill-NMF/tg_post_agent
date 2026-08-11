@@ -22,9 +22,13 @@ Copy `.env.example` to a runtime-only env file outside git and fill values there
 - `TELEGRAM_MAX_DOWNLOAD_BYTES`: defaults to 20 MB, matching the cloud Bot API `getFile` download limit. A future local Bot API server can raise this operational limit.
 - `OPENAI_API_KEY`: required only when creating the real transcription worker handler.
 - `OPENAI_TRANSCRIPTION_MODEL`: defaults to `whisper-1`.
+- `JOB_WORKER_ENABLED`: defaults to `false`; set to `true` only when `DATABASE_URL` and `OPENAI_API_KEY` are configured.
+- `JOB_WORKER_INTERVAL_MS`: serial worker tick interval, defaults to `1000`.
+- `JOB_WORKER_STALE_MS`: stale running job recovery threshold, defaults to `900000`.
+- `JOB_WORKER_ID`: optional stable worker id for logs/locks.
 
 ## Audio Pipeline Foundation
 
 Phase 6 stores source audio and ffmpeg chunks only under the temp audio directory and deletes them on success and failure. Transcripts are persisted on the project, but the normal bot flow does not show transcript text to the user.
 
-The bot can enqueue `TRANSCRIBE_AUDIO` when a job repository is configured. The real worker handler is created with `createAudioPipelineHandlers(...)` and must be invoked explicitly by tests/dev tooling; normal bot startup does not auto-start a background worker yet.
+The bot can enqueue `TRANSCRIBE_AUDIO` when a job repository is configured. Set `JOB_WORKER_ENABLED=true` to start the serial in-process worker runtime. When enabled, startup fails fast unless `DATABASE_URL` and `OPENAI_API_KEY` are present. Smoke mode still builds without DB or OpenAI.

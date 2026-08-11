@@ -209,4 +209,10 @@ Structured worker logs include job ids, types, statuses, attempts, and payload k
 
 The `TRANSCRIBE_AUDIO` handler now has real foundation wiring for Telegram download, temp audio storage, ffprobe/ffmpeg processing, transcription adapter calls, transcript persistence, and cleanup. The handler saves the transcript and moves the project to `planning`, but it does not invoke Gemini planning yet.
 
-Normal bot startup still does not auto-start a background worker loop. A caller must explicitly create audio pipeline handlers and invoke `JobWorker.processOne(...)` or a future approved loop.
+## Phase 6.5 Implementation Note
+
+The app now has an explicit serial `WorkerRuntime` wrapper around `JobWorker.processOne(...)`. The runtime is disabled by default and starts only with `JOB_WORKER_ENABLED=true`. When enabled, startup requires `DATABASE_URL` and `OPENAI_API_KEY`; smoke mode remains DB/OpenAI-free.
+
+The runtime logs start, stop, stale recovery, tick completion, and tick failures with structured fields. It runs stale recovery on startup and periodically, processes one job at a time, and skips overlapping ticks.
+
+`TRANSCRIBE_AUDIO` now sends a short Telegram progress message after transcript persistence and the move to `planning`. Notification text does not include transcript content. If the notification fails after durable state is saved, the job still succeeds with safe `notificationStatus = failed` result metadata; the transcript is not rolled back and transcription is not repeated only for delivery.

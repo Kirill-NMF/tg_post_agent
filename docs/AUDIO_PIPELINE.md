@@ -41,4 +41,10 @@ The adapter accepts ordered chunk files, transcribes each chunk, validates non-e
 
 The bot enqueue path is enabled when a job repository is configured. Receiving source audio in `awaiting_audio` creates a `TRANSCRIBE_AUDIO` job, moves the project to `transcribing`, and replies with a progress message. It does not block on download, ffmpeg, or transcription.
 
-The real handler is created by `createAudioPipelineHandlers(...)` and is intentionally not started automatically from normal bot startup. Tests and future dev tooling can call `JobWorker.processOne(...)` with that handler. After a successful transcription, the project moves to `planning` with the transcript persisted, but no real Gemini planning runs in Phase 6.
+The real handler is created by `createAudioPipelineHandlers(...)`. As of Phase 6.5, normal startup can start a serial worker runtime only when `JOB_WORKER_ENABLED=true` and the required DB/OpenAI runtime config is present. Tests and dev tooling can still call `JobWorker.processOne(...)` with that handler directly. After a successful transcription, the project moves to `planning` with the transcript persisted, but no real Gemini planning runs in Phase 6/6.5.
+
+## Telegram Delivery After Transcription
+
+After durable transcript persistence and the transition to `planning`, the handler sends a short Telegram progress message through the `TelegramNotifier` port. The transcript text is never included in that message.
+
+If this notification fails after the transcript is saved, the job is marked succeeded with safe `notificationStatus = failed` metadata instead of rerunning transcription. This avoids duplicate provider calls and preserves the durable state. A later delivery-specific retry path can be added if the product needs guaranteed progress-message delivery.

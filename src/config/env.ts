@@ -10,6 +10,10 @@ export type AppConfig = {
   telegramMaxDownloadBytes: number;
   openaiApiKey?: string;
   openaiTranscriptionModel: string;
+  jobWorkerEnabled: boolean;
+  jobWorkerIntervalMs: number;
+  jobWorkerStaleMs: number;
+  jobWorkerId: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -24,7 +28,11 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     telegramApiBaseUrl: readOptional(env, "TELEGRAM_API_BASE_URL") ?? "https://api.telegram.org",
     telegramMaxDownloadBytes: readOptionalInteger(env, "TELEGRAM_MAX_DOWNLOAD_BYTES") ?? telegramCloudMaxDownloadBytes,
     openaiApiKey: readOptional(env, "OPENAI_API_KEY"),
-    openaiTranscriptionModel: readOptional(env, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1"
+    openaiTranscriptionModel: readOptional(env, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
+    jobWorkerEnabled: readOptionalBoolean(env, "JOB_WORKER_ENABLED") ?? false,
+    jobWorkerIntervalMs: readOptionalInteger(env, "JOB_WORKER_INTERVAL_MS") ?? 1000,
+    jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,
+    jobWorkerId: readOptional(env, "JOB_WORKER_ID") ?? `tg-post-agent-${process.pid}`
   };
 }
 
@@ -64,4 +72,12 @@ function readOptionalInteger(env: NodeJS.ProcessEnv, name: string): number | und
   const value = Number(raw);
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer.`);
   return value;
+}
+
+function readOptionalBoolean(env: NodeJS.ProcessEnv, name: string): boolean | undefined {
+  const raw = readOptional(env, name);
+  if (raw === undefined) return undefined;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error(`${name} must be true or false.`);
 }

@@ -23,7 +23,28 @@ describe("env config", () => {
     expect(config.telegramApiBaseUrl).toBe("https://api.telegram.org");
     expect(config.telegramMaxDownloadBytes).toBe(20 * 1024 * 1024);
     expect(config.openaiTranscriptionModel).toBe("whisper-1");
+    expect(config.jobWorkerEnabled).toBe(false);
+    expect(config.jobWorkerIntervalMs).toBe(1000);
+    expect(config.jobWorkerStaleMs).toBe(15 * 60 * 1000);
+    expect(config.jobWorkerId).toContain("tg-post-agent-");
 
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TELEGRAM_MAX_DOWNLOAD_BYTES: "0" })).toThrow("positive integer");
+  });
+
+  it("parses worker runtime flags", () => {
+    const config = loadConfig({
+      BOT_TOKEN: "token",
+      ALLOWED_TELEGRAM_IDS: "123",
+      JOB_WORKER_ENABLED: "true",
+      JOB_WORKER_INTERVAL_MS: "250",
+      JOB_WORKER_STALE_MS: "5000",
+      JOB_WORKER_ID: "worker-a"
+    });
+
+    expect(config.jobWorkerEnabled).toBe(true);
+    expect(config.jobWorkerIntervalMs).toBe(250);
+    expect(config.jobWorkerStaleMs).toBe(5000);
+    expect(config.jobWorkerId).toBe("worker-a");
+    expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", JOB_WORKER_ENABLED: "yes" })).toThrow("true or false");
   });
 });

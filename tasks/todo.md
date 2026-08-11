@@ -111,4 +111,22 @@ Phase 6 should add the audio intake/transcription pipeline or the next approved 
 
 ## Next Gate After Phase 6
 
+Phase 6.5 should close the worker runtime and Telegram delivery boundary before real Gemini planning is added.
+
+## Phase 6.5. Worker Runtime + Telegram Result Delivery Foundation
+
+- [x] Add a Telegram notifier/sender port over grammY `bot.api.sendMessage`.
+- [x] Guard Telegram progress messages against the 4096-character `sendMessage` limit.
+- [x] Notify the user after successful transcription without exposing transcript text.
+- [x] Keep transcript/state durable when the post-transcription notification fails.
+- [x] Send a safe retry message on permanent transcription failure when a notifier is available.
+- [x] Add a serial worker runtime loop around `JobWorker.processOne`.
+- [x] Make worker startup opt-in with `JOB_WORKER_ENABLED=false` by default.
+- [x] Run stale running job recovery on startup and periodically.
+- [x] Wire real audio handler, notifier, and worker runtime only when DB/OpenAI worker config is present.
+- [x] Add redacted structured logs for runtime ticks, recovery, and notification delivery.
+- [x] Stop before Gemini planning, channel publishing, frontend, mini app, Redis/BullMQ/S3, Docker, or Telethon E2E.
+
+## Next Gate After Phase 6.5
+
 Phase 7 should add Gemini planning over the persisted transcript. Do not add draft generation, formatting, channel publishing, or broader deployment work before the matching phase approval.

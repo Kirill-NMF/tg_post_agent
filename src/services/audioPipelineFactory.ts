@@ -5,9 +5,10 @@ import type { AppConfig } from "../config/env.js";
 import type { Logger } from "../observability/logger.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import { TelegramFileClient } from "../telegram/telegramFileClient.js";
+import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { createTranscribeAudioJobHandler } from "./transcribeAudioJobHandler.js";
 
-export function createAudioPipelineHandlers(input: { config: AppConfig; projects: ProjectRepository; logger?: Logger }) {
+export function createAudioPipelineHandlers(input: { config: AppConfig; projects: ProjectRepository; notifier?: TelegramNotifier; logger?: Logger }) {
   if (!input.config.openaiApiKey) {
     throw new Error("OPENAI_API_KEY is required to create the real audio transcription handler.");
   }
@@ -26,6 +27,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
         model: input.config.openaiTranscriptionModel
       }),
       storage: new TempAudioStorage({ baseDir: input.config.audioTempDir }),
+      notifier: input.notifier,
       logger: input.logger
     })
   };
