@@ -40,3 +40,21 @@ Phase 2 is Prompt Contracts. It must define typed model prompt contracts before 
 ## Next Gate After Phase 2
 
 Phase 3 is Bot Skeleton With Mock Models. Build the Telegram UX and state transitions against mock adapters before real LLM/audio provider integration.
+
+## Phase 3. Bot Skeleton With Mock Models
+
+- [x] Scaffold minimal pnpm Node.js + TypeScript project.
+- [x] Add grammY bot skeleton that starts only when required env exists.
+- [x] Add safe config/env parsing without committed secrets.
+- [x] Implement Telegram ID allowlist auth boundary.
+- [x] Implement in-memory project repository and state machine services.
+- [x] Implement mock model adapters for Phase 2 contracts.
+- [x] Support /start, source audio, planning, plan selection, rewrite mode, draft editing, formatting, final artifact, and mock series next-post flow.
+- [x] Implement voice/audio edit routing shape with mock transcription.
+- [x] Keep Telegram handlers thin behind a unit-testable router/service boundary.
+- [x] Add Vitest coverage for config, mock adapters, service state flow, and handler routing.
+- [x] Stop before real provider SDKs, Postgres/Drizzle, jobs, migrations, Redis, S3, frontend, mini app, Telethon, secrets, or channel publishing.
+
+## Next Gate After Phase 3
+
+Phase 4 should add persistence/job foundations or the next approved development-plan step before real model/audio provider integrations. Keep provider SDK integration gated until mock UX, persistence, recovery, and prompt-contract enforcement are ready.

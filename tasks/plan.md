@@ -2,6 +2,6 @@
 
 Canonical plan: docs/project-spec/DEVELOPMENT_PLAN.md.
 
-Current stage: Bootstrap, then Phase 1 Architecture & Data Model.
+Current stage: Phase 3 Bot Skeleton With Mock Models is implemented on the feature branch.
 
-Do not implement application code before Phase 1 is closed and Phase 2 Prompt Contracts is prepared.
+Next gate: proceed to the next approved development-plan phase for persistence/job foundations before real LLM/audio provider integrations. Do not add real provider SDKs, Postgres/Drizzle migrations, Redis, S3, frontend, mini app, Telethon, secrets, or channel publishing without the matching phase approval.
