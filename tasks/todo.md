@@ -130,3 +130,20 @@ Phase 6.5 should close the worker runtime and Telegram delivery boundary before 
 ## Next Gate After Phase 6.5
 
 Phase 7 should add Gemini planning over the persisted transcript. Do not add draft generation, formatting, channel publishing, or broader deployment work before the matching phase approval.
+
+## Phase 7. Gemini Planning Stage
+
+- [x] Add the official Gemini JS dependency only for the planning adapter.
+- [x] Add env-backed Gemini planning config without committed secrets.
+- [x] Implement a typed Gemini `planSplit` adapter with structured JSON output validation.
+- [x] Reject malformed, duplicate, missing, or wrong-count plan options as untrusted model output.
+- [x] Add a `PLAN_SPLIT` job handler that persists 1/2/3 options and state `planning`.
+- [x] Send plan options and inline selection buttons through the Telegram notifier without transcript text.
+- [x] Enqueue `PLAN_SPLIT` from successful `TRANSCRIBE_AUDIO` using a deterministic dedupe key.
+- [x] Wire worker startup to require DB, OpenAI, and Gemini only when `JOB_WORKER_ENABLED=true`.
+- [x] Add unit tests for Gemini validation, planning job persistence/delivery, transcription-to-planning enqueue, and app wiring.
+- [x] Stop before real rewrite/draft generation, formatting adapters, Telethon E2E, channel publishing, frontend, mini app, Redis/BullMQ/S3, Docker, or systemd.
+
+## Next Gate After Phase 7
+
+Phase 8 should add the rewrite/draft stage over the selected plan. Do not add real formatting, channel publishing, frontend, mini app, Redis/BullMQ/S3, Docker, or Telethon E2E without the matching phase approval.

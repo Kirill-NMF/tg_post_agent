@@ -3,6 +3,7 @@ import type { TempAudioStorage } from "../audio/tempAudioStorage.js";
 import type { AudioSourceMetadata, TranscriptionAdapter } from "../domain/audioTypes.js";
 import type { Job } from "../domain/jobTypes.js";
 import type { Logger } from "../observability/logger.js";
+import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import type { TelegramFileClientPort } from "../telegram/telegramFileClient.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
@@ -18,6 +19,7 @@ export type TranscribeAudioJobHandlerDeps = {
   audioProcessor: AudioProcessor;
   transcription: TranscriptionAdapter;
   storage: TempAudioStorage;
+  jobs?: JobRepository;
   notifier?: TelegramNotifier;
   logger?: Logger;
 };
@@ -62,6 +64,14 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
         "audio transcript saved"
       );
 
+      const planningJob = deps.jobs
+        ? await deps.jobs.enqueue({
+            type: "PLAN_SPLIT",
+            projectId: project.id,
+            dedupeKey: `project:${project.id}:plan-split:initial`,
+            payload: { trigger: "transcription_saved" }
+          })
+        : undefined;
       const notificationStatus = await notifyTranscriptionComplete(deps, project.chatId, job.id, job.projectId);
 
       return {
@@ -70,6 +80,8 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
         chunkCount: result.meta.chunkCount,
         durationSeconds: result.meta.durationSeconds,
         transcriptLength: result.transcript.length,
+        planningEnqueued: Boolean(planningJob),
+        planningJobId: planningJob?.id,
         notificationStatus
       };
     } catch (error) {
@@ -96,7 +108,7 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
 async function notifyTranscriptionComplete(deps: TranscribeAudioJobHandlerDeps, chatId: string, jobId: string, projectId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(chatId, "\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430 \u0433\u043e\u0442\u043e\u0432\u0430. \u041f\u0435\u0440\u0435\u0445\u043e\u0436\u0443 \u043a \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044e; \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u044b \u043f\u043e\u044f\u0432\u044f\u0442\u0441\u044f \u043d\u0430 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u043c \u0448\u0430\u0433\u0435.");
+    await deps.notifier.sendMessage(chatId, "\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430 \u0433\u043e\u0442\u043e\u0432\u0430. \u0413\u0435\u043d\u0435\u0440\u0438\u0440\u0443\u044e \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u044b \u043f\u043b\u0430\u043d\u0430 1/2/3.");
     return "sent";
   } catch {
     deps.logger?.warn({ event: "audio_transcription_notification_failed", jobId, projectId }, "audio transcription notification failed");

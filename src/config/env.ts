@@ -10,6 +10,8 @@ export type AppConfig = {
   telegramMaxDownloadBytes: number;
   openaiApiKey?: string;
   openaiTranscriptionModel: string;
+  geminiApiKey?: string;
+  geminiPlanningModel: string;
   jobWorkerEnabled: boolean;
   jobWorkerIntervalMs: number;
   jobWorkerStaleMs: number;
@@ -29,6 +31,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     telegramMaxDownloadBytes: readOptionalInteger(env, "TELEGRAM_MAX_DOWNLOAD_BYTES") ?? telegramCloudMaxDownloadBytes,
     openaiApiKey: readOptional(env, "OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional(env, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
+    geminiApiKey: readOptional(env, "GEMINI_API_KEY"),
+    geminiPlanningModel: readOptional(env, "GEMINI_PLANNING_MODEL") ?? "gemini-2.5-pro",
     jobWorkerEnabled: readOptionalBoolean(env, "JOB_WORKER_ENABLED") ?? false,
     jobWorkerIntervalMs: readOptionalInteger(env, "JOB_WORKER_INTERVAL_MS") ?? 1000,
     jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,

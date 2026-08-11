@@ -41,10 +41,14 @@ The adapter accepts ordered chunk files, transcribes each chunk, validates non-e
 
 The bot enqueue path is enabled when a job repository is configured. Receiving source audio in `awaiting_audio` creates a `TRANSCRIBE_AUDIO` job, moves the project to `transcribing`, and replies with a progress message. It does not block on download, ffmpeg, or transcription.
 
-The real handler is created by `createAudioPipelineHandlers(...)`. As of Phase 6.5, normal startup can start a serial worker runtime only when `JOB_WORKER_ENABLED=true` and the required DB/OpenAI runtime config is present. Tests and dev tooling can still call `JobWorker.processOne(...)` with that handler directly. After a successful transcription, the project moves to `planning` with the transcript persisted, but no real Gemini planning runs in Phase 6/6.5.
+The real handler is created by `createAudioPipelineHandlers(...)`. As of Phase 7, normal startup can start a serial worker runtime only when `JOB_WORKER_ENABLED=true` and the required DB/OpenAI/Gemini runtime config is present. Tests and dev tooling can still call `JobWorker.processOne(...)` with that handler directly. After a successful transcription, the project moves to `planning` with the transcript persisted and a `PLAN_SPLIT` job enqueued.
 
 ## Telegram Delivery After Transcription
 
 After durable transcript persistence and the transition to `planning`, the handler sends a short Telegram progress message through the `TelegramNotifier` port. The transcript text is never included in that message.
 
 If this notification fails after the transcript is saved, the job is marked succeeded with safe `notificationStatus = failed` metadata instead of rerunning transcription. This avoids duplicate provider calls and preserves the durable state. A later delivery-specific retry path can be added if the product needs guaranteed progress-message delivery.
+
+## Planning Handoff
+
+The transcription handler enqueues `PLAN_SPLIT` with a deterministic project-scoped dedupe key after saving the transcript. The notification says plan generation is underway, but does not promise plan options until the planning job has persisted and delivered them.

@@ -216,3 +216,9 @@ The app now has an explicit serial `WorkerRuntime` wrapper around `JobWorker.pro
 The runtime logs start, stop, stale recovery, tick completion, and tick failures with structured fields. It runs stale recovery on startup and periodically, processes one job at a time, and skips overlapping ticks.
 
 `TRANSCRIBE_AUDIO` now sends a short Telegram progress message after transcript persistence and the move to `planning`. Notification text does not include transcript content. If the notification fails after durable state is saved, the job still succeeds with safe `notificationStatus = failed` result metadata; the transcript is not rolled back and transcription is not repeated only for delivery.
+
+## Phase 7 Implementation Note
+
+After transcript persistence, `TRANSCRIBE_AUDIO` now enqueues `PLAN_SPLIT` with `dedupe_key = project:{id}:plan-split:initial`. The user-facing transcription notification says that plan generation is in progress and never includes transcript text.
+
+`PLAN_SPLIT` calls the Gemini planning adapter, validates structured 1/2/3 plan options as untrusted model output, persists `plan_options_json`, keeps project state at `planning`, appends a `plan_options` history message, and sends the rendered options with inline selection buttons. If Telegram delivery fails after persistence, the job still succeeds with `notificationStatus = failed`; the saved plan is not rolled back or regenerated only for delivery.

@@ -58,11 +58,15 @@ function createWorkerRuntime(input: {
   if (!input.config.openaiApiKey) {
     throw new Error("OPENAI_API_KEY is required when JOB_WORKER_ENABLED=true.");
   }
+  if (!input.config.geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is required when JOB_WORKER_ENABLED=true.");
+  }
 
   const notifier = new GrammyTelegramNotifier(input.bot.api, consoleLogger);
   const handlers = createAudioPipelineHandlers({
     config: input.config,
     projects: input.repository,
+    jobs: input.jobRepository,
     notifier,
     logger: consoleLogger
   });

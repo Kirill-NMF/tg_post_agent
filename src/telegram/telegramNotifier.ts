@@ -6,6 +6,9 @@ export const telegramSendMessageMaxChars = 4096;
 export type TelegramSendMessageOptions = {
   parse_mode?: "MarkdownV2" | "HTML";
   disable_web_page_preview?: boolean;
+  reply_markup?: {
+    inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+  };
 };
 
 export type TelegramNotifier = {
