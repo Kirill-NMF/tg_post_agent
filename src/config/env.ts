@@ -1,12 +1,16 @@
+import { resolveDatabaseUrl } from "../db/connection.js";
+
 export type AppConfig = {
   botToken: string;
   allowedTelegramIds: Set<string>;
+  databaseUrl?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const botToken = readRequired(env, "BOT_TOKEN");
   const allowedTelegramIds = parseTelegramIdAllowlist(readRequired(env, "ALLOWED_TELEGRAM_IDS"));
-  return { botToken, allowedTelegramIds };
+  const databaseUrl = resolveDatabaseUrl(env);
+  return { botToken, allowedTelegramIds, databaseUrl };
 }
 
 export function parseTelegramIdAllowlist(raw: string): Set<string> {

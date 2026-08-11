@@ -6,14 +6,21 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
+    "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts",
     "smoke": "node dist/src/index.js --smoke"
   },
   "dependencies": {
-    "grammy": "^1.36.3"
+    "drizzle-orm": "^0.44.7",
+    "grammy": "^1.36.3",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "^0.31.7",
     "@types/node": "^24.2.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

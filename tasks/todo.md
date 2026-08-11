@@ -58,3 +58,20 @@ Phase 3 is Bot Skeleton With Mock Models. Build the Telegram UX and state transi
 ## Next Gate After Phase 3
 
 Phase 4 should add persistence/job foundations or the next approved development-plan step before real model/audio provider integrations. Keep provider SDK integration gated until mock UX, persistence, recovery, and prompt-contract enforcement are ready.
+
+## Phase 4. Database & Persistence
+
+- [x] Add Postgres/Drizzle dependencies only for persistence.
+- [x] Define Drizzle schema for users, projects, project_posts, project_messages, jobs, and artifacts.
+- [x] Generate and commit Drizzle migration files.
+- [x] Add DATABASE_URL/TEST_DATABASE_URL runtime configuration without committed secrets.
+- [x] Introduce ProjectRepository port and keep the in-memory repository for mock/unit flows.
+- [x] Implement Postgres-backed project persistence for the current mock bot flow.
+- [x] Add safe Postgres integration test helpers that refuse non-test/dev databases.
+- [x] Add Postgres integration tests for persistence, hydration, artifacts, and active-project deactivation.
+- [x] Run full verification including Postgres integration tests on VPS.
+- [x] Stop before job workers, real provider SDKs, Redis/BullMQ/S3, frontend, mini app, Telethon, Docker, or channel publishing.
+
+## Next Gate After Phase 4
+
+Phase 5 is Postgres Job Worker. Durable persistence must be verified before adding worker behavior or real model/audio provider integrations.

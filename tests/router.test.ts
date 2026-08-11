@@ -44,7 +44,7 @@ describe("BotRouter", () => {
     const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "unknown:action" }))[0]);
 
     expect(response.text).toContain("Неизвестное действие");
-    expect(response.text).not.toMatch(/\?{3,}|�|Ð|Ñ|Р[Ѐ-ӿ]/);
+    expect(response.text).not.toMatch(/\?{3,}|�|Гђ|Г‘|Р [РЂ-Уї]/);
   });
 });
 

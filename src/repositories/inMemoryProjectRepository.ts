@@ -1,15 +1,16 @@
 import type { Project, ProjectId, TelegramUserId } from "../domain/types.js";
+import type { ProjectRepository } from "./projectRepository.js";
 
-export class InMemoryProjectRepository {
+export class InMemoryProjectRepository implements ProjectRepository {
   private readonly projects = new Map<ProjectId, Project>();
 
-  save(project: Project): Project {
+  async save(project: Project): Promise<Project> {
     project.updatedAt = new Date();
     this.projects.set(project.id, cloneProject(project));
     return cloneProject(project);
   }
 
-  findActiveByTelegramUser(telegramUserId: TelegramUserId): Project | undefined {
+  async findActiveByTelegramUser(telegramUserId: TelegramUserId): Promise<Project | undefined> {
     for (const project of this.projects.values()) {
       if (project.telegramUserId === telegramUserId && project.isActive) {
         return cloneProject(project);
@@ -18,7 +19,7 @@ export class InMemoryProjectRepository {
     return undefined;
   }
 
-  deactivateActiveForUser(telegramUserId: TelegramUserId): void {
+  async deactivateActiveForUser(telegramUserId: TelegramUserId): Promise<void> {
     for (const project of this.projects.values()) {
       if (project.telegramUserId === telegramUserId && project.isActive) {
         project.isActive = false;
@@ -27,7 +28,7 @@ export class InMemoryProjectRepository {
     }
   }
 
-  findById(projectId: ProjectId): Project | undefined {
+  async findById(projectId: ProjectId): Promise<Project | undefined> {
     const project = this.projects.get(projectId);
     return project ? cloneProject(project) : undefined;
   }

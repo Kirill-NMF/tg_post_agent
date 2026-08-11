@@ -30,7 +30,7 @@ export class BotRouter {
     if (!this.auth.isAllowed(event.telegramUserId)) return unauthorized();
     if (event.text.trim() === "/start") return this.projects.start(event.telegramUserId, event.chatId);
 
-    const activeProject = this.projects.getActiveProject(event.telegramUserId);
+    const activeProject = await this.projects.getActiveProject(event.telegramUserId);
     if (!activeProject) return [{ kind: "message", text: "Отправьте /start, чтобы начать проект." }];
 
     if (activeProject.state === "planning") return this.projects.revisePlan(event.telegramUserId, event.text);
@@ -41,7 +41,7 @@ export class BotRouter {
 
   async handleAudio(event: RouterAudioEvent): Promise<BotResponse[]> {
     if (!this.auth.isAllowed(event.telegramUserId)) return unauthorized();
-    const activeProject = this.projects.getActiveProject(event.telegramUserId);
+    const activeProject = await this.projects.getActiveProject(event.telegramUserId);
     if (!activeProject) return [{ kind: "message", text: "Отправьте /start перед аудио." }];
 
     if (activeProject.state === "awaiting_audio") {

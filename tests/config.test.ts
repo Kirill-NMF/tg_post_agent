@@ -11,4 +11,9 @@ describe("env config", () => {
     expect(() => loadConfig({ ALLOWED_TELEGRAM_IDS: "123" })).toThrow("BOT_TOKEN");
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123,abc" })).toThrow("numeric Telegram ids");
   });
+
+  it("accepts database url from DATABASE_URL or TEST_DATABASE_URL", () => {
+    expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", DATABASE_URL: "postgres://db" }).databaseUrl).toBe("postgres://db");
+    expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TEST_DATABASE_URL: "postgres://test-db" }).databaseUrl).toBe("postgres://test-db");
+  });
 });

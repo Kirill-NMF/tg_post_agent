@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import type {
   BotResponse,
@@ -10,19 +11,19 @@ import type {
   TelegramChatId,
   TelegramUserId
 } from "../domain/types.js";
-import { InMemoryProjectRepository } from "../repositories/inMemoryProjectRepository.js";
+import type { ProjectRepository } from "../repositories/projectRepository.js";
 
 export class ProjectService {
   constructor(
-    private readonly projects: InMemoryProjectRepository,
+    private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters
   ) {}
 
-  start(telegramUserId: TelegramUserId, chatId: TelegramChatId): BotResponse[] {
-    this.projects.deactivateActiveForUser(telegramUserId);
+  async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
+    await this.projects.deactivateActiveForUser(telegramUserId);
     const now = new Date();
     const project: Project = {
-      id: `project_${telegramUserId}_${now.getTime()}`,
+      id: randomUUID(),
       telegramUserId,
       chatId,
       state: "awaiting_audio",
@@ -32,16 +33,16 @@ export class ProjectService {
       createdAt: now,
       updatedAt: now
     };
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: "Пришлите voice, audio или audio-файл как источник для нового проекта." }];
   }
 
-  getActiveProject(telegramUserId: TelegramUserId): Project | undefined {
+  async getActiveProject(telegramUserId: TelegramUserId): Promise<Project | undefined> {
     return this.projects.findActiveByTelegramUser(telegramUserId);
   }
 
   async submitSourceAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "awaiting_audio") {
       return [{ kind: "message", text: "Сейчас аудио-источник не ожидается. Продолжите текущий шаг или отправьте /start." }];
     }
@@ -54,7 +55,7 @@ export class ProjectService {
     project.planOptions = plan.options;
     project.state = "planning";
     project.messages.push(message("plan_options", renderPlanOptions(plan.options.map((option) => option.optionId))));
-    this.projects.save(project);
+    await this.projects.save(project);
 
     return [
       {
@@ -66,7 +67,7 @@ export class ProjectService {
   }
 
   async revisePlan(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "planning" || !project.transcript || !project.planOptions) {
       return [{ kind: "message", text: "Правки плана доступны только на экране планирования." }];
     }
@@ -81,12 +82,12 @@ export class ProjectService {
       })
     );
     project.planOptions = revised.options;
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: "План обновлён. Выберите вариант 1/2/3.", buttons: planButtons() }];
   }
 
   async choosePlan(telegramUserId: TelegramUserId, optionId: PlanOptionId): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "planning" || !project.planOptions) {
       return [{ kind: "message", text: "Сначала нужен план из аудио." }];
     }
@@ -98,26 +99,26 @@ export class ProjectService {
 
     project.selectedPlan = selectedPlan;
     project.currentPostIndex = 1;
-    project.posts = selectedPlan.posts.map((slice) => ({ id: `${project.id}_post_${slice.index}`, index: slice.index, planSlice: slice }));
+    project.posts = selectedPlan.posts.map((slice) => ({ id: randomUUID(), index: slice.index, planSlice: slice }));
     project.state = "rewrite_mode";
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: "Выберите режим переписывания.", buttons: rewriteButtons() }];
   }
 
   async chooseRewriteMode(telegramUserId: TelegramUserId, rewriteMode: RewriteMode): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "rewrite_mode" || !project.selectedPlan || !project.transcript || !project.currentPostIndex) {
       return [{ kind: "message", text: "Режим можно выбрать после выбора плана." }];
     }
 
     project.rewriteMode = rewriteMode;
     const draft = await this.generateDraftForCurrentPost(project);
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "draft_editing" || !post?.currentDraft) {
       return [{ kind: "message", text: "Правки черновика доступны только после генерации черновика." }];
@@ -129,22 +130,22 @@ export class ProjectService {
     );
     post.currentDraft = updated.updatedDraft.fullText;
     project.messages.push(message("draft", post.currentDraft));
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: post.currentDraft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
-  openFormatChoice(telegramUserId: TelegramUserId): BotResponse[] {
-    const project = this.requireActive(telegramUserId);
+  async openFormatChoice(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "draft_editing" || !currentPost(project)?.currentDraft) {
       return [{ kind: "message", text: "Оформление доступно после черновика." }];
     }
     project.state = "format_choice";
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatButtons() }];
   }
 
   async formatCurrentPost(telegramUserId: TelegramUserId, formattingOption: FormattingOption): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "format_choice" || !post?.currentDraft) {
       return [{ kind: "message", text: "Сначала откройте оформление из черновика." }];
@@ -159,12 +160,12 @@ export class ProjectService {
     post.formattedText = formatted.formattedText;
     post.formattingOption = formattingOption;
     project.state = "formatted_editing";
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: post.formattedText, buttons: finalButtons(project) }];
   }
 
   async reviseFormatting(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "formatted_editing" || !post?.formattedText || !post.currentDraft || !post.formattingOption) {
       return [{ kind: "message", text: "Правки оформления доступны только после оформления поста." }];
@@ -183,7 +184,7 @@ export class ProjectService {
 
     if (revision.action === "route_to_draft") {
       project.state = "draft_editing";
-      this.projects.save(project);
+      await this.projects.save(project);
       return this.reviseDraft(telegramUserId, revision.draftEditInstruction);
     }
 
@@ -195,20 +196,21 @@ export class ProjectService {
     }
 
     post.formattedText = revision.formattedText;
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: post.formattedText, buttons: finalButtons(project) }];
   }
 
-  finalizeCurrentPost(telegramUserId: TelegramUserId): BotResponse[] {
-    const project = this.requireActive(telegramUserId);
+  async finalizeCurrentPost(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
+    const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state !== "formatted_editing" || !post?.formattedText) {
       return [{ kind: "message", text: "Финал доступен после оформления." }];
     }
 
     project.state = "done";
+    post.finalText = post.formattedText;
     project.messages.push(message("final", post.formattedText));
-    this.projects.save(project);
+    await this.projects.save(project);
 
     return [
       { kind: "message", text: post.formattedText, buttons: nextPostButtons(project) },
@@ -217,7 +219,7 @@ export class ProjectService {
   }
 
   async startNextPost(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (project.state !== "done" || !project.selectedPlan || !project.currentPostIndex || !project.rewriteMode) {
       return [{ kind: "message", text: "Следующий пост доступен только после финализации текущего." }];
     }
@@ -229,12 +231,12 @@ export class ProjectService {
 
     project.currentPostIndex = nextIndex;
     const draft = await this.generateDraftForCurrentPost(project);
-    this.projects.save(project);
+    await this.projects.save(project);
     return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
   }
 
   async handleEditAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
-    const project = this.requireActive(telegramUserId);
+    const project = await this.requireActive(telegramUserId);
     if (!["planning", "draft_editing", "formatted_editing"].includes(project.state)) {
       return [{ kind: "message", text: "Voice-правка сейчас не ожидается." }];
     }
@@ -251,8 +253,8 @@ export class ProjectService {
     return this.reviseFormatting(telegramUserId, edit.editText);
   }
 
-  private requireActive(telegramUserId: TelegramUserId): Project {
-    const project = this.projects.findActiveByTelegramUser(telegramUserId);
+  private async requireActive(telegramUserId: TelegramUserId): Promise<Project> {
+    const project = await this.projects.findActiveByTelegramUser(telegramUserId);
     if (!project) throw new Error("No active project. Send /start first.");
     return project;
   }

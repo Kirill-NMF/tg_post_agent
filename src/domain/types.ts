@@ -85,6 +85,7 @@ export type ProjectPost = {
   planSlice: PlanPostSlice;
   currentDraft?: string;
   formattedText?: string;
+  finalText?: string;
   formattingOption?: FormattingOption;
 };
 

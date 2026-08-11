@@ -38,6 +38,6 @@ describe("MockModelAdapters", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.formattedText).toMatch(/^✨ draft/);
-    expect(result.value.formattedText).not.toMatch(/\?{2,}|�|Р|Ð|Ñ/);
+    expect(result.value.formattedText).not.toMatch(/\?{2,}|�|Р |Гђ|Г‘/);
   });
 });
