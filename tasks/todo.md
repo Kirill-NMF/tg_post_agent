@@ -9,10 +9,10 @@
 
 ## Phase 1. Architecture & Data Model
 
-- [ ] Read docs/project-spec/PRODUCT_SPEC.md.
-- [ ] Read docs/project-spec/DEVELOPMENT_PLAN.md.
-- [ ] Read docs/project-spec/AGENT_SKILL_ROUTING.md.
-- [ ] Produce docs/ARCHITECTURE.md.
-- [ ] Produce initial data model/schema design.
-- [ ] Define state machine and job lifecycle.
-- [ ] Stop before app implementation.
+- [x] Read docs/project-spec/PRODUCT_SPEC.md.
+- [x] Read docs/project-spec/DEVELOPMENT_PLAN.md.
+- [x] Read docs/project-spec/AGENT_SKILL_ROUTING.md.
+- [x] Produce docs/ARCHITECTURE.md.
+- [x] Produce initial data model/schema design.
+- [x] Define state machine and job lifecycle.
+- [x] Stop before app implementation.
