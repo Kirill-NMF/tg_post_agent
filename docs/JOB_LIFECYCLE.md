@@ -194,3 +194,13 @@ Progress rows can be appended to `project_messages` with kind `progress` for deb
 ## Temp File Cleanup Coupling
 
 Any job that touches local audio files must register cleanup intent before doing provider work. Cleanup paths are project/job-scoped and validated by the temp-file service. On success and failure the job runs cleanup inline; periodic cleanup handles leftovers from process crashes.
+
+## Phase 5 Implementation Note
+
+The Phase 5 foundation implements the repository port, Postgres repository, in-memory test repository, and a small worker runner, but it does not auto-start a background worker from normal bot startup. A caller must explicitly invoke `processOne` or an approved future loop.
+
+Cancellation is intentionally conservative in this phase: queued and `retry_scheduled` jobs for a project can be marked `cancelled`, while `running` jobs are left to observe project cancellation before committing results. Stale `running` jobs can be recovered separately by age threshold.
+
+Retry backoff is deterministic exponential delay with a cap so tests can assert exact outcomes. Jitter can be added later if production contention requires it.
+
+Structured worker logs include job ids, types, statuses, attempts, and payload keys only. Payload values, transcripts, provider responses, and secrets must remain out of logs.

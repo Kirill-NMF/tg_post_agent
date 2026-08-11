@@ -75,3 +75,22 @@ Phase 4 should add persistence/job foundations or the next approved development-
 ## Next Gate After Phase 4
 
 Phase 5 is Postgres Job Worker. Durable persistence must be verified before adding worker behavior or real model/audio provider integrations.
+
+## Phase 5. Postgres Job Worker Foundation
+
+- [x] Define a JobRepository port for enqueue, lookup, claim, success, failure, cancellation, and stale recovery.
+- [x] Keep an in-memory job repository for unit tests and mock flows.
+- [x] Implement Postgres-backed job persistence on the existing `jobs` table.
+- [x] Claim due work atomically with transaction-backed row locking and `FOR UPDATE SKIP LOCKED`.
+- [x] Support `dedupe_key` so active queued/running/retry jobs are not duplicated, while terminal jobs allow a new enqueue.
+- [x] Add deterministic retry/backoff with terminal failure after max attempts.
+- [x] Cancel only queued and retry-scheduled jobs by project; leave running jobs to observe cancellation before committing results.
+- [x] Recover stale running jobs back to retry scheduling or terminal failure.
+- [x] Add a worker runner abstraction that is unit-testable and remains disabled unless explicitly called.
+- [x] Add structured job logs with payload-value redaction.
+- [x] Add unit tests and Postgres integration tests for the job lifecycle.
+- [x] Stop before real providers, audio pipelines, Redis/BullMQ/S3, frontend, mini app, Telethon, Docker, or channel publishing.
+
+## Next Gate After Phase 5
+
+Phase 6 should add the audio intake/transcription pipeline or the next approved development-plan step. Real model/audio provider integration remains gated behind explicit phase approval and the existing prompt/job contracts.

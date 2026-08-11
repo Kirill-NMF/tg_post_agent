@@ -10,7 +10,7 @@
     "db:migrate": "drizzle-kit migrate",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts",
+    "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts tests/postgresJobRepository.integration.test.ts",
     "smoke": "node dist/src/index.js --smoke"
   },
   "dependencies": {
