@@ -178,6 +178,14 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Add tests for adapter validation, job persistence/delivery, notification failure, service/router enqueue paths, and production voice-edit guard.
 - [x] Stop before real formatting adapters, edit-audio real transcription, channel publishing, frontend, mini app, Telethon, Docker/systemd, Redis/BullMQ/S3, or custom emoji.
 
-## Next Gate After Phase 9
 
-The next approved slice should add real edit-audio transcription for plan/draft/formatting corrections and/or the formatting choice foundation. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
+## Credential Gate Before Phase 10
+
+- [ ] Owner creates a development Telegram bot in BotFather.
+- [ ] Owner installs BOT_TOKEN only through the approved VPS secret/environment path.
+- [ ] Owner supplies Telegram IDs for the allowlist.
+- [ ] Agent runs the light Telegram smoke: /start, allowlist denial, and one callback response.
+
+## Next Gate After Credential Gate
+
+Start Phase 10 real edit-audio transcription only after the Credential Gate is complete. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
