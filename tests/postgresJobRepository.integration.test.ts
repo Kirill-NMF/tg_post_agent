@@ -87,6 +87,21 @@ describeWithPostgres("PgJobRepository", () => {
     expect(await jobs.findById(exhausted.id)).toMatchObject({ status: "failed", errorCode: "STALE_RUNNING_EXHAUSTED" });
   });
 
+  it("persists a TRANSCRIBE_EDIT_AUDIO job after migrations", async () => {
+    const jobs = new PgJobRepository(database.db);
+
+    const job = await jobs.enqueue({
+      type: "TRANSCRIBE_EDIT_AUDIO",
+      payload: { source: "telegram_file" }
+    });
+
+    await expect(jobs.findById(job.id)).resolves.toMatchObject({
+      id: job.id,
+      type: "TRANSCRIBE_EDIT_AUDIO",
+      status: "queued"
+    });
+  });
+
   it("cancels queued and retry_scheduled project jobs while preserving running jobs", async () => {
     const projectId = await createProjectId();
     const jobs = new PgJobRepository(database.db);

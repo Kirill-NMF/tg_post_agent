@@ -39,6 +39,7 @@ export const messageKindEnum = pgEnum("message_kind", [
 ]);
 export const jobTypeEnum = pgEnum("job_type", [
   "TRANSCRIBE_AUDIO",
+  "TRANSCRIBE_EDIT_AUDIO",
   "PLAN_SPLIT",
   "REVISE_PLAN",
   "GENERATE_DRAFT",

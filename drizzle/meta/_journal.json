@@ -8,6 +8,13 @@
       "when": 1786486449655,
       "tag": "0000_daffy_franklin_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786560563267,
+      "tag": "0001_gifted_pestilence",
+      "breakpoints": true
     }
   ]
 }
