@@ -51,6 +51,24 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(storedJob?.result?.notificationStatus).toBe("failed");
   });
 
+  it("recovers a permanent generation failure with a safe retry message", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedDraftProject(projects);
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: failingDraftingAdapter(), notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "GEMINI_DRAFT_OUTPUT_INVALID" });
+    expect(notifier.messages[0]?.text).toContain("Не удалось подготовить черновик");
+    expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
+  });
+
   it("fails safely for inactive projects or missing prerequisites without writing a draft", async () => {
     const missingProjects = new InMemoryProjectRepository();
     const missingJobs = new InMemoryJobRepository();
@@ -104,6 +122,17 @@ function fakeDraftingAdapter(draft: DraftText): Pick<ModelAdapters, "generateDra
   return {
     async generateDraft() {
       return { ok: true, value: { draft }, meta: { provider: "gemini", modelLabel: "gemini-2.5-pro" } };
+    }
+  };
+}
+
+function failingDraftingAdapter(): Pick<ModelAdapters, "generateDraft"> {
+  return {
+    async generateDraft() {
+      return {
+        ok: false,
+        error: { code: "GEMINI_DRAFT_OUTPUT_INVALID", message: "Provider request failed: HTTP_400.", retryable: false }
+      };
     }
   };
 }

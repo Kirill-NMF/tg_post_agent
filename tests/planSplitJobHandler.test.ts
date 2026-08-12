@@ -54,6 +54,29 @@ describe("PLAN_SPLIT job handler", () => {
     expect(storedJob?.result?.notificationStatus).toBe("failed");
   });
 
+  it("recovers a permanent planning failure and notifies the active chat without leaking the transcript", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedProject(projects, "REAL TRANSCRIPT");
+    const job = await jobs.enqueue({ type: "PLAN_SPLIT", projectId: project.id, payload: {} });
+    const worker = new JobWorker(jobs, {
+      PLAN_SPLIT: createPlanSplitJobHandler({ projects, planning: failingPlanningAdapter(), notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    const updated = await projects.findById(project.id);
+    const storedJob = await jobs.findById(job.id);
+    expect(updated).toMatchObject({ state: "awaiting_audio", planOptions: undefined, selectedPlan: undefined });
+    expect(updated?.posts).toEqual([]);
+    expect(storedJob).toMatchObject({ status: "failed", errorCode: "GEMINI_PLAN_OUTPUT_INVALID" });
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]?.text).toContain("Не удалось подготовить варианты плана");
+    expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
+    expect(notifier.messages[0]?.text).not.toContain("HTTP_400");
+  });
+
   it("fails safely when project is inactive or transcript is missing", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
@@ -103,6 +126,17 @@ function fakePlanningAdapter(options: PlanOption[]): Pick<ModelAdapters, "planSp
   return {
     async planSplit() {
       return { ok: true, value: { options }, meta: { provider: "gemini", modelLabel: "gemini-2.5-pro" } };
+    }
+  };
+}
+
+function failingPlanningAdapter(): Pick<ModelAdapters, "planSplit"> {
+  return {
+    async planSplit() {
+      return {
+        ok: false,
+        error: { code: "GEMINI_PLAN_OUTPUT_INVALID", message: "Provider request failed: HTTP_400.", retryable: false }
+      };
     }
   };
 }

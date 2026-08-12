@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Phase 10 is ready for mandatory 3/3 owner manual acceptance in real Telegram. The production database, migrations, single poller, and worker runtime have passed sanitized preflight; stop for owner acceptance before closing the phase.
+Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. Owner acceptance exposed an OpenRouter structured-output compatibility failure in PLAN_SPLIT; the focused repair is tested and requires one controlled deployment restart before a fresh owner run. Do not close the phase or begin Phase 11 before explicit acceptance.
 
 ## Owner Focus
 
@@ -45,8 +45,10 @@ Automated preflight is complete for voice corrections in planning and draft_edit
 
 Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
 
-Runtime readiness: true for manual acceptance. The empty production database is migrated, the app is running as one controlled poller with its worker enabled, and the sanitized VPS preflight confirms Bot API access, inactive webhook, safe temp storage, and no provider calls. Phase 10 remains open until the owner completes 3/3 manual real-Telegram acceptance. No secrets are stored in git or this checkpoint.
+Runtime acceptance repair: the OpenRouter chat adapter now uses documented JSON-object response mode and supplies the logical schema as model instruction; existing application-level parsers still reject malformed or unexpected output. HTTP 400 remains a permanent provider error and never triggers a paid fallback. Permanent planning failures now return the active project to awaiting_audio and send a safe retry message; permanent draft generation and revision failures likewise restore their retryable UI states. The already failed production planning job is not retried automatically and its user content is not modified; after the controlled restart, the user receives only a safe instruction to start a new project.
+
+The production database remains migrated. A controlled restart must restore exactly one poller and one worker without provider calls before the owner repeats 3/3 manual acceptance. No secrets are stored in git or this checkpoint.
 
 ## Provider Routing Update
 
-OpenRouter is the primary Stage 1/2 gateway when `OPENROUTER_API_KEY` is configured: `openai/whisper-large-v3` for transcription and `google/gemini-2.5-pro` for planning/drafts by default. Direct OpenAI transcription and direct Gemini planning/drafts remain optional one-attempt fallbacks only after retryable network, rate-limit, or 5xx failures. Runtime readiness remains false until the owner configures `DATABASE_URL` and either OpenRouter or the compatible direct-provider credentials, then explicitly authorizes one controlled worker-enabled restart.
+OpenRouter is the primary Stage 1/2 gateway when `OPENROUTER_API_KEY` is configured: `openai/whisper-large-v3` for transcription and `google/gemini-2.5-pro` for planning/drafts by default. Direct OpenAI transcription and direct Gemini planning/drafts remain optional one-attempt fallbacks only after retryable network, rate-limit, or 5xx failures. The required runtime credentials and worker-enabled restart are already provisioned through the VPS-only secret path; this checkpoint does not claim live functional acceptance until the controlled repair restart and renewed owner 3/3 test complete.

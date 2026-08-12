@@ -50,6 +50,26 @@ describe("REVISE_DRAFT job handler", () => {
     expect(storedJob?.result?.notificationStatus).toBe("failed");
   });
 
+  it("recovers a permanent revision failure and preserves the current draft", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedDraftEditingProject(projects);
+    const job = await jobs.enqueue({ type: "REVISE_DRAFT", projectId: project.id, payload: { latestUserEdit: "Edit" } });
+    const worker = new JobWorker(jobs, {
+      REVISE_DRAFT: createReviseDraftJobHandler({ projects, drafting: failingRevisionAdapter(), notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    const updated = await projects.findById(project.id);
+    expect(updated?.state).toBe("draft_editing");
+    expect(updated?.posts[0]?.currentDraft).toBe("Current draft");
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "GEMINI_DRAFT_OUTPUT_INVALID" });
+    expect(notifier.messages[0]?.text).toContain("Не удалось обновить черновик");
+    expect(notifier.messages[0]?.text).not.toContain("Current draft");
+  });
+
   it("fails safely for inactive, missing prerequisites, or invalid edit without overwriting current draft", async () => {
     const inactive = await runFailure({ isActive: false }, { latestUserEdit: "Edit" });
     expect(inactive.job?.errorCode).toBe("PROJECT_NOT_ACTIVE");
@@ -104,6 +124,17 @@ function fakeRevisionAdapter(updatedDraft: DraftText): Pick<ModelAdapters, "revi
   return {
     async reviseDraft() {
       return { ok: true, value: { updatedDraft }, meta: { provider: "gemini", modelLabel: "gemini-2.5-pro" } };
+    }
+  };
+}
+
+function failingRevisionAdapter(): Pick<ModelAdapters, "reviseDraft"> {
+  return {
+    async reviseDraft() {
+      return {
+        ok: false,
+        error: { code: "GEMINI_DRAFT_OUTPUT_INVALID", message: "Provider request failed: HTTP_400.", retryable: false }
+      };
     }
   };
 }

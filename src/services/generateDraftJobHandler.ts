@@ -40,6 +40,7 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
+      await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code);
       throw new PermanentJobError(result.error.code, result.error.message);
     }
 
@@ -58,6 +59,23 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
       notificationStatus
     };
   };
+}
+
+async function recoverFromPermanentDraftFailure(
+  deps: GenerateDraftJobHandlerDeps,
+  project: Project,
+  jobId: string,
+  errorCode: string
+): Promise<void> {
+  project.state = "rewrite_mode";
+  await deps.projects.save(project);
+
+  if (!deps.notifier) return;
+  try {
+    await deps.notifier.sendMessage(project.chatId, "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
+  } catch {
+    deps.logger?.warn({ event: "draft_generation_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft generation recovery notification failed");
+  }
 }
 
 async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, draft: string, jobId: string): Promise<"not_configured" | "sent" | "failed"> {

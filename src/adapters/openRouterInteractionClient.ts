@@ -26,15 +26,14 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
         },
         body: JSON.stringify({
           model: request.model,
-          messages: [{ role: "user", content: request.input }],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "tg_post_agent_response",
-              strict: true,
-              schema: request.response_format.schema
-            }
-          }
+          messages: [
+            {
+              role: "system",
+              content: `Return exactly one JSON object that conforms to this JSON Schema: ${JSON.stringify(request.response_format.schema)}`
+            },
+            { role: "user", content: request.input }
+          ],
+          response_format: { type: "json_object" }
         })
       });
       if (!response.ok) throw providerHttpError(response.status);

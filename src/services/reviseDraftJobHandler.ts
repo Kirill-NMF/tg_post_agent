@@ -42,6 +42,7 @@ export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): Jo
     });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
+      await recoverFromPermanentRevisionFailure(deps, project, job.id, result.error.code);
       throw new PermanentJobError(result.error.code, result.error.message);
     }
 
@@ -60,6 +61,23 @@ export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): Jo
       notificationStatus
     };
   };
+}
+
+async function recoverFromPermanentRevisionFailure(
+  deps: ReviseDraftJobHandlerDeps,
+  project: Project,
+  jobId: string,
+  errorCode: string
+): Promise<void> {
+  project.state = "draft_editing";
+  await deps.projects.save(project);
+
+  if (!deps.notifier) return;
+  try {
+    await deps.notifier.sendMessage(project.chatId, "Не удалось обновить черновик. Отправьте правку ещё раз.");
+  } catch {
+    deps.logger?.warn({ event: "draft_revision_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft revision recovery notification failed");
+  }
 }
 
 function parseLatestUserEdit(payload: Record<string, unknown>): string {

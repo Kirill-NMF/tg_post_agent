@@ -31,6 +31,7 @@ export function createPlanSplitJobHandler(deps: PlanSplitJobHandlerDeps): JobHan
     });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
+      await recoverFromPermanentPlanFailure(deps, project, job.id, result.error.code);
       throw new PermanentJobError(result.error.code, result.error.message);
     }
 
@@ -48,6 +49,27 @@ export function createPlanSplitJobHandler(deps: PlanSplitJobHandlerDeps): JobHan
       notificationStatus
     };
   };
+}
+
+async function recoverFromPermanentPlanFailure(
+  deps: PlanSplitJobHandlerDeps,
+  project: Project,
+  jobId: string,
+  errorCode: string
+): Promise<void> {
+  project.planOptions = undefined;
+  project.selectedPlan = undefined;
+  project.posts = [];
+  project.currentPostIndex = undefined;
+  project.state = "awaiting_audio";
+  await deps.projects.save(project);
+
+  if (!deps.notifier) return;
+  try {
+    await deps.notifier.sendMessage(project.chatId, "Не удалось подготовить варианты плана. Пришлите аудио ещё раз или начните новый проект командой /start.");
+  } catch {
+    deps.logger?.warn({ event: "plan_split_failure_notification_failed", jobId, projectId: project.id, errorCode }, "plan split recovery notification failed");
+  }
 }
 
 async function notifyPlanOptions(

@@ -188,7 +188,7 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 
 ## Next Gate: Phase 10
 
-Phase 10 real edit-audio transcription has passed automated production preflight and is ready for mandatory 3/3 owner manual acceptance in real Telegram. Do not close the phase or begin Phase 11 before explicit acceptance. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
+Phase 10 real edit-audio transcription has passed automated production preflight. Owner acceptance exposed and the project repaired an OpenRouter PLAN_SPLIT structured-output compatibility failure; a controlled repair restart and a fresh mandatory 3/3 owner manual acceptance are required before the phase can close. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
 
 ## Phase 10. Real Edit-Audio Transcription
 
@@ -208,3 +208,4 @@ Phase 10 real edit-audio transcription has passed automated production preflight
 - [x] Keep direct OpenAI and Gemini credentials as optional, retryable-failure-only fallbacks.
 - [x] Keep provider selection and fallback logs redacted to safe provider/model/error-code labels.
 - [x] Preserve the Phase 10 owner runtime configuration and controlled-restart gate.
+- [x] Repair OpenRouter structured-output compatibility and permanent provider-failure recovery without weakening application-level validation.
