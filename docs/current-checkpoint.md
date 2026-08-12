@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Implement Phase 10 preflight only under its approved scope. Phase 10 has mandatory 3/3 owner manual acceptance in real Telegram after preflight evidence is prepared; stop for that acceptance before closing the phase.
+Phase 10 is ready for mandatory 3/3 owner manual acceptance in real Telegram. The production database, migrations, single poller, and worker runtime have passed sanitized preflight; stop for owner acceptance before closing the phase.
 
 ## Owner Focus
 
@@ -45,7 +45,7 @@ Automated preflight is complete for voice corrections in planning and draft_edit
 
 Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
 
-Runtime readiness: false. Automated tests and build checks are green, but the currently running bot has worker processing disabled and the required runtime configuration is not present. Owner must configure DATABASE_URL plus OPENROUTER_API_KEY, or both compatible direct provider credentials, through the VPS-only secret path, then explicitly authorize one controlled worker-enabled runtime restart before 3/3 real-Telegram acceptance can begin. No secrets are stored in git or this checkpoint.
+Runtime readiness: true for manual acceptance. The empty production database is migrated, the app is running as one controlled poller with its worker enabled, and the sanitized VPS preflight confirms Bot API access, inactive webhook, safe temp storage, and no provider calls. Phase 10 remains open until the owner completes 3/3 manual real-Telegram acceptance. No secrets are stored in git or this checkpoint.
 
 ## Provider Routing Update
 

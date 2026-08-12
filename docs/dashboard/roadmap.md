@@ -33,7 +33,7 @@ Date: 2026-08-12
 | Phase 7: Gemini Planning | Stage 2 | done | 2/3 | adapter validation, planning job tests | Review plan options when real bot flow is available. |
 | Phase 8: Gemini Draft Generation | Stage 2 | done | 2/3 | adapter/job/service tests | Review draft quality later. |
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
-| Phase 10: Real Edit-Audio Transcription | Stage 1/2 | active next | 3/3 | Whisper edit tests, temp cleanup, Telegram smoke | Mandatory owner manual acceptance after preflight: real voice corrections in Telegram. |
+| Phase 10: Real Edit-Audio Transcription | Stage 1/2 | ready for 3/3 | 3/3 | Whisper edit tests, temp cleanup, production preflight | Mandatory owner manual acceptance: real voice corrections in Telegram. |
 | Phase 11: Formatting Foundation | Stage 3 | next candidate | 3/3 | formatting contracts, preservation tests | Review Option 1/Option 2 outputs. |
 | Phase 12: Real Formatting Adapter | Stage 3 | later | 3/3 | provider validation, preservation check | Check emoji density and no word rewrites. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
@@ -52,8 +52,8 @@ Date: 2026-08-12
 
 ## Current Gate
 
-Phase 10: Real Edit-Audio Transcription is active next. Credential Gate passed; Phase 10 requires 3/3 owner manual acceptance in real Telegram after preflight evidence.
+Phase 10: Real Edit-Audio Transcription is ready for 3/3 owner manual acceptance in real Telegram. Production preflight passed; Phase 10 remains open until explicit owner acceptance.
 
 ## Provider Configuration Update
 
-OpenRouter routing is implemented as the primary Stage 1/2 gateway. It does not replace the Phase 10 owner acceptance gate: live acceptance remains blocked until VPS-only runtime credentials and an explicitly authorized single worker-enabled restart are available.
+OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production credentials and one controlled worker-enabled restart are in place; the Phase 10 owner acceptance gate remains mandatory.

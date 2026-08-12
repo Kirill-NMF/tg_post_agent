@@ -188,7 +188,7 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 
 ## Next Gate: Phase 10
 
-Phase 10 real edit-audio transcription is active next. Prepare implementation preflight evidence, then stop for mandatory 3/3 owner manual acceptance in real Telegram before closing the phase. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
+Phase 10 real edit-audio transcription has passed automated production preflight and is ready for mandatory 3/3 owner manual acceptance in real Telegram. Do not close the phase or begin Phase 11 before explicit acceptance. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
 
 ## Phase 10. Real Edit-Audio Transcription
 
@@ -198,8 +198,8 @@ Phase 10 real edit-audio transcription is active next. Prepare implementation pr
 - [x] Add real Gemini `REVISE_PLAN` job wiring; real draft revision remains on its existing job path.
 - [x] Keep `formatted_editing` voice corrections deferred to Stage 3; do not use mock formatting in production.
 - [x] Complete automated preflight without paid provider calls.
-- [ ] Owner configures DATABASE_URL plus OPENROUTER_API_KEY, or both compatible direct provider credentials, through the VPS-only secret/environment path.
-- [ ] Owner explicitly authorizes one controlled worker-enabled runtime restart.
+- [x] Owner configured DATABASE_URL plus compatible provider credentials through the VPS-only secret/environment path.
+- [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram.
 
 ## Provider Routing Foundation
