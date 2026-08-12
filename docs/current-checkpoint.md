@@ -10,7 +10,7 @@ The project has built the foundations for Stage 1 transcription and the first re
 
 ## Current Engineering Phase
 
-Credential Gate: create a development Telegram bot in BotFather and install its token only in the VPS environment.
+Phase 10: Real Edit-Audio Transcription is the active next implementation phase. Credential Gate is passed.
 
 Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attention policy:
 
@@ -26,17 +26,15 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Owner action: create the development bot in BotFather, provide the bot token through the approved VPS secret path, and provide the Telegram IDs for the allowlist.
-
-After the token is installed, run the light Telegram smoke: /start, allowlist denial, and one callback response. Then start Phase 10 real edit-audio transcription.
+Implement Phase 10 preflight only under its approved scope. Phase 10 has mandatory 3/3 owner manual acceptance in real Telegram after preflight evidence is prepared; stop for that acceptance before closing the phase.
 
 ## Owner Focus
 
-Current owner focus: 2/3.
+Current owner focus: 3/3 for Phase 10.
 
-Reason: the owner must provision real Telegram access. The agent will then run the light smoke; manual product acceptance remains scheduled for Phase 10 and Stage 3 formatting.
+Reason: Credential Gate is complete. Real edit-audio correction quality and the resulting Telegram flow require owner manual acceptance after Phase 10 preflight.
 
 
 Accepted owner attention policy: use `docs/dashboard/owner-acceptance-policy.md` for all future phases. The agent must run realistic basic and medium-frequency tests for 2/3 phases, using unit/integration and Telethon where Telegram UI is touched. For 3/3 phases, the agent must prepare preflight evidence and then stop for explicit owner acceptance.
 
-Credential gate: Phase 9 is accepted. Create the development Telegram bot in BotFather before Phase 10 begins. Store `BOT_TOKEN` only in VPS environment/secrets and keep real tokens out of git and logs.
+Credential Gate: passed. The development bot runtime uses VPS-only secrets; no token or allowlist values are stored in git or logs.

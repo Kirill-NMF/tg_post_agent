@@ -5,21 +5,19 @@ Updated: 2026-08-12
 ## Now
 
 - Product stage: Stage 2, Gemini rewrite/draft editing.
-- Engineering phase: Credential Gate after Phase 9 acceptance.
-- Status: waiting for a dev bot token and allowlisted Telegram IDs.
+- Engineering phase: Phase 10 Real Edit-Audio Transcription is active next.
+- Status: Credential Gate passed.
 - Branch: codex/phase-1-architecture-data-model.
 
 ## Next Required Owner Action
 
-Create a separate development bot in BotFather and share its token through the approved VPS secret path. Also provide the Telegram IDs for the allowlist.
-
-Once that is installed, the agent will run light real-Telegram smoke: /start, allowlist denial, and one callback response.
+After Phase 10 preflight evidence is prepared, complete the mandatory 3/3 owner manual acceptance in real Telegram for voice corrections.
 
 ## Owner Focus
 
-Current: 2/3.
+Current: 3/3 for Phase 10.
 
-You do not need to manually test the Phase 9 race. Your immediate action is Telegram provisioning; the next 3/3 testing moment is real edit-audio transcription and then Stage 3 formatting.
+Credential Gate is passed. Phase 10 requires manual acceptance after preflight; then Stage 3 formatting will require its own review.
 
 ## Upcoming Owner Testing Windows
 

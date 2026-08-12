@@ -181,11 +181,11 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 
 ## Credential Gate Before Phase 10
 
-- [ ] Owner creates a development Telegram bot in BotFather.
-- [ ] Owner installs BOT_TOKEN only through the approved VPS secret/environment path.
-- [ ] Owner supplies Telegram IDs for the allowlist.
-- [ ] Agent runs the light Telegram smoke: /start, allowlist denial, and one callback response.
+- [x] Owner created a development Telegram bot in BotFather.
+- [x] BOT_TOKEN is installed only through the approved VPS secret/environment path.
+- [x] Telegram IDs were supplied for the allowlist.
+- [x] Agent completed the light Telegram smoke: /start, allowlist denial, and one callback response.
 
-## Next Gate After Credential Gate
+## Next Gate: Phase 10
 
-Start Phase 10 real edit-audio transcription only after the Credential Gate is complete. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
+Phase 10 real edit-audio transcription is active next. Prepare implementation preflight evidence, then stop for mandatory 3/3 owner manual acceptance in real Telegram before closing the phase. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.

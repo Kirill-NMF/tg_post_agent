@@ -2,6 +2,6 @@
 
 Canonical plan: docs/project-spec/DEVELOPMENT_PLAN.md.
 
-Current stage: Phase 9 Gemini Draft Revision/Edit Loop is complete on the feature branch.
+Current stage: Credential Gate is passed. Phase 10 Real Edit-Audio Transcription is the active next implementation phase.
 
-Next gate: Credential Gate before Phase 10. The owner creates a development Telegram bot in BotFather, installs BOT_TOKEN only through the approved VPS secret/environment path, and supplies Telegram IDs for the allowlist. The agent then runs the light Telegram smoke (/start, allowlist denial, and one callback response). Start Phase 10 real edit-audio transcription only after this gate is complete. Do not add real formatting, channel publishing, Redis, S3, frontend, mini app, Telethon, secrets, Docker deployment, or broader worker/deployment work without the matching phase approval.
+Next gate: Phase 10 implementation preflight. Phase 10 has mandatory 3/3 owner manual acceptance in real Telegram after preflight evidence. Stop for that acceptance before closing the phase. Do not add real formatting, channel publishing, Redis, S3, frontend, mini app, Telethon, secrets, Docker deployment, or broader worker/deployment work without the matching phase approval.
