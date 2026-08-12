@@ -5,6 +5,7 @@ import type {
   FormattingOption,
   PlanOption,
   PlanPostSlice,
+  PlanRecommendation,
   Project,
   ProjectId,
   ProjectMessage,
@@ -77,7 +78,7 @@ export class PgProjectRepository implements ProjectRepository {
         values (
           ${project.id}, ${userId}, ${toDbBigInt(project.chatId)}, ${project.isActive},
           ${toStoredState(project.state)}, ${project.currentPostIndex ?? 1}, ${project.selectedPlan?.postCount ?? null},
-          ${project.transcript ?? null}, ${toJson(project.planOptions)}, ${toJson(project.selectedPlan)},
+          ${project.transcript ?? null}, ${toJson(planPayload(project))}, ${toJson(project.selectedPlan)},
           ${project.rewriteMode ?? null}, ${currentFormattingOption(project)}, ${completedAt(project)},
           ${project.isActive ? null : now}, ${project.createdAt}, ${project.updatedAt}
         )
@@ -201,6 +202,7 @@ export class PgProjectRepository implements ProjectRepository {
       `)
     ).map(fromMessageRow);
 
+    const planning = readPlanPayload(row.plan_options_json);
     return {
       id: row.id,
       telegramUserId: row.telegram_user_id.toString(),
@@ -208,7 +210,9 @@ export class PgProjectRepository implements ProjectRepository {
       state: row.active_state,
       isActive: row.is_active,
       transcript: row.transcript ?? undefined,
-      planOptions: asPlanOptions(row.plan_options_json),
+      planOptions: planning.options,
+      planRecommendation: planning.recommendation,
+      planAlternativesRevealed: planning.alternativesRevealed,
       selectedPlan: asPlanOption(row.selected_plan_json),
       rewriteMode: row.rewrite_mode ?? undefined,
       posts,
@@ -278,9 +282,21 @@ function fromMessageRow(row: MessageRow): ProjectMessage {
   return { kind: row.kind, text: row.text ?? "", createdAt: row.created_at };
 }
 
-function asPlanOptions(value: unknown): PlanOption[] | undefined {
-  if (!value) return undefined;
-  return value as PlanOption[];
+function planPayload(project: Project): unknown {
+  if (!project.planRecommendation) return project.planOptions;
+  return { options: project.planOptions ?? [], recommendation: project.planRecommendation, alternativesRevealed: project.planAlternativesRevealed === true };
+}
+
+function readPlanPayload(value: unknown): { options?: PlanOption[]; recommendation?: PlanRecommendation; alternativesRevealed?: boolean } {
+  if (!value) return {};
+  if (Array.isArray(value)) return { options: value as PlanOption[] };
+  if (typeof value !== "object") return {};
+  const record = value as { options?: unknown; recommendation?: unknown; alternativesRevealed?: unknown };
+  return {
+    options: Array.isArray(record.options) ? record.options as PlanOption[] : undefined,
+    recommendation: record.recommendation && typeof record.recommendation === "object" ? record.recommendation as PlanRecommendation : undefined,
+    alternativesRevealed: record.alternativesRevealed === true
+  };
 }
 
 function asPlanOption(value: unknown): PlanOption | undefined {

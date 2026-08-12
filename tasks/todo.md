@@ -209,3 +209,12 @@ Phase 10 real edit-audio transcription has passed automated production preflight
 - [x] Keep provider selection and fallback logs redacted to safe provider/model/error-code labels.
 - [x] Preserve the Phase 10 owner runtime configuration and controlled-restart gate.
 - [x] Repair OpenRouter structured-output compatibility and permanent provider-failure recovery without weakening application-level validation.
+
+## Planning Recommendation Quality Slice
+
+- [x] Replace forced 1/2/3 planning output with one required recommendation plus optional meaningful alternatives.
+- [x] Require rationale and confidence, reject duplicate/invented alternative post counts, and preserve untrusted-output validation.
+- [x] Lead Telegram planning with the recommendation; reveal alternatives only after an explicit action.
+- [x] Persist recommendation/reveal state in the existing JSON field while reading legacy array plans.
+- [x] Cover coherent single-thesis, meaningful series, guarded selection, planning corrections, and persistence.
+- [ ] Mandatory 3/3 owner manual planning-quality acceptance after controlled deployment.

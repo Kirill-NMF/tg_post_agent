@@ -55,6 +55,7 @@ export class BotRouter {
     if (!this.auth.isAllowed(event.telegramUserId)) return unauthorized();
     const [group, value] = event.action.split(":");
 
+    if (event.action === "plan:show_alternatives") return this.projects.showPlanAlternatives(event.telegramUserId);
     if (group === "plan" && isPlanOption(value)) return this.projects.choosePlan(event.telegramUserId, value);
     if (group === "rewrite" && isRewriteMode(value)) return this.projects.chooseRewriteMode(event.telegramUserId, value);
     if (event.action === "format:open") return this.projects.openFormatChoice(event.telegramUserId);
@@ -71,7 +72,7 @@ function unauthorized(): BotResponse[] {
 }
 
 function isPlanOption(value: string | undefined): value is PlanOptionId {
-  return value === "one_post" || value === "two_posts" || value === "three_posts";
+  return value === "recommended" || value === "alternative_2" || value === "alternative_3" || value === "one_post" || value === "two_posts" || value === "three_posts";
 }
 
 function isRewriteMode(value: string | undefined): value is RewriteMode {

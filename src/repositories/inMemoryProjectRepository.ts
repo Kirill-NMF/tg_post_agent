@@ -40,6 +40,7 @@ function cloneProject(project: Project): Project {
     createdAt: new Date(project.createdAt),
     updatedAt: new Date(project.updatedAt),
     planOptions: project.planOptions?.map(clonePlanOption),
+    planRecommendation: project.planRecommendation ? { ...project.planRecommendation } : undefined,
     selectedPlan: project.selectedPlan ? clonePlanOption(project.selectedPlan) : undefined,
     posts: project.posts.map((post) => ({ ...post, planSlice: clonePlanSlice(post.planSlice) })),
     messages: project.messages.map((message) => ({ ...message, createdAt: new Date(message.createdAt) }))

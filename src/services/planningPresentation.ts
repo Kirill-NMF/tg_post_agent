@@ -1,39 +1,61 @@
-import type { BotButton, PlanOption, PlanOptionId } from "../domain/types.js";
+import type { BotButton, PlanOption, PlanningResult } from "../domain/types.js";
 
-export const planOptionOrder: PlanOptionId[] = ["one_post", "two_posts", "three_posts"];
+export function planButtons(plan: PlanningResult): BotButton[] {
+  const buttons: BotButton[] = [{ label: "Взять в работу", action: `plan:${plan.recommendation.recommendedOptionId}` }];
+  if (alternatives(plan).length) buttons.push({ label: "Показать другие разбивки", action: "plan:show_alternatives" });
+  return buttons;
+}
 
-export function planButtons(): BotButton[] {
+export function alternativePlanButtons(plan: PlanningResult): BotButton[] {
+  return alternatives(plan).map((option) => ({ label: `Выбрать: ${option.postCount} ${postWord(option.postCount)}`, action: `plan:${option.optionId}` }));
+}
+
+export function renderPlanRecommendationMessage(plan: PlanningResult): string {
+  const recommended = recommendedPlan(plan);
   return [
-    { label: "1 пост", action: "plan:one_post" },
-    { label: "2 поста", action: "plan:two_posts" },
-    { label: "3 поста", action: "plan:three_posts" }
-  ];
+    `Рекомендую: ${recommended.postCount} ${postWord(recommended.postCount)}`,
+    plan.recommendation.rationale,
+    `Уверенность: ${confidenceLabel(plan.recommendation.confidence)}`,
+    "",
+    renderPlan(recommended)
+  ].join("\n");
 }
 
-export function renderPlanningScreen(options: PlanOption[]): string {
-  return options
-    .map((option) => {
-      const slices = option.posts.map((slice) => `${slice.index}. ${slice.topic}: ${slice.angle}`).join("\n");
-      return `${option.postCount} ${postWord(option.postCount)}: ${option.title}\n${option.summary}\n${slices}`;
-    })
-    .join("\n\n");
+export function renderAlternativePlansMessage(plan: PlanningResult): string {
+  return alternatives(plan).map(renderPlan).join("\n\n");
 }
 
-export function renderPlanOptionsMessage(options: PlanOption[]): string {
-  return `Готовы варианты разбивки. Выберите 1/2/3:\n\n${renderPlanningScreen(options)}`;
+export function renderPlanOptionsHistory(plan: PlanningResult): string {
+  return `recommended:${plan.recommendation.recommendedOptionId}; confidence:${plan.recommendation.confidence}; options:${plan.options.map((option) => `${option.optionId}:${option.title}`).join(", ")}`;
 }
 
-export function renderPlanOptionsHistory(options: PlanOption[]): string {
-  return options.map((option) => `${option.optionId}:${option.title}`).join(", ");
+export function planReplyMarkup(plan: PlanningResult) {
+  return { inline_keyboard: planButtons(plan).map((button) => [{ text: button.label, callback_data: button.action }]) };
 }
 
-export function planReplyMarkup() {
-  return {
-    inline_keyboard: planButtons().map((button) => [{ text: button.label, callback_data: button.action }])
-  };
+export function recommendedPlan(plan: PlanningResult): PlanOption {
+  const option = plan.options.find((item) => item.optionId === plan.recommendation.recommendedOptionId);
+  if (!option) throw new Error("Recommended plan option is missing.");
+  return option;
+}
+
+export function alternatives(plan: PlanningResult): PlanOption[] {
+  return plan.options.filter((option) => option.optionId !== plan.recommendation.recommendedOptionId);
+}
+
+function renderPlan(option: PlanOption): string {
+  const slices = option.posts.map((slice) => `${slice.index}. ${slice.topic}: ${slice.angle}`).join("\n");
+  return `${option.postCount} ${postWord(option.postCount)}: ${option.title}\n${option.summary}\n${slices}`;
 }
 
 function postWord(count: number): string {
   if (count === 1) return "пост";
-  return "поста";
+  if (count === 2 || count === 3) return "поста";
+  return "постов";
+}
+
+function confidenceLabel(value: PlanningResult["recommendation"]["confidence"]): string {
+  if (value === "high") return "высокая";
+  if (value === "medium") return "средняя";
+  return "низкая";
 }

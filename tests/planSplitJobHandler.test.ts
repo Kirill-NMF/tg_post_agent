@@ -23,14 +23,13 @@ describe("PLAN_SPLIT job handler", () => {
     expect(processed).toMatchObject({ processed: true, status: "succeeded" });
     const updated = await projects.findById(project.id);
     expect(updated?.state).toBe("planning");
-    expect(updated?.planOptions?.map((option) => option.optionId)).toEqual(["one_post", "two_posts", "three_posts"]);
+    expect(updated?.planRecommendation).toMatchObject({ recommendedOptionId: "one_post", confidence: "high" });
     expect(updated?.messages.at(-1)?.kind).toBe("plan_options");
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
     expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual([
       "plan:one_post",
-      "plan:two_posts",
-      "plan:three_posts"
+      "plan:show_alternatives"
     ]);
   });
 
@@ -125,7 +124,7 @@ async function seedProject(projects: InMemoryProjectRepository, transcript?: str
 function fakePlanningAdapter(options: PlanOption[]): Pick<ModelAdapters, "planSplit"> {
   return {
     async planSplit() {
-      return { ok: true, value: { options }, meta: { provider: "gemini", modelLabel: "gemini-2.5-pro" } };
+      return { ok: true, value: { options, recommendation: { recommendedOptionId: options[0].optionId, rationale: "Рекомендация", confidence: "high" } }, meta: { provider: "gemini", modelLabel: "gemini-2.5-pro" } };
     }
   };
 }

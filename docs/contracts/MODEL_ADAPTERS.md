@@ -36,6 +36,10 @@ type AdapterError = {
 
 All contracts return either validated output or an `AdapterError`. Raw provider responses remain inside adapters unless a later debug feature explicitly and safely captures redacted samples.
 
+## Planning Recommendation Change (2026-08-12)
+
+The planning adapter first decides whether one, two, or three posts best serve the source. It uses semantic independence, content density and likely target length, and whether each proposed post has its own hook and complete payoff. Duration alone is not a split criterion. A coherent thesis, short story, one demonstration, or one complete argument normally recommends one post. The adapter always returns one recommended plan, concise rationale, and confidence; alternatives are optional and only returned when materially meaningful. Planning corrections may explicitly request a split or a single post and regenerate the same recommendation contract.
+
 ## 1. Whisper Source Transcription
 
 ### Purpose

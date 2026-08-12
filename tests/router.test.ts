@@ -29,7 +29,8 @@ describe("BotRouter", () => {
       chatId: "200",
       audio: { kind: "audio_document", telegramFileId: "doc-id", mimeType: "audio/mpeg" }
     });
-    expect(message(planning[0]).buttons?.map((button) => button.action)).toEqual(["plan:one_post", "plan:two_posts", "plan:three_posts"]);
+    expect(message(planning[0]).text).toContain("Рекомендую: 1 пост");
+    expect(message(planning[0]).buttons?.map((button) => button.action)).toEqual(["plan:recommended"]);
   });
 
   it("routes callback actions without Telegram network", async () => {
@@ -37,7 +38,7 @@ describe("BotRouter", () => {
     await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "/start" });
     await botRouter.handleAudio({ telegramUserId: "100", chatId: "200", audio: { kind: "voice", telegramFileId: "voice-id" } });
 
-    expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "plan:one_post" }))[0]).text).toContain("режим");
+    expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "plan:recommended" }))[0]).text).toContain("режим");
     expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "rewrite:clean_up" }))[0]).text).toContain("Mock draft");
   });
 

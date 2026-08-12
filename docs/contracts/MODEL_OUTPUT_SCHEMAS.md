@@ -74,47 +74,39 @@ Persistence target:
 
 - `project_messages.text` with the state-specific edit kind.
 
-## Plan Options Output
+## Planning Recommendation Output
 
 ```text
-PlanOptionsOutput = {
-  options: [PlanOptionOne, PlanOptionTwo, PlanOptionThree]
+PlanningRecommendationOutput = {
+  recommended: PlanOption
+  rationale: string
+  confidence: low | medium | high
+  alternatives: PlanOption[]
 }
 
-PlanOptionOne = PlanOption & { option_id: one_post, post_count: 1, posts: [PlanPostSlice1] }
-PlanOptionTwo = PlanOption & { option_id: two_posts, post_count: 2, posts: [PlanPostSlice1, PlanPostSlice2] }
-PlanOptionThree = PlanOption & { option_id: three_posts, post_count: 3, posts: [PlanPostSlice1, PlanPostSlice2, PlanPostSlice3] }
-
 PlanOption = {
-  option_id: one_post | two_posts | three_posts
   post_count: 1 | 2 | 3
   title: string
   angle: string
   summary: string
   posts: PlanPostSlice[]
 }
-
-PlanPostSlice = {
-  index: 1 | 2 | 3
-  topic: string
-  angle: string
-  includes: string[]
-  excludes?: string[]
-}
 ```
+
+The model must always return one recommended plan. Alternatives are optional (0-2) and appear only when materially meaningful. It must not manufacture alternatives just to cover all counts. Each alternative has a distinct post count and every post it proposes must be independently useful, non-repetitive, and complete.
 
 Validation:
 
-- exactly three options are present;
-- post counts are exactly 1, 2, and 3;
-- each option has exactly `post_count` post slices;
-- post indexes are contiguous from 1;
-- titles, angles, summaries, topics, and includes are non-empty;
-- no draft/final post body is included.
+- recommended plan, rationale, and confidence are required;
+- every plan has exactly `post_count` contiguous post slices;
+- all returned plans have distinct post counts;
+- visible text is non-empty and bounded;
+- no draft/final body is included.
 
 Persistence target:
 
-- `projects.plan_options_json`;
+- `projects.plan_options_json` stores recommendation, plans, and the alternatives-revealed flag;
+- legacy array-only values remain readable;
 - selected option later becomes `projects.selected_plan_json` and `project_posts.plan_slice_json`.
 
 ## Draft Output

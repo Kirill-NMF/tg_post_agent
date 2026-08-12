@@ -20,7 +20,9 @@ export type ProjectState =
 
 export type RewriteMode = "clean_up" | "make_post";
 export type FormattingOption = "option_1" | "option_2";
-export type PlanOptionId = "one_post" | "two_posts" | "three_posts";
+export type PlanOptionId = string;
+
+export type PlanningConfidence = "low" | "medium" | "high";
 
 export type AdapterMeta = {
   provider: "mock" | "whisper" | "gemini" | "openrouter" | "claude" | "gpt";
@@ -55,6 +57,17 @@ export type PlanOption = {
   angle: string;
   summary: string;
   posts: PlanPostSlice[];
+};
+
+export type PlanRecommendation = {
+  recommendedOptionId: PlanOptionId;
+  rationale: string;
+  confidence: PlanningConfidence;
+};
+
+export type PlanningResult = {
+  options: PlanOption[];
+  recommendation: PlanRecommendation;
 };
 
 export type DraftText = {
@@ -115,6 +128,8 @@ export type Project = {
   isActive: boolean;
   transcript?: string;
   planOptions?: PlanOption[];
+  planRecommendation?: PlanRecommendation;
+  planAlternativesRevealed?: boolean;
   selectedPlan?: PlanOption;
   rewriteMode?: RewriteMode;
   posts: ProjectPost[];

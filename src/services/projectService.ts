@@ -15,6 +15,8 @@ import type {
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import { draftActionButtons } from "./draftPresentation.js";
+import { currentPlan } from "./planSplitJobHandler.js";
+import { alternativePlanButtons, planButtons, renderAlternativePlansMessage, renderPlanRecommendationMessage } from "./planningPresentation.js";
 
 export class ProjectService {
   constructor(
@@ -69,48 +71,65 @@ export class ProjectService {
 
     const plan = await unwrap(this.models.planSplit({ projectId: project.id, transcript: project.transcript, planningHistory: [] }));
     project.planOptions = plan.options;
+    project.planRecommendation = plan.recommendation;
+    project.planAlternativesRevealed = false;
     project.state = "planning";
-    project.messages.push(message("plan_options", renderPlanOptions(plan.options.map((option) => option.optionId))));
+    project.messages.push(message("plan_options", "recommended:" + plan.recommendation.recommendedOptionId));
     await this.projects.save(project);
 
-    return [
-      {
-        kind: "message",
-        text: renderPlanningScreen(plan.options.map((option) => ({ id: option.optionId, count: option.postCount, title: option.title }))),
-        buttons: planButtons()
-      }
-    ];
+    return [{ kind: "message", text: renderPlanRecommendationMessage(plan), buttons: planButtons(plan) }];
   }
 
   async revisePlan(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
-    if (project.state !== "planning" || !project.transcript || !project.planOptions) {
+    const plan = currentPlan(project);
+    if (project.state !== "planning" || !project.transcript || !plan) {
       return [{ kind: "message", text: "Правки плана доступны только на экране планирования." }];
     }
 
     project.messages.push(message("planning_edit", latestUserEdit));
-    const revised = await unwrap(
-      this.models.revisePlan({
+    if (this.jobs) {
+      await this.projects.save(project);
+      await this.jobs.enqueue({
+        type: "REVISE_PLAN",
         projectId: project.id,
-        transcript: project.transcript,
-        currentOptions: project.planOptions,
-        latestUserEdit
-      })
-    );
+        dedupeKey: `project:${project.id}:revise-plan:text:${project.messages.filter((item) => item.kind === "planning_edit").length}`,
+        payload: { latestUserEdit }
+      });
+      return [{ kind: "message", text: "Принял правку, обновляю рекомендацию." }];
+    }
+
+    const revised = await unwrap(this.models.revisePlan({ projectId: project.id, transcript: project.transcript, currentPlan: plan, latestUserEdit }));
     project.planOptions = revised.options;
+    project.planRecommendation = revised.recommendation;
+    project.planAlternativesRevealed = false;
     await this.projects.save(project);
-    return [{ kind: "message", text: "План обновлён. Выберите вариант 1/2/3.", buttons: planButtons() }];
+    return [{ kind: "message", text: renderPlanRecommendationMessage(revised), buttons: planButtons(revised) }];
+  }
+
+  async showPlanAlternatives(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
+    const project = await this.requireActive(telegramUserId);
+    const plan = currentPlan(project);
+    if (project.state !== "planning" || !plan || plan.options.length < 2) {
+      return [{ kind: "message", text: "Других осмысленных разбивок для этого материала нет." }];
+    }
+    project.planAlternativesRevealed = true;
+    await this.projects.save(project);
+    return [{ kind: "message", text: renderAlternativePlansMessage(plan), buttons: alternativePlanButtons(plan) }];
   }
 
   async choosePlan(telegramUserId: TelegramUserId, optionId: PlanOptionId): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
-    if (project.state !== "planning" || !project.planOptions) {
+    const plan = currentPlan(project);
+    if (project.state !== "planning" || !plan) {
       return [{ kind: "message", text: "Сначала нужен план из аудио." }];
     }
-
-    const selectedPlan = project.planOptions.find((option) => option.optionId === optionId);
+    if (optionId !== plan.recommendation.recommendedOptionId && !project.planAlternativesRevealed) {
+      return [{ kind: "message", text: "Сначала откройте другие разбивки, если хотите выбрать альтернативу." }];
+    }
+    const selectedPlan = plan.options.find((option) => option.optionId === optionId);
     if (!selectedPlan) {
-      return [{ kind: "message", text: "Такого варианта плана нет. Выберите 1, 2 или 3." }];
+      return [{ kind: "message", text: "Такого варианта плана нет. Выберите доступный вариант." }];
     }
 
     project.selectedPlan = selectedPlan;
@@ -389,47 +408,8 @@ function recentEditMessages(project: Project): string[] {
     .map((item) => item.text);
 }
 
-function planButtons() {
-  return [
-    { label: "1 пост", action: "plan:one_post" },
-    { label: "2 поста", action: "plan:two_posts" },
-    { label: "3 поста", action: "plan:three_posts" }
-  ];
-}
 
-function rewriteButtons() {
-  return [
-    { label: "Почистить", action: "rewrite:clean_up" },
-    { label: "Сделать пост", action: "rewrite:make_post" }
-  ];
-}
-
-function formatButtons() {
-  return [
-    { label: "Option 1", action: "format:option_1" },
-    { label: "Option 2", action: "format:option_2" }
-  ];
-}
-
-function finalButtons(project: Project) {
-  const buttons = [{ label: "Готово", action: "final:accept" }];
-  const post = currentPost(project);
-  if (post && project.selectedPlan && post.index < project.selectedPlan.postCount) {
-    buttons.push({ label: "Делать следующий пост", action: "series:next" });
-  }
-  return buttons;
-}
-
-function nextPostButtons(project: Project) {
-  const post = currentPost(project);
-  if (!post || !project.selectedPlan || post.index >= project.selectedPlan.postCount) return undefined;
-  return [{ label: "Делать следующий пост", action: "series:next" }];
-}
-
-function renderPlanOptions(ids: PlanOptionId[]): string {
-  return ids.join(", ");
-}
-
-function renderPlanningScreen(options: Array<{ id: PlanOptionId; count: number; title: string }>): string {
-  return options.map((option) => `${option.count}: ${option.title} (${option.id})`).join("\n");
-}
+function rewriteButtons() { return [{ label: "Почистить", action: "rewrite:clean_up" }, { label: "Сделать пост", action: "rewrite:make_post" }]; }
+function formatButtons() { return [{ label: "Option 1", action: "format:option_1" }, { label: "Option 2", action: "format:option_2" }]; }
+function finalButtons(project: Project) { const buttons = [{ label: "Готово", action: "final:accept" }]; const post = currentPost(project); if (post && project.selectedPlan && post.index < project.selectedPlan.postCount) buttons.push({ label: "Делать следующий пост", action: "series:next" }); return buttons; }
+function nextPostButtons(project: Project) { const post = currentPost(project); return !post || !project.selectedPlan || post.index >= project.selectedPlan.postCount ? undefined : [{ label: "Делать следующий пост", action: "series:next" }]; }

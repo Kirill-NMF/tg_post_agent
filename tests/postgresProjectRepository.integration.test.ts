@@ -30,7 +30,7 @@ describeWithPostgres("PgProjectRepository", () => {
 
     await service.start("100", "200");
     await service.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
-    await service.choosePlan("100", "two_posts");
+    await service.choosePlan("100", "recommended");
     await service.chooseRewriteMode("100", "make_post");
     await service.reviseDraft("100", "shorten intro");
     await service.openFormatChoice("100");
@@ -40,8 +40,10 @@ describeWithPostgres("PgProjectRepository", () => {
     const activeProject = await new PgProjectRepository(database.db).findActiveByTelegramUser("100");
     expect(activeProject?.state).toBe("done");
     expect(activeProject?.transcript).toContain("Mock transcript");
-    expect(activeProject?.selectedPlan?.postCount).toBe(2);
-    expect(activeProject?.posts).toHaveLength(2);
+    expect(activeProject?.selectedPlan?.postCount).toBe(1);
+    expect(activeProject?.planRecommendation).toMatchObject({ recommendedOptionId: "recommended", confidence: "high" });
+    expect(activeProject?.planOptions).toHaveLength(1);
+    expect(activeProject?.posts).toHaveLength(1);
     expect(activeProject?.posts[0]?.formattedText).toMatch(/^✨ Mock draft 1/);
     expect(activeProject?.posts[0]?.finalText).toBe(activeProject?.posts[0]?.formattedText);
     expect(activeProject?.messages.map((message) => message.kind)).toContain("final");

@@ -4,6 +4,7 @@ import type {
   FormattingOption,
   FormattingRevision,
   PlanOption,
+  PlanningResult,
   PreservationCheck,
   ProjectId,
   RewriteMode,
@@ -24,13 +25,13 @@ export type EditTranscriptionInput = {
 export type ModelAdapters = {
   transcribeSource(input: SourceTranscriptionInput): Promise<AdapterResult<{ transcript: string }>>;
   transcribeEdit(input: EditTranscriptionInput): Promise<AdapterResult<{ editText: string }>>;
-  planSplit(input: { projectId: ProjectId; transcript: string; planningHistory: string[] }): Promise<AdapterResult<{ options: PlanOption[] }>>;
+  planSplit(input: { projectId: ProjectId; transcript: string; planningHistory: string[] }): Promise<AdapterResult<PlanningResult>>;
   revisePlan(input: {
     projectId: ProjectId;
     transcript: string;
-    currentOptions: PlanOption[];
+    currentPlan: PlanningResult;
     latestUserEdit: string;
-  }): Promise<AdapterResult<{ options: PlanOption[]; changeSummary?: string }>>;
+  }): Promise<AdapterResult<PlanningResult & { changeSummary?: string }>>;
   generateDraft(input: {
     projectId: ProjectId;
     selectedPlan: PlanOption;

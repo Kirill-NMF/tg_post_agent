@@ -16,8 +16,8 @@ Model calls covered by this phase:
 
 1. Whisper transcription: source audio/chunks -> transcript.
 2. Whisper edit transcription: voice edit audio -> edit text.
-3. Gemini plan split: transcript + planning history -> exactly 1/2/3 plan options.
-4. Gemini revise plan: current plan options + user edit -> updated plan options.
+3. Gemini plan assessment: transcript + planning history -> one required recommended plan (1, 2, or 3 posts) plus only materially meaningful alternatives.
+4. Gemini revise plan: current recommendation + user edit -> regenerated recommendation and optional alternatives.
 5. Gemini generate draft: transcript + selected plan + post index + rewrite mode -> full draft.
 6. Gemini revise draft: current draft + latest edit + compact context -> full updated draft.
 7. Claude/GPT format post: draft + option_1/option_2 -> formatted text.

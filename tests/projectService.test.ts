@@ -20,10 +20,10 @@ describe("ProjectService mock state machine", () => {
 
     expect(message((await projects.start("100", "200"))[0]).text).toContain("Пришлите");
     const planning = await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
-    expect(message(planning[0]).text).toContain("one_post");
+    expect(message(planning[0]).text).toContain("Рекомендую: 1 пост");
     expect((await projects.getActiveProject("100"))?.state).toBe("planning");
 
-    const rewrite = await projects.choosePlan("100", "two_posts");
+    const rewrite = await projects.choosePlan("100", "recommended");
     expect(message(rewrite[0]).buttons?.map((button) => button.action)).toEqual(["rewrite:clean_up", "rewrite:make_post"]);
     expect(message(rewrite[0]).buttons?.map((button) => button.label)).toEqual(["Почистить", "Сделать пост"]);
 
@@ -45,26 +45,20 @@ describe("ProjectService mock state machine", () => {
     const final = await projects.finalizeCurrentPost("100");
     expect(final).toHaveLength(2);
     expect(final[1]).toMatchObject({ kind: "document", filename: "post-1.txt" });
-    expect(final[0]?.kind === "message" ? final[0].buttons?.[0]?.action : undefined).toBe("series:next");
-    expect(final[0]?.kind === "message" ? final[0].buttons?.[0]?.label : undefined).toBe("Делать следующий пост");
+    expect(final[0]?.kind === "message" ? final[0].buttons : undefined).toBeUndefined();
     expect((await projects.getActiveProject("100"))?.state).toBe("done");
   });
 
-  it("supports mock next post flow for series", async () => {
+  it("does not offer a next post for a coherent single-plan recommendation", async () => {
     const { projects } = service();
-
     await projects.start("100", "200");
     await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
-    await projects.choosePlan("100", "two_posts");
+    await projects.choosePlan("100", "recommended");
     await projects.chooseRewriteMode("100", "make_post");
     await projects.openFormatChoice("100");
     await projects.formatCurrentPost("100", "option_1");
-    await projects.finalizeCurrentPost("100");
-
-    const next = await projects.startNextPost("100");
-    expect(message(next[0]).text).toContain("Mock draft 2");
-    expect((await projects.getActiveProject("100"))?.currentPostIndex).toBe(2);
-    expect((await projects.getActiveProject("100"))?.state).toBe("draft_editing");
+    const final = await projects.finalizeCurrentPost("100");
+    expect(message(final[0]).buttons).toBeUndefined();
   });
 
   it("enqueues draft generation instead of running mock draft synchronously when jobs are configured", async () => {
@@ -147,7 +141,7 @@ describe("ProjectService mock state machine", () => {
 
     await projects.start("100", "200");
     await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
-    await projects.choosePlan("100", "one_post");
+    await projects.choosePlan("100", "recommended");
     await projects.chooseRewriteMode("100", "make_post");
 
     const edited = await projects.handleEditAudio("100", { kind: "voice", telegramFileId: "edit-file-id" });
