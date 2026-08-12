@@ -198,4 +198,6 @@ Phase 10 real edit-audio transcription is active next. Prepare implementation pr
 - [x] Add real Gemini `REVISE_PLAN` job wiring; real draft revision remains on its existing job path.
 - [x] Keep `formatted_editing` voice corrections deferred to Stage 3; do not use mock formatting in production.
 - [x] Complete automated preflight without paid provider calls.
+- [ ] Owner configures DATABASE_URL, OPENAI_API_KEY, and GEMINI_API_KEY through the VPS-only secret/environment path.
+- [ ] Owner explicitly authorizes one controlled worker-enabled runtime restart.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram.
