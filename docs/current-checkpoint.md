@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The planning recommendation quality slice is ready for a controlled deployment restart and an owner quality run: the bot must recommend one, two, or three posts based on content, show alternatives only when meaningful, and regenerate the recommendation after a planning correction. Do not close the phase or begin Phase 11 before explicit acceptance.
+Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The planning recommendation quality slice is deployed after a controlled restart and awaits an owner quality run: the bot must recommend one, two, or three posts based on content, show alternatives only when meaningful, and regenerate the recommendation after a planning correction. Do not close the phase or begin Phase 11 before explicit acceptance.
 
 ## Owner Focus
 
