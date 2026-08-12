@@ -275,7 +275,17 @@ export class ProjectService {
       return [{ kind: "message", text: "Voice-правка сейчас не ожидается." }];
     }
     if (this.jobs) {
-      return [{ kind: "message", text: "Голосовые правки пока не подключены в рабочем режиме. Напишите правку текстом." }];
+      if (project.state === "formatted_editing") {
+        return [{ kind: "message", text: "Голосовые правки оформления появятся на этапе оформления. Напишите правку текстом." }];
+      }
+      const stateAtEdit = project.state;
+      await this.jobs.enqueue({
+        type: "TRANSCRIBE_EDIT_AUDIO",
+        projectId: project.id,
+        dedupeKey: `project:${project.id}:edit-audio:${source.telegramFileId}`,
+        payload: { source: { kind: "edit_audio", telegramFileId: source.telegramFileId, originalFileName: source.fileName, mimeType: source.mimeType, durationSeconds: source.durationSeconds, sizeBytes: source.sizeBytes }, stateAtEdit }
+      });
+      return [{ kind: "message", text: "Голосовая правка принята. Расшифровываю её и применю к текущему шагу." }];
     }
 
     const edit = await unwrap(

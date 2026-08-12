@@ -38,3 +38,7 @@ Reason: Credential Gate is complete. Real edit-audio correction quality and the 
 Accepted owner attention policy: use `docs/dashboard/owner-acceptance-policy.md` for all future phases. The agent must run realistic basic and medium-frequency tests for 2/3 phases, using unit/integration and Telethon where Telegram UI is touched. For 3/3 phases, the agent must prepare preflight evidence and then stop for explicit owner acceptance.
 
 Credential Gate: passed. The development bot runtime uses VPS-only secrets; no token or allowlist values are stored in git or logs.
+
+## Phase 10 Preflight
+
+Automated preflight is complete for voice corrections in planning and draft_editing only. The production path transcribes temporary edit audio, rejects stale state before applying it, and routes bounded saved edit text to real Gemini revise-plan or draft-revision jobs. Voice corrections in formatted_editing are deferred to Stage 3. Mandatory 3/3 real-Telegram owner acceptance is pending; Phase 10 is not closed.

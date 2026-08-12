@@ -129,7 +129,7 @@ describe("ProjectService mock state machine", () => {
     expect((await projects.getActiveProject("100"))?.posts[0]?.currentDraft).toContain("Applied edit: shorten intro");
   });
 
-  it("does not use mock voice edit transcription in production job mode", async () => {
+  it("enqueues real edit-audio transcription instead of using mocks in production job mode", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
@@ -137,9 +137,9 @@ describe("ProjectService mock state machine", () => {
 
     const response = await projects.handleEditAudio("100", { kind: "voice", telegramFileId: "edit-file-id" });
 
-    expect(message(response[0]).text).toContain("Напишите правку текстом");
+    expect(message(response[0]).text).toContain("Расшифровываю");
     expect((await repository.findById(project.id))?.posts[0]?.currentDraft).toBe("Current draft");
-    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toBeUndefined();
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({ type: "TRANSCRIBE_EDIT_AUDIO", projectId: project.id });
   });
 
   it("routes voice edits through the current state stub transcription", async () => {

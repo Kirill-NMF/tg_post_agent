@@ -3,6 +3,7 @@ import type { PostId, ProjectId } from "./types.js";
 export type JobId = string;
 
 export type JobType =
+  | "TRANSCRIBE_EDIT_AUDIO"
   | "TRANSCRIBE_AUDIO"
   | "PLAN_SPLIT"
   | "REVISE_PLAN"

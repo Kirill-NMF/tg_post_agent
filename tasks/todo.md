@@ -189,3 +189,13 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 ## Next Gate: Phase 10
 
 Phase 10 real edit-audio transcription is active next. Prepare implementation preflight evidence, then stop for mandatory 3/3 owner manual acceptance in real Telegram before closing the phase. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.
+
+## Phase 10. Real Edit-Audio Transcription
+
+- [x] Enqueue durable `TRANSCRIBE_EDIT_AUDIO` jobs for voice/audio edits in `planning` and `draft_editing`.
+- [x] Reuse temporary Telegram download, ffmpeg processing, Whisper transcription, and idempotent cleanup.
+- [x] Persist only bounded edit text and route it to `REVISE_PLAN` or `REVISE_DRAFT` after a stale-state check.
+- [x] Add real Gemini `REVISE_PLAN` job wiring; real draft revision remains on its existing job path.
+- [x] Keep `formatted_editing` voice corrections deferred to Stage 3; do not use mock formatting in production.
+- [x] Complete automated preflight without paid provider calls.
+- [ ] Mandatory 3/3 owner manual acceptance in real Telegram.

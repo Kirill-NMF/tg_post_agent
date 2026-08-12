@@ -75,7 +75,7 @@ describe("BotRouter", () => {
     expect((await repository.findActiveByTelegramUser("100"))?.state).toBe("draft_generating");
   });
 
-  it("routes production draft voice edits to text-edit guidance without mock transcription", async () => {
+  it("routes production draft voice edits to real transcription without mock adapters", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const projectService = new ProjectService(repository, new MockModelAdapters(), jobs);
@@ -84,8 +84,8 @@ describe("BotRouter", () => {
 
     const response = await botRouter.handleAudio({ telegramUserId: "100", chatId: "200", audio: { kind: "voice", telegramFileId: "edit-voice-id" } });
 
-    expect(message(response[0]).text).toContain("Напишите правку текстом");
-    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toBeUndefined();
+    expect(message(response[0]).text).toContain("Расшифровываю");
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({ type: "TRANSCRIBE_EDIT_AUDIO" });
   });
 
   it("returns fallback router text without mojibake", async () => {

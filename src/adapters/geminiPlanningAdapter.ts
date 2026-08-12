@@ -4,8 +4,8 @@ import type { PlanOption, PlanOptionId, PlanPostSlice } from "../domain/types.js
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { planOptionOrder } from "../services/planningPresentation.js";
 
-export type PlanSplitAdapter = Pick<ModelAdapters, "planSplit">;
 
+export type PlanSplitAdapter = Pick<ModelAdapters, "planSplit" | "revisePlan">;
 export type GeminiPlanningInteractionRequest = {
   model: string;
   input: string;
@@ -57,6 +57,20 @@ export class GeminiPlanningAdapter implements PlanSplitAdapter {
       logger.warn({ event: "gemini_plan_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) }, "gemini planning request failed");
       return failure("GEMINI_PLAN_OUTPUT_INVALID", safeMessage(error), true);
     }
+  }
+
+  async revisePlan(params: Parameters<ModelAdapters["revisePlan"]>[0]): ReturnType<ModelAdapters["revisePlan"]> {
+    const history = [
+      ...params.currentOptions.map((option) => "Current " + option.optionId + ": " + option.summary),
+      "Latest user correction: " + params.latestUserEdit
+    ];
+    const result = await this.planSplit({ projectId: params.projectId, transcript: params.transcript, planningHistory: history });
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      value: { options: result.value.options, changeSummary: "Plan options regenerated from the latest correction." },
+      meta: result.meta
+    };
   }
 }
 
