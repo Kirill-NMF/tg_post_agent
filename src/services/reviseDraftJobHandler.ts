@@ -38,7 +38,8 @@ export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): Jo
       projectId: project.id,
       currentDraft: post.currentDraft,
       latestUserEdit,
-      compactContext: draftContext(project)
+      compactContext: draftContext(project),
+      outputLanguage: project.outputLanguage
     });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
@@ -74,7 +75,7 @@ async function recoverFromPermanentRevisionFailure(
 
   if (!deps.notifier) return;
   try {
-    await deps.notifier.sendMessage(project.chatId, "Не удалось обновить черновик. Отправьте правку ещё раз.");
+    await deps.notifier.sendMessage(project.chatId, errorCode === "GEMINI_DRAFT_REVISION_OUTPUT_LANGUAGE_INVALID" ? "Не удалось обновить черновик на нужном языке. Отправьте правку ещё раз и явно укажите язык текста." : "Не удалось обновить черновик. Отправьте правку ещё раз.");
   } catch {
     deps.logger?.warn({ event: "draft_revision_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft revision recovery notification failed");
   }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import type { AudioSourceMetadata } from "../domain/audioTypes.js";
+import { resolveOutputLanguage } from "../domain/outputLanguage.js";
 import type {
   BotResponse,
   FormattingOption,
@@ -69,7 +70,7 @@ export class ProjectService {
     const transcript = await unwrap(this.models.transcribeSource({ projectId: project.id, source }));
     project.transcript = transcript.transcript;
 
-    const plan = await unwrap(this.models.planSplit({ projectId: project.id, transcript: project.transcript, planningHistory: [] }));
+    const plan = await unwrap(this.models.planSplit({ projectId: project.id, transcript: project.transcript, planningHistory: [], outputLanguage: project.outputLanguage }));
     project.planOptions = plan.options;
     project.planRecommendation = plan.recommendation;
     project.planAlternativesRevealed = false;
@@ -87,6 +88,7 @@ export class ProjectService {
       return [{ kind: "message", text: "Правки плана доступны только на экране планирования." }];
     }
 
+    project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
     project.messages.push(message("planning_edit", latestUserEdit));
     if (this.jobs) {
       await this.projects.save(project);
@@ -99,7 +101,7 @@ export class ProjectService {
       return [{ kind: "message", text: "Принял правку, обновляю рекомендацию." }];
     }
 
-    const revised = await unwrap(this.models.revisePlan({ projectId: project.id, transcript: project.transcript, currentPlan: plan, latestUserEdit }));
+    const revised = await unwrap(this.models.revisePlan({ projectId: project.id, transcript: project.transcript, currentPlan: plan, latestUserEdit, outputLanguage: project.outputLanguage }));
     project.planOptions = revised.options;
     project.planRecommendation = revised.recommendation;
     project.planAlternativesRevealed = false;
@@ -165,6 +167,7 @@ export class ProjectService {
       return [{ kind: "message", text: "Правки черновика доступны только после генерации черновика." }];
     }
 
+    project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
     project.messages.push(message("draft_edit", latestUserEdit));
     if (this.jobs) {
       await this.enqueueDraftRevision(project, post, latestUserEdit);
@@ -173,7 +176,7 @@ export class ProjectService {
     }
 
     const updated = await unwrap(
-      this.models.reviseDraft({ projectId: project.id, currentDraft: post.currentDraft, latestUserEdit, compactContext: recentEditMessages(project) })
+      this.models.reviseDraft({ projectId: project.id, currentDraft: post.currentDraft, latestUserEdit, compactContext: recentEditMessages(project), outputLanguage: project.outputLanguage })
     );
     post.currentDraft = updated.updatedDraft.fullText;
     project.messages.push(message("draft", post.currentDraft));
@@ -338,7 +341,8 @@ export class ProjectService {
         postIndex: project.currentPostIndex,
         rewriteMode: project.rewriteMode,
         transcript: project.transcript,
-        compactContext: recentEditMessages(project)
+        compactContext: recentEditMessages(project),
+        outputLanguage: project.outputLanguage
       })
     );
     post.currentDraft = draft.draft.fullText;

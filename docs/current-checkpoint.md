@@ -1,6 +1,6 @@
 # Current Checkpoint
 
-Date: 2026-08-12
+Date: 2026-08-13
 
 ## Current Product Stage
 
@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The planning recommendation quality slice is deployed after a controlled restart and awaits an owner quality run: the bot must recommend one, two, or three posts based on content, show alternatives only when meaningful, and regenerate the recommendation after a planning correction. Do not close the phase or begin Phase 11 before explicit acceptance.
+Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The deployed Stage 2 language repair makes Russian the default for planning, plan revision, draft generation, and draft revision; a clear explicit user instruction can select another output language for the project. The owner should restart the failed planning flow with /start and verify Russian recommendation, draft, and revision output. Do not close the phase or begin Phase 11 before explicit acceptance.
 
 ## Owner Focus
 
@@ -48,6 +48,14 @@ Concurrency note: the current repository ports do not expose a shared project-pl
 Runtime acceptance repair: the OpenRouter chat adapter now uses documented JSON-object response mode and supplies the logical schema as model instruction; existing application-level parsers still reject malformed or unexpected output. HTTP 400 remains a permanent provider error and never triggers a paid fallback. Permanent planning failures now return the active project to awaiting_audio and send a safe retry message; permanent draft generation and revision failures likewise restore their retryable UI states. The already failed production planning job is not retried automatically and its user content is not modified; after the controlled restart, the user receives only a safe instruction to start a new project.
 
 The production database remains migrated. The controlled restart restored exactly one poller and one worker with no provider calls; a boolean-only VPS preflight reconfirmed database access, migration journal, Bot API access, inactive webhook, safe temp storage, and the recovery notification. No secrets are stored in git or this checkpoint.
+
+## Stage 2 Output Language Repair
+
+Stage 2 now defaults output to Russian independently of mixed-language source material. The project persists a small `outputLanguage` preference in its existing plan JSON payload, so a clear text or transcribed correction can explicitly select another language for later plan/draft revisions without a schema migration. The prompts keep names, brands, URLs, quotes, and unavoidable technical terms in their original spelling where appropriate; they do not mutate or translate the stored transcript.
+
+The adapters treat model output as untrusted. A clearly Latin-script response under the default Russian preference is rejected as a permanent language mismatch with no automatic provider retry or paid fallback; the active chat receives a concise recoverable message instead. This guard is deliberately narrow and does not reject an explicitly selected non-Russian output language. Automated tests cover prompt policy, explicit override, redacted logging, recovery, and persistence.
+
+The active production project is not resumed or modified by this deployment. The owner will use `/start` for a clean manual run.
 
 ## Provider Routing Update
 

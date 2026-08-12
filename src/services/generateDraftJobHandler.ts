@@ -36,7 +36,8 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
       postIndex: post.index,
       rewriteMode: project.rewriteMode,
       transcript: project.transcript,
-      compactContext: draftContext(project)
+      compactContext: draftContext(project),
+      outputLanguage: project.outputLanguage
     });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
@@ -72,7 +73,7 @@ async function recoverFromPermanentDraftFailure(
 
   if (!deps.notifier) return;
   try {
-    await deps.notifier.sendMessage(project.chatId, "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
+    await deps.notifier.sendMessage(project.chatId, errorCode === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" ? "Не удалось подготовить черновик на нужном языке. Выберите режим переписывания ещё раз." : "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
   } catch {
     deps.logger?.warn({ event: "draft_generation_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft generation recovery notification failed");
   }

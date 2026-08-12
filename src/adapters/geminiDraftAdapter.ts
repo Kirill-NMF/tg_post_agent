@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ModelAdapters } from "../domain/modelContracts.js";
+import { assertExpectedOutputLanguage, OutputLanguageMismatchError, outputLanguageInstruction } from "../domain/outputLanguage.js";
 import type { AdapterResult, DraftText, PlanPostSlice } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError } from "./providerErrors.js";
@@ -57,6 +58,7 @@ export class GeminiDraftAdapter implements DraftAdapter {
         return failure("GEMINI_DRAFT_OUTPUT_INVALID", "Gemini draft output was missing text.", false);
       }
       const draft = parseDraft(interaction.output_text, this.maxFullTextChars);
+      assertExpectedOutputLanguage(draftText(draft), params.outputLanguage);
       logger.info(
         { event: "gemini_draft_output_validated", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, draftLength: draft.fullText.length },
         "gemini draft output validated"
@@ -67,7 +69,11 @@ export class GeminiDraftAdapter implements DraftAdapter {
         { event: "gemini_draft_request_failed", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, errorCode: safeErrorCode(error) },
         "gemini draft request failed"
       );
-      return failure("GEMINI_DRAFT_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
+      return failure(
+        error instanceof OutputLanguageMismatchError ? "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" : "GEMINI_DRAFT_OUTPUT_INVALID",
+        safeMessage(error),
+        error instanceof OutputLanguageMismatchError ? false : isRetryableProviderError(error)
+      );
     }
   }
 
@@ -93,6 +99,7 @@ export class GeminiDraftAdapter implements DraftAdapter {
         return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", "Gemini draft revision output was missing text.", false);
       }
       const updatedDraft = parseDraft(interaction.output_text, this.maxFullTextChars);
+      assertExpectedOutputLanguage(draftText(updatedDraft), params.outputLanguage);
       logger.info(
         { event: "gemini_draft_revision_output_validated", projectId: params.projectId, modelLabel: this.input.model, draftLength: updatedDraft.fullText.length },
         "gemini draft revision output validated"
@@ -103,7 +110,11 @@ export class GeminiDraftAdapter implements DraftAdapter {
         { event: "gemini_draft_revision_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) },
         "gemini draft revision request failed"
       );
-      return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
+      return failure(
+        error instanceof OutputLanguageMismatchError ? "GEMINI_DRAFT_REVISION_OUTPUT_LANGUAGE_INVALID" : "GEMINI_DRAFT_REVISION_OUTPUT_INVALID",
+        safeMessage(error),
+        error instanceof OutputLanguageMismatchError ? false : isRetryableProviderError(error)
+      );
     }
   }
 }
@@ -122,40 +133,42 @@ export function createGeminiDraftClient(apiKey: string): GeminiDraftClient {
 function buildDraftPrompt(params: Parameters<ModelAdapters["generateDraft"]>[0] & { slice: PlanPostSlice }): string {
   const modeInstruction =
     params.rewriteMode === "clean_up"
-      ? "Clean up the transcript into a coherent Telegram draft while preserving wording, meaning, and tone as much as possible."
-      : "Turn the selected transcript material into a polished Telegram post while preserving facts, intent, and voice.";
-  const compactContext = params.compactContext?.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+      ? "\u0410\u043a\u043a\u0443\u0440\u0430\u0442\u043d\u043e \u043e\u0442\u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u0443\u0439 \u0440\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0443, \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0432 \u0441\u043c\u044b\u0441\u043b \u0438 \u0433\u043e\u043b\u043e\u0441 \u0430\u0432\u0442\u043e\u0440\u0430."
+      : "\u041f\u0440\u0435\u0432\u0440\u0430\u0442\u0438 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0432 \u0446\u0435\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u0441\u0442 Telegram, \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0432 \u0444\u0430\u043a\u0442\u044b, \u043d\u0430\u043c\u0435\u0440\u0435\u043d\u0438\u0435 \u0438 \u0433\u043e\u043b\u043e\u0441 \u0430\u0432\u0442\u043e\u0440\u0430.";
+  const compactContext = params.compactContext?.length
+    ? params.compactContext.map((item) => `- ${item}`).join("\n")
+    : "\u041f\u0440\u0435\u0434\u044b\u0434\u0443\u0449\u0438\u0445 \u043f\u0440\u0430\u0432\u043e\u043a \u043d\u0435\u0442.";
 
   return [
-    "Generate one complete Russian Telegram post draft for the selected plan slice.",
-    "Return only JSON that matches the schema.",
-    "The output must be a full replacement draft, not a patch or instructions.",
-    "Do not format as Option 1 or Option 2; formatting is a later stage.",
+    outputLanguageInstruction(params.outputLanguage),
+    "\u0421\u043e\u0437\u0434\u0430\u0439 \u043e\u0434\u0438\u043d \u043f\u043e\u043b\u043d\u044b\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u043f\u043e\u0441\u0442\u0430 Telegram \u0434\u043b\u044f \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u043e\u0433\u043e \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430 \u043f\u043b\u0430\u043d\u0430.",
+    "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u043f\u043e \u0441\u0445\u0435\u043c\u0435. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0437\u0430\u043c\u0435\u043d\u044f\u0442\u044c \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a, \u0430 \u043d\u0435 \u0431\u044b\u0442\u044c \u043f\u0430\u0442\u0447\u0435\u043c \u0438\u043b\u0438 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u0435\u0439.",
+    "\u041d\u0435 \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u0439 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 Option 1/Option 2: \u044d\u0442\u043e \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 \u044d\u0442\u0430\u043f.",
     modeInstruction,
-    `Post index: ${params.postIndex} of ${params.selectedPlan.postCount}`,
-    `Plan title: ${params.selectedPlan.title}`,
-    `Plan slice topic: ${params.slice.topic}`,
-    `Plan slice angle: ${params.slice.angle}`,
-    `Plan slice includes: ${params.slice.includes.join("; ")}`,
-    `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
-    `Compact edit context:\n${compactContext}`,
-    `Transcript:\n${params.transcript}`
+    `\u041d\u043e\u043c\u0435\u0440 \u043f\u043e\u0441\u0442\u0430: ${params.postIndex} \u0438\u0437 ${params.selectedPlan.postCount}`,
+    `\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u043f\u043b\u0430\u043d\u0430: ${params.selectedPlan.title}`,
+    `\u0422\u0435\u043c\u0430 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430: ${params.slice.topic}`,
+    `\u0420\u0430\u043a\u0443\u0440\u0441 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430: ${params.slice.angle}`,
+    `\u0412\u043a\u043b\u044e\u0447\u0438: ${params.slice.includes.join("; ")}`,
+    `\u041d\u0435 \u0432\u043a\u043b\u044e\u0447\u0430\u0439: ${(params.slice.excludes ?? []).join("; ") || "\u043d\u0435\u0442"}`,
+    `\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u0440\u0430\u0432\u043e\u043a:\n${compactContext}`,
+    `\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430:\n${params.transcript}`
   ].join("\n\n");
 }
 
 function buildDraftRevisionPrompt(params: Parameters<ModelAdapters["reviseDraft"]>[0]): string {
-  const compactContext = params.compactContext.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+  const compactContext = params.compactContext.length
+    ? params.compactContext.map((item) => `- ${item}`).join("\n")
+    : "\u041f\u0440\u0435\u0434\u044b\u0434\u0443\u0449\u0438\u0445 \u043f\u0440\u0430\u0432\u043e\u043a \u043d\u0435\u0442.";
 
   return [
-    "Revise the current Russian Telegram post draft using the latest user edit.",
-    "Return only JSON that matches the schema.",
-    "The output must be a full replacement draft, not a patch, diff, comments, or instructions.",
-    "Preserve Telegram-readable paragraph breaks when they make the draft easier to read.",
-    "Do not format as Option 1 or Option 2; formatting is a later stage.",
-    "Do not add channel publishing, final formatting, or unrelated workflow actions.",
-    `Compact edit context:\n${compactContext}`,
-    `Current draft:\n${params.currentDraft}`,
-    `Latest user edit:\n${params.latestUserEdit}`
+    outputLanguageInstruction(params.outputLanguage),
+    "\u041e\u0431\u043d\u043e\u0432\u0438 \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u043f\u043e\u0441\u0442\u0430 Telegram \u0441 \u0443\u0447\u0451\u0442\u043e\u043c \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0435\u0439 \u043f\u0440\u0430\u0432\u043a\u0438 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f.",
+    "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u043f\u043e \u0441\u0445\u0435\u043c\u0435. \u041d\u0443\u0436\u0435\u043d \u043f\u043e\u043b\u043d\u044b\u0439 \u0437\u0430\u043c\u0435\u043d\u044f\u044e\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a, \u043d\u0435 \u043f\u0430\u0442\u0447, \u043d\u0435 \u0434\u0438\u0444\u0444, \u043d\u0435 \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0438.",
+    "\u0421\u043e\u0445\u0440\u0430\u043d\u0438 \u0447\u0438\u0442\u0430\u0435\u043c\u044b\u0435 \u0430\u0431\u0437\u0430\u0446\u044b. \u041d\u0435 \u0434\u0435\u043b\u0430\u0439 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 Option 1/Option 2 \u0438 \u043d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0439 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044e \u0432 \u043a\u0430\u043d\u0430\u043b.",
+    `\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u0440\u0430\u0432\u043e\u043a:\n${compactContext}`,
+    `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a:\n${params.currentDraft}`,
+    `\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043f\u0440\u0430\u0432\u043a\u0430:\n${params.latestUserEdit}`
   ].join("\n\n");
 }
 
@@ -232,6 +245,10 @@ function optionalCleanStringArray(value: unknown, maxItems: number, maxLength: n
   return notes.length ? notes : undefined;
 }
 
+function draftText(draft: DraftText): Array<string | undefined> {
+  return [draft.fullText, draft.title, draft.body, draft.cta, ...(draft.notes ?? [])];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -241,12 +258,14 @@ function failure(code: string, message: string, retryable: boolean): AdapterResu
 }
 
 function safeMessage(error: unknown): string {
+  if (error instanceof OutputLanguageMismatchError) return "Draft output did not match the requested language.";
   if (error instanceof SyntaxError) return "Gemini draft output was not valid JSON.";
   if (error instanceof Error) return error.message.replace(/AIza[0-9A-Za-z_-]+/g, "[redacted]").slice(0, 500);
   return "Gemini draft request failed.";
 }
 
 function safeErrorCode(error: unknown): string {
+  if (error instanceof OutputLanguageMismatchError) return error.code;
   if (error instanceof SyntaxError) return "SyntaxError";
   if (error instanceof Error && error.name) return error.name.slice(0, 80);
   return "GEMINI_DRAFT_FAILED";

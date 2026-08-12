@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ModelAdapters } from "../domain/modelContracts.js";
+import { assertExpectedOutputLanguage, OutputLanguageMismatchError, outputLanguageInstruction } from "../domain/outputLanguage.js";
 import type { PlanOption, PlanPostSlice, PlanningConfidence, PlanningResult } from "../domain/types.js";
 import { isRetryableProviderError } from "./providerErrors.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
@@ -22,28 +23,33 @@ export class GeminiPlanningAdapter implements PlanSplitAdapter {
     try {
       const interaction = await this.input.client.create({
         model: this.input.model,
-        input: buildPlanPrompt(params.transcript, params.planningHistory),
+        input: buildPlanPrompt(params.transcript, params.planningHistory, params.outputLanguage),
         response_format: { type: "text", mime_type: "application/json", schema: planningSchema }
       });
       if (typeof interaction.output_text !== "string") return failure("GEMINI_PLAN_OUTPUT_INVALID", "Gemini planning output was missing text.", false);
       const recommendation = parsePlanningResult(interaction.output_text);
+      assertExpectedOutputLanguage(planText(recommendation), params.outputLanguage);
       logger.info({ event: "gemini_plan_output_validated", projectId: params.projectId, modelLabel: this.input.model, recommendedPostCount: recommendedPlan(recommendation).postCount, alternativeCount: recommendation.options.length - 1 }, "gemini planning output validated");
       return { ok: true, value: recommendation, meta: { provider: this.input.provider ?? "gemini", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn({ event: "gemini_plan_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) }, "gemini planning request failed");
-      return failure("GEMINI_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
+      return failure(
+        error instanceof OutputLanguageMismatchError ? "GEMINI_PLAN_OUTPUT_LANGUAGE_INVALID" : "GEMINI_PLAN_OUTPUT_INVALID",
+        safeMessage(error),
+        error instanceof OutputLanguageMismatchError ? false : isRetryableProviderError(error)
+      );
     }
   }
 
   async revisePlan(params: Parameters<ModelAdapters["revisePlan"]>[0]): ReturnType<ModelAdapters["revisePlan"]> {
     const history = [
-      "Current recommended plan: " + recommendedPlan(params.currentPlan).summary,
-      "Current rationale: " + params.currentPlan.recommendation.rationale,
-      "Latest user correction: " + params.latestUserEdit
+      "\u0422\u0435\u043a\u0443\u0449\u0430\u044f \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u043c\u0430\u044f \u0440\u0430\u0437\u0431\u0438\u0432\u043a\u0430: " + recommendedPlan(params.currentPlan).summary,
+      "\u0422\u0435\u043a\u0443\u0449\u0435\u0435 \u043e\u0431\u043e\u0441\u043d\u043e\u0432\u0430\u043d\u0438\u0435: " + params.currentPlan.recommendation.rationale,
+      "\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043f\u0440\u0430\u0432\u043a\u0430 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f: " + params.latestUserEdit
     ];
-    const result = await this.planSplit({ projectId: params.projectId, transcript: params.transcript, planningHistory: history });
+    const result = await this.planSplit({ projectId: params.projectId, transcript: params.transcript, planningHistory: history, outputLanguage: params.outputLanguage });
     if (!result.ok) return result;
-    return { ok: true, value: { ...result.value, changeSummary: "Plan recommendation regenerated from the latest correction." }, meta: result.meta };
+    return { ok: true, value: { ...result.value, changeSummary: "\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u044f \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0430 \u043f\u043e \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0435\u0439 \u043f\u0440\u0430\u0432\u043a\u0435." }, meta: result.meta };
   }
 }
 
@@ -52,17 +58,23 @@ export function createGeminiPlanningClient(apiKey: string): GeminiPlanningClient
   return { create(request) { return ai.interactions.create(request); } };
 }
 
-function buildPlanPrompt(transcript: string, planningHistory: string[]): string {
-  const history = planningHistory.length ? planningHistory.map((item) => "- " + item).join("\n") : "No planning revisions yet.";
+function buildPlanPrompt(
+  transcript: string,
+  planningHistory: string[],
+  outputLanguage: Parameters<ModelAdapters["planSplit"]>[0]["outputLanguage"]
+): string {
+  const history = planningHistory.length
+    ? planningHistory.map((item) => "- " + item).join("\n")
+    : "\u041f\u0440\u0430\u0432\u043e\u043a \u043f\u043b\u0430\u043d\u0430 \u0435\u0449\u0451 \u043d\u0435\u0442.";
   return [
-    "Assess the source before choosing whether it should become one, two, or three Russian Telegram posts.",
-    "Prefer one post for one coherent thesis, short story, one demonstration, or one complete argument.",
-    "Recommend a split only when every post is independently useful, non-repetitive, has its own hook and complete payoff, and improves clarity or reader attention.",
-    "Duration alone must never justify a split. Respect explicit user requests in planning history to split or keep one post.",
-    "Return exactly one recommended plan. Alternatives are optional and only allowed when materially meaningful; never manufacture options to cover all counts.",
-    "Return only JSON matching the schema. Do not copy long transcript passages.",
-    "Planning history:\n" + history,
-    "Transcript:\n" + transcript
+    outputLanguageInstruction(outputLanguage),
+    "\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u043e\u0446\u0435\u043d\u0438 \u0438\u0441\u0445\u043e\u0434\u043d\u0438\u043a \u0438 \u0437\u0430\u0442\u0435\u043c \u0432\u044b\u0431\u0435\u0440\u0438, \u0441\u0442\u043e\u0438\u0442 \u043b\u0438 \u043f\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u0442\u044c \u0435\u0433\u043e \u0432 \u043e\u0434\u0438\u043d, \u0434\u0432\u0430 \u0438\u043b\u0438 \u0442\u0440\u0438 \u043f\u043e\u0441\u0442\u0430 Telegram.",
+    "\u0415\u0441\u043b\u0438 \u0432 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0435 \u043e\u0434\u043d\u0430 \u0446\u0435\u043b\u044c\u043d\u0430\u044f \u043c\u044b\u0441\u043b\u044c, \u043a\u043e\u0440\u043e\u0442\u043a\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f, \u043e\u0434\u043d\u0430 \u0434\u0435\u043c\u043e\u043d\u0441\u0442\u0440\u0430\u0446\u0438\u044f \u0438\u043b\u0438 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0439 \u0430\u0440\u0433\u0443\u043c\u0435\u043d\u0442, \u043f\u0440\u0435\u0434\u043f\u043e\u0447\u0442\u0438 \u043e\u0434\u0438\u043d \u043f\u043e\u0441\u0442.",
+    "\u0420\u0430\u0437\u0431\u0438\u0432\u043a\u0430 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u0430 \u0442\u043e\u043b\u044c\u043a\u043e, \u0435\u0441\u043b\u0438 \u043a\u0430\u0436\u0434\u044b\u0439 \u043f\u043e\u0441\u0442 \u0441\u0430\u043c\u043e\u0441\u0442\u043e\u044f\u0442\u0435\u043b\u044c\u043d\u043e \u043f\u043e\u043b\u0435\u0437\u0435\u043d, \u043d\u0435 \u043f\u043e\u0432\u0442\u043e\u0440\u044f\u0435\u0442\u0441\u044f, \u0438\u043c\u0435\u0435\u0442 \u0441\u0432\u043e\u0439 \u0437\u0430\u0445\u0432\u0430\u0442 \u0432\u043d\u0438\u043c\u0430\u043d\u0438\u044f \u0438 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u0443\u044e \u043e\u0442\u0434\u0430\u0447\u0443. \u041e\u0434\u043d\u0430 \u0434\u043b\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0430\u0443\u0434\u0438\u043e \u043d\u0438\u043a\u043e\u0433\u0434\u0430 \u043d\u0435 \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u044f\u0435\u0442 \u0440\u0430\u0437\u0431\u0438\u0432\u043a\u0443.",
+    "\u0412\u0435\u0440\u043d\u0438 \u0440\u043e\u0432\u043d\u043e \u043e\u0434\u043d\u0443 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u043c\u0443\u044e \u0440\u0430\u0437\u0431\u0438\u0432\u043a\u0443. \u0410\u043b\u044c\u0442\u0435\u0440\u043d\u0430\u0442\u0438\u0432\u044b \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0439 \u0442\u043e\u043b\u044c\u043a\u043e, \u0435\u0441\u043b\u0438 \u043e\u043d\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u043e\u0441\u043c\u044b\u0441\u043b\u0435\u043d\u043d\u044b; \u043d\u0435 \u043f\u0440\u0438\u0434\u0443\u043c\u044b\u0432\u0430\u0439 \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u044b \u0440\u0430\u0434\u0438 \u0432\u0441\u0435\u0445 \u0447\u0438\u0441\u0435\u043b 1/2/3.",
+    "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u043f\u043e \u0441\u0445\u0435\u043c\u0435. \u041d\u0435 \u043a\u043e\u043f\u0438\u0440\u0443\u0439 \u0434\u043b\u0438\u043d\u043d\u044b\u0435 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u044b \u0440\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0438.",
+    "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f:\n" + history,
+    "\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430:\n" + transcript
   ].join("\n\n");
 }
 
@@ -123,6 +135,18 @@ function parsePostSlice(value: unknown): PlanPostSlice {
   if (!isRecord(value)) throw new Error("Planning post slice must be an object.");
   const excludes = value.excludes === undefined ? [] : cleanStringArray(value.excludes, 8, 160);
   return { index: parsePostIndex(value.index), topic: cleanString(value.topic, 160), angle: cleanString(value.angle, 240), includes: cleanStringArray(value.includes, 10, 160), excludes: excludes.length ? excludes : undefined };
+}
+
+function planText(plan: PlanningResult): string[] {
+  return [
+    plan.recommendation.rationale,
+    ...plan.options.flatMap((option) => [
+      option.title,
+      option.angle,
+      option.summary,
+      ...option.posts.flatMap((post) => [post.topic, post.angle, ...post.includes, ...(post.excludes ?? [])])
+    ])
+  ];
 }
 
 function parseConfidence(value: unknown): PlanningConfidence {

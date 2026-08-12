@@ -1,6 +1,7 @@
 import type { AudioProcessor } from "../audio/ffmpegAudioProcessor.js";
 import type { TempAudioStorage } from "../audio/tempAudioStorage.js";
 import type { AudioSourceMetadata, TranscriptionAdapter } from "../domain/audioTypes.js";
+import { resolveOutputLanguage } from "../domain/outputLanguage.js";
 import type { Job } from "../domain/jobTypes.js";
 import type { Logger } from "../observability/logger.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
@@ -59,6 +60,7 @@ export function createTranscribeEditAudioJobHandler(deps: {
       }
 
       if (payload.stateAtEdit === "planning") {
+        project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
         project.messages.push({ kind: "planning_edit", text: latestUserEdit, createdAt: new Date() });
         await deps.projects.save(project);
         await deps.jobs.enqueue({
@@ -68,6 +70,7 @@ export function createTranscribeEditAudioJobHandler(deps: {
           payload: { latestUserEdit }
         });
       } else {
+        project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
         const post = project.posts.find((item) => item.index === project.currentPostIndex);
         if (!post?.currentDraft) {
           throw new PermanentJobError("DRAFT_CURRENT_DRAFT_MISSING", "Current draft is required before voice revision.");

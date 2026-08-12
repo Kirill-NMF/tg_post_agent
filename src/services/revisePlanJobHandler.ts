@@ -14,7 +14,7 @@ export function createRevisePlanJobHandler(deps: { projects: ProjectRepository; 
     const latestUserEdit = parseEdit(job.payload); const project = await deps.projects.findById(job.projectId); const plan = project && currentPlan(project);
     if (!project?.isActive) throw new PermanentJobError("PROJECT_NOT_ACTIVE", "Project is no longer active.");
     if (project.state !== "planning" || !project.transcript?.trim() || !plan) throw new PermanentJobError("PLAN_REVISION_STALE", "Planning state changed before the voice edit could be applied.");
-    const result = await deps.planning.revisePlan({ projectId: project.id, transcript: project.transcript, currentPlan: plan, latestUserEdit });
+    const result = await deps.planning.revisePlan({ projectId: project.id, transcript: project.transcript, currentPlan: plan, latestUserEdit, outputLanguage: project.outputLanguage });
     if (!result.ok) throw result.error.retryable ? new RetryableJobError(result.error.code, result.error.message) : new PermanentJobError(result.error.code, result.error.message);
     storePlan(project, result.value); await deps.projects.save(project);
     const notificationStatus = await notify(deps, project, job.id);

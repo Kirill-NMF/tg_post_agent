@@ -21,6 +21,7 @@ export type ProjectState =
 export type RewriteMode = "clean_up" | "make_post";
 export type FormattingOption = "option_1" | "option_2";
 export type PlanOptionId = string;
+export type OutputLanguage = string;
 
 export type PlanningConfidence = "low" | "medium" | "high";
 
@@ -127,6 +128,7 @@ export type Project = {
   state: ProjectState;
   isActive: boolean;
   transcript?: string;
+  outputLanguage?: OutputLanguage;
   planOptions?: PlanOption[];
   planRecommendation?: PlanRecommendation;
   planAlternativesRevealed?: boolean;

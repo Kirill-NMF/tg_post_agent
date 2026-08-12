@@ -32,7 +32,7 @@ describeWithPostgres("PgProjectRepository", () => {
     await service.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
     await service.choosePlan("100", "recommended");
     await service.chooseRewriteMode("100", "make_post");
-    await service.reviseDraft("100", "shorten intro");
+    await service.reviseDraft("100", "\u041f\u0438\u0448\u0438 \u043f\u043e\u0441\u0442 \u043f\u043e-\u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u0438.");
     await service.openFormatChoice("100");
     await service.formatCurrentPost("100", "option_2");
     await service.finalizeCurrentPost("100");
@@ -43,6 +43,7 @@ describeWithPostgres("PgProjectRepository", () => {
     expect(activeProject?.selectedPlan?.postCount).toBe(1);
     expect(activeProject?.planRecommendation).toMatchObject({ recommendedOptionId: "recommended", confidence: "high" });
     expect(activeProject?.planOptions).toHaveLength(1);
+    expect(activeProject?.outputLanguage).toBe("en");
     expect(activeProject?.posts).toHaveLength(1);
     expect(activeProject?.posts[0]?.formattedText).toMatch(/^✨ Mock draft 1/);
     expect(activeProject?.posts[0]?.finalText).toBe(activeProject?.posts[0]?.formattedText);

@@ -3,6 +3,7 @@ import { sql, type SQL } from "drizzle-orm";
 import type { AppDb } from "../db/connection.js";
 import type {
   FormattingOption,
+  OutputLanguage,
   PlanOption,
   PlanPostSlice,
   PlanRecommendation,
@@ -210,6 +211,7 @@ export class PgProjectRepository implements ProjectRepository {
       state: row.active_state,
       isActive: row.is_active,
       transcript: row.transcript ?? undefined,
+      outputLanguage: planning.outputLanguage,
       planOptions: planning.options,
       planRecommendation: planning.recommendation,
       planAlternativesRevealed: planning.alternativesRevealed,
@@ -284,18 +286,19 @@ function fromMessageRow(row: MessageRow): ProjectMessage {
 
 function planPayload(project: Project): unknown {
   if (!project.planRecommendation) return project.planOptions;
-  return { options: project.planOptions ?? [], recommendation: project.planRecommendation, alternativesRevealed: project.planAlternativesRevealed === true };
+  return { options: project.planOptions ?? [], recommendation: project.planRecommendation, alternativesRevealed: project.planAlternativesRevealed === true, outputLanguage: project.outputLanguage };
 }
 
-function readPlanPayload(value: unknown): { options?: PlanOption[]; recommendation?: PlanRecommendation; alternativesRevealed?: boolean } {
+function readPlanPayload(value: unknown): { options?: PlanOption[]; recommendation?: PlanRecommendation; alternativesRevealed?: boolean; outputLanguage?: OutputLanguage } {
   if (!value) return {};
   if (Array.isArray(value)) return { options: value as PlanOption[] };
   if (typeof value !== "object") return {};
-  const record = value as { options?: unknown; recommendation?: unknown; alternativesRevealed?: unknown };
+  const record = value as { options?: unknown; recommendation?: unknown; alternativesRevealed?: unknown; outputLanguage?: unknown };
   return {
     options: Array.isArray(record.options) ? record.options as PlanOption[] : undefined,
     recommendation: record.recommendation && typeof record.recommendation === "object" ? record.recommendation as PlanRecommendation : undefined,
-    alternativesRevealed: record.alternativesRevealed === true
+    alternativesRevealed: record.alternativesRevealed === true,
+    outputLanguage: typeof record.outputLanguage === "string" ? record.outputLanguage as OutputLanguage : undefined
   };
 }
 

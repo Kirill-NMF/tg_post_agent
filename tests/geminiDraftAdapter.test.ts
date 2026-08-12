@@ -12,7 +12,8 @@ describe("GeminiDraftAdapter", () => {
       selectedPlan: planOption(),
       postIndex: 1,
       rewriteMode: "make_post",
-      transcript: "source transcript"
+      transcript: "source transcript",
+      outputLanguage: "en" as never
     });
 
     expect(result.ok).toBe(true);
@@ -175,7 +176,8 @@ function baseInput(): Parameters<GeminiDraftAdapter["generateDraft"]>[0] {
     selectedPlan: planOption(),
     postIndex: 1,
     rewriteMode: "make_post",
-    transcript: "source transcript"
+    transcript: "source transcript",
+    outputLanguage: "en" as never
   };
 }
 
@@ -184,7 +186,8 @@ function baseReviseInput(): Parameters<GeminiDraftAdapter["reviseDraft"]>[0] {
     projectId: "project-1",
     currentDraft: "Current draft text",
     latestUserEdit: "Make the intro sharper",
-    compactContext: ["Earlier edit"]
+    compactContext: ["Earlier edit"],
+    outputLanguage: "en" as never
   };
 }
 

@@ -18,7 +18,7 @@ export function createPlanSplitJobHandler(deps: PlanSplitJobHandlerDeps): JobHan
     if (!project || !project.isActive) throw new PermanentJobError("PROJECT_NOT_ACTIVE", "Project is no longer active.");
     if (!project.transcript?.trim()) throw new PermanentJobError("PLAN_TRANSCRIPT_MISSING", "Project transcript is required before planning.");
     logger.info({ event: "plan_split_started", jobId: job.id, projectId: job.projectId }, "plan split started");
-    const result = await deps.planning.planSplit({ projectId: project.id, transcript: project.transcript, planningHistory: planningHistory(project) });
+    const result = await deps.planning.planSplit({ projectId: project.id, transcript: project.transcript, planningHistory: planningHistory(project), outputLanguage: project.outputLanguage });
     if (!result.ok) {
       if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
       await recoverFromPermanentPlanFailure(deps, project, job.id, result.error.code);
@@ -48,7 +48,7 @@ async function recoverFromPermanentPlanFailure(deps: PlanSplitJobHandlerDeps, pr
   project.planOptions = undefined; project.planRecommendation = undefined; project.planAlternativesRevealed = undefined; project.selectedPlan = undefined; project.posts = []; project.currentPostIndex = undefined; project.state = "awaiting_audio";
   await deps.projects.save(project);
   if (!deps.notifier) return;
-  try { await deps.notifier.sendMessage(project.chatId, "Не удалось подготовить варианты плана. Пришлите аудио ещё раз или начните новый проект командой /start."); }
+  try { await deps.notifier.sendMessage(project.chatId, errorCode === "GEMINI_PLAN_OUTPUT_LANGUAGE_INVALID" ? "Не удалось подготовить план на нужном языке. Пришлите аудио ещё раз или начните новый проект командой /start." : "Не удалось подготовить варианты плана. Пришлите аудио ещё раз или начните новый проект командой /start."); }
   catch { deps.logger?.warn({ event: "plan_split_failure_notification_failed", jobId, projectId: project.id, errorCode }, "plan split recovery notification failed"); }
 }
 async function notifyPlan(deps: PlanSplitJobHandlerDeps, project: Project, plan: PlanningResult, jobId: string): Promise<"not_configured" | "sent" | "failed"> {

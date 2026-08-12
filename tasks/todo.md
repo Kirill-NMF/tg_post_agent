@@ -202,6 +202,15 @@ Phase 10 real edit-audio transcription has passed automated production preflight
 - [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram.
 
+## Stage 2 Output Language Repair
+
+- [x] Default planning, plan revision, draft generation, and draft revision to Russian.
+- [x] Preserve an explicit user-selected alternative language as a project-level preference in existing JSON persistence.
+- [x] Keep names, brands, URLs, quotes, and technical terms in their appropriate original spelling; do not mutate transcripts.
+- [x] Reject clearly English output under the default Russian policy without an automatic paid retry/fallback.
+- [x] Add mocked prompt/guard, persistence, and redaction tests.
+- [ ] Mandatory 3/3 owner manual acceptance: clean `/start` flow produces Russian plan/draft/revision output.
+
 ## Provider Routing Foundation
 
 - [x] Add OpenRouter-first configuration for Stage 1 transcription and Stage 2 planning/drafts.
