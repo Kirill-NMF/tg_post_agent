@@ -163,3 +163,21 @@ Phase 8 should add the rewrite/draft stage over the selected plan. Do not add re
 ## Next Gate After Phase 8
 
 Phase 9 should add the draft revision/edit loop over the saved current draft. Do not add real formatting or channel publishing before the matching phase approval.
+
+## Phase 9. Gemini Draft Revision/Edit Loop
+
+- [x] Extend the Gemini draft adapter for the `reviseDraft` contract.
+- [x] Validate revision JSON as untrusted model output, including malformed, empty, wrong-shape, and unbounded output.
+- [x] Preserve Telegram-readable paragraph breaks in revised drafts.
+- [x] Add a `REVISE_DRAFT` job handler that persists full replacement drafts and keeps projects in `draft_editing`.
+- [x] Send revised drafts with an inline `Оформить` button without rolling back state on notification failure.
+- [x] Enqueue `REVISE_DRAFT` from text draft edits when a job repository is configured.
+- [x] Preserve the synchronous mock draft revision path when no job repository is configured.
+- [x] Avoid fake production voice-edit transcription while real edit-audio transcription is not implemented.
+- [x] Wire the worker handler factory for `REVISE_DRAFT` without adding formatting or other provider integrations.
+- [x] Add tests for adapter validation, job persistence/delivery, notification failure, service/router enqueue paths, and production voice-edit guard.
+- [x] Stop before real formatting adapters, edit-audio real transcription, channel publishing, frontend, mini app, Telethon, Docker/systemd, Redis/BullMQ/S3, or custom emoji.
+
+## Next Gate After Phase 9
+
+The next approved slice should add real edit-audio transcription for plan/draft/formatting corrections and/or the formatting choice foundation. Do not add real formatting, publishing, or broader deployment work without the matching phase approval.

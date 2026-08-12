@@ -228,3 +228,9 @@ After transcript persistence, `TRANSCRIBE_AUDIO` now enqueues `PLAN_SPLIT` with 
 When a user chooses `Почистить` or `Сделать пост`, the production path saves `rewrite_mode`, moves the project to `draft_generating`, and enqueues `GENERATE_DRAFT` with `dedupe_key = project:{id}:post:{index}:draft:{rewriteMode}`. The no-job path continues to use mock synchronous draft generation for unit and smoke flows.
 
 `GENERATE_DRAFT` calls the Gemini draft adapter for the selected post slice only, validates a full replacement draft as untrusted structured JSON, persists `project_posts.current_draft`, appends a `draft` history message, moves the project to `draft_editing`, and sends the draft with the `Оформить` button. If Telegram delivery fails after persistence, the job still succeeds with `notificationStatus = failed`; the saved draft is not rolled back or regenerated only for delivery.
+
+## Phase 9 Implementation Note
+
+`REVISE_DRAFT` is now wired through the worker handler factory with the same Gemini draft adapter/model as generation. Text draft edits enqueue a durable revision job when a job repository is configured; the handler validates a bounded edit instruction, replaces the full `current_draft` only after valid model output, keeps the project in `draft_editing`, and sends the updated draft with the `Оформить` button after persistence.
+
+Voice edit audio remains gated in production job mode until the real edit-audio transcription slice is approved. The no-job mock path still accepts mock voice edits for local skeleton tests.

@@ -90,6 +90,53 @@ describe("ProjectService mock state machine", () => {
     });
   });
 
+  it("enqueues draft revision instead of mutating the draft synchronously when jobs are configured", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const project = await seedDraftEditingProject(repository);
+
+    const response = await projects.reviseDraft("100", "shorten intro");
+
+    expect(message(response[0]).text).toContain("обновляю черновик");
+    const updated = await repository.findById(project.id);
+    expect(updated?.state).toBe("draft_editing");
+    expect(updated?.posts[0]?.currentDraft).toBe("Current draft");
+    expect(updated?.messages.at(-1)).toMatchObject({ kind: "draft_edit", text: "shorten intro" });
+    const job = await jobs.claimNextDue({ workerId: "worker-1" });
+    expect(job).toMatchObject({
+      type: "REVISE_DRAFT",
+      projectId: project.id,
+      postId: "post-1",
+      dedupeKey: `project:${project.id}:post:1:revise-draft:latest`,
+      payload: { postIndex: 1, latestUserEdit: "shorten intro" }
+    });
+  });
+
+  it("keeps the no-job mock path revising drafts synchronously", async () => {
+    const repository = new InMemoryProjectRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters());
+    await seedDraftEditingProject(repository);
+
+    const revised = await projects.reviseDraft("100", "shorten intro");
+
+    expect(message(revised[0]).text).toContain("Applied edit: shorten intro");
+    expect((await projects.getActiveProject("100"))?.posts[0]?.currentDraft).toContain("Applied edit: shorten intro");
+  });
+
+  it("does not use mock voice edit transcription in production job mode", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const project = await seedDraftEditingProject(repository);
+
+    const response = await projects.handleEditAudio("100", { kind: "voice", telegramFileId: "edit-file-id" });
+
+    expect(message(response[0]).text).toContain("Напишите правку текстом");
+    expect((await repository.findById(project.id))?.posts[0]?.currentDraft).toBe("Current draft");
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toBeUndefined();
+  });
+
   it("routes voice edits through the current state stub transcription", async () => {
     const { projects } = service();
 
@@ -120,6 +167,27 @@ async function seedRewriteProject(repository: InMemoryProjectRepository): Promis
     planOptions: [selectedPlan],
     selectedPlan,
     posts: [{ id: "post-1", index: 1, planSlice: selectedPlan.posts[0] }],
+    currentPostIndex: 1,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  await repository.save(project);
+  return project;
+}
+
+async function seedDraftEditingProject(repository: InMemoryProjectRepository): Promise<Project> {
+  const selectedPlan = planOption();
+  const project: Project = {
+    id: "project-1",
+    telegramUserId: "100",
+    chatId: "200",
+    state: "draft_editing",
+    isActive: true,
+    transcript: "REAL TRANSCRIPT",
+    selectedPlan,
+    rewriteMode: "make_post",
+    posts: [{ id: "post-1", index: 1, planSlice: selectedPlan.posts[0], currentDraft: "Current draft" }],
     currentPostIndex: 1,
     messages: [],
     createdAt: new Date(),

@@ -147,6 +147,12 @@ export class ProjectService {
     }
 
     project.messages.push(message("draft_edit", latestUserEdit));
+    if (this.jobs) {
+      await this.enqueueDraftRevision(project, post, latestUserEdit);
+      await this.projects.save(project);
+      return [{ kind: "message", text: "Принял правку, обновляю черновик." }];
+    }
+
     const updated = await unwrap(
       this.models.reviseDraft({ projectId: project.id, currentDraft: post.currentDraft, latestUserEdit, compactContext: recentEditMessages(project) })
     );
@@ -268,6 +274,9 @@ export class ProjectService {
     if (!["planning", "draft_editing", "formatted_editing"].includes(project.state)) {
       return [{ kind: "message", text: "Voice-правка сейчас не ожидается." }];
     }
+    if (this.jobs) {
+      return [{ kind: "message", text: "Голосовые правки пока не подключены в рабочем режиме. Напишите правку текстом." }];
+    }
 
     const edit = await unwrap(
       this.models.transcribeEdit({
@@ -322,6 +331,17 @@ export class ProjectService {
       postId: post.id,
       dedupeKey: `project:${project.id}:post:${project.currentPostIndex}:draft:${project.rewriteMode}`,
       payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode }
+    });
+  }
+
+  private async enqueueDraftRevision(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, latestUserEdit: string): Promise<void> {
+    if (!this.jobs) throw new Error("Cannot enqueue draft revision without job repository.");
+    await this.jobs.enqueue({
+      type: "REVISE_DRAFT",
+      projectId: project.id,
+      postId: post.id,
+      dedupeKey: `project:${project.id}:post:${post.index}:revise-draft:latest`,
+      payload: { postIndex: post.index, latestUserEdit }
     });
   }
 }

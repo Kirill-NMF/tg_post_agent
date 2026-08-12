@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ModelAdapters } from "../domain/modelContracts.js";
-import type { DraftText, PlanPostSlice } from "../domain/types.js";
+import type { AdapterResult, DraftText, PlanPostSlice } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 
-export type GenerateDraftAdapter = Pick<ModelAdapters, "generateDraft">;
+export type DraftAdapter = Pick<ModelAdapters, "generateDraft" | "reviseDraft">;
 
 export type GeminiDraftInteractionRequest = {
   model: string;
@@ -19,7 +19,7 @@ export type GeminiDraftClient = {
   create(request: GeminiDraftInteractionRequest): Promise<{ output_text?: unknown }>;
 };
 
-export class GeminiDraftAdapter implements GenerateDraftAdapter {
+export class GeminiDraftAdapter implements DraftAdapter {
   private readonly maxFullTextChars: number;
 
   constructor(
@@ -68,6 +68,42 @@ export class GeminiDraftAdapter implements GenerateDraftAdapter {
       return failure("GEMINI_DRAFT_OUTPUT_INVALID", safeMessage(error), true);
     }
   }
+
+  async reviseDraft(params: Parameters<ModelAdapters["reviseDraft"]>[0]): ReturnType<ModelAdapters["reviseDraft"]> {
+    if (!params.currentDraft.trim()) return failure("GEMINI_DRAFT_CURRENT_DRAFT_EMPTY", "Current draft is required for draft revision.", false);
+    if (!params.latestUserEdit.trim()) return failure("GEMINI_DRAFT_EDIT_EMPTY", "Latest user edit is required for draft revision.", false);
+    if (params.latestUserEdit.length > 2000) return failure("GEMINI_DRAFT_EDIT_TOO_LONG", "Latest user edit exceeds the configured length limit.", false);
+
+    const logger = this.input.logger ?? noopLogger;
+    logger.info({ event: "gemini_draft_revision_request_started", projectId: params.projectId, modelLabel: this.input.model }, "gemini draft revision request started");
+
+    try {
+      const interaction = await this.input.client.create({
+        model: this.input.model,
+        input: buildDraftRevisionPrompt(params),
+        response_format: {
+          type: "text",
+          mime_type: "application/json",
+          schema: draftSchema
+        }
+      });
+      if (typeof interaction.output_text !== "string") {
+        return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", "Gemini draft revision output was missing text.", true);
+      }
+      const updatedDraft = parseDraft(interaction.output_text, this.maxFullTextChars);
+      logger.info(
+        { event: "gemini_draft_revision_output_validated", projectId: params.projectId, modelLabel: this.input.model, draftLength: updatedDraft.fullText.length },
+        "gemini draft revision output validated"
+      );
+      return { ok: true, value: { updatedDraft }, meta: { provider: "gemini", modelLabel: this.input.model } };
+    } catch (error) {
+      logger.warn(
+        { event: "gemini_draft_revision_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) },
+        "gemini draft revision request failed"
+      );
+      return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", safeMessage(error), true);
+    }
+  }
 }
 
 export function createGeminiDraftClient(apiKey: string): GeminiDraftClient {
@@ -102,6 +138,22 @@ function buildDraftPrompt(params: Parameters<ModelAdapters["generateDraft"]>[0] 
     `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
     `Compact edit context:\n${compactContext}`,
     `Transcript:\n${params.transcript}`
+  ].join("\n\n");
+}
+
+function buildDraftRevisionPrompt(params: Parameters<ModelAdapters["reviseDraft"]>[0]): string {
+  const compactContext = params.compactContext.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+
+  return [
+    "Revise the current Russian Telegram post draft using the latest user edit.",
+    "Return only JSON that matches the schema.",
+    "The output must be a full replacement draft, not a patch, diff, comments, or instructions.",
+    "Preserve Telegram-readable paragraph breaks when they make the draft easier to read.",
+    "Do not format as Option 1 or Option 2; formatting is a later stage.",
+    "Do not add channel publishing, final formatting, or unrelated workflow actions.",
+    `Compact edit context:\n${compactContext}`,
+    `Current draft:\n${params.currentDraft}`,
+    `Latest user edit:\n${params.latestUserEdit}`
   ].join("\n\n");
 }
 
@@ -182,7 +234,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function failure(code: string, message: string, retryable: boolean): ReturnType<ModelAdapters["generateDraft"]> extends Promise<infer Result> ? Result : never {
+function failure(code: string, message: string, retryable: boolean): AdapterResult<never> {
   return { ok: false, error: { code, message: message.slice(0, 500), retryable } };
 }
 

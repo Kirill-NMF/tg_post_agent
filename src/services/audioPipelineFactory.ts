@@ -11,6 +11,7 @@ import { TelegramFileClient } from "../telegram/telegramFileClient.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { createGenerateDraftJobHandler } from "./generateDraftJobHandler.js";
 import { createPlanSplitJobHandler } from "./planSplitJobHandler.js";
+import { createReviseDraftJobHandler } from "./reviseDraftJobHandler.js";
 import { createTranscribeAudioJobHandler } from "./transcribeAudioJobHandler.js";
 
 export function createAudioPipelineHandlers(input: { config: AppConfig; projects: ProjectRepository; jobs?: JobRepository; notifier?: TelegramNotifier; logger?: Logger }) {
@@ -20,6 +21,11 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
   if (!input.config.geminiApiKey) {
     throw new Error("GEMINI_API_KEY is required to create the real planning and draft handlers.");
   }
+  const draftAdapter = new GeminiDraftAdapter({
+    client: createGeminiDraftClient(input.config.geminiApiKey),
+    model: input.config.geminiDraftModel,
+    logger: input.logger
+  });
 
   return {
     TRANSCRIBE_AUDIO: createTranscribeAudioJobHandler({
@@ -51,11 +57,13 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
     }),
     GENERATE_DRAFT: createGenerateDraftJobHandler({
       projects: input.projects,
-      drafting: new GeminiDraftAdapter({
-        client: createGeminiDraftClient(input.config.geminiApiKey),
-        model: input.config.geminiDraftModel,
-        logger: input.logger
-      }),
+      drafting: draftAdapter,
+      notifier: input.notifier,
+      logger: input.logger
+    }),
+    REVISE_DRAFT: createReviseDraftJobHandler({
+      projects: input.projects,
+      drafting: draftAdapter,
       notifier: input.notifier,
       logger: input.logger
     })

@@ -55,6 +55,34 @@ describe("BotRouter", () => {
     expect((await jobs.claimNextDue({ workerId: "worker-1" }))?.type).toBe("GENERATE_DRAFT");
   });
 
+  it("routes draft text edits to revision job enqueue path when jobs are configured", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projectService = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const botRouter = new BotRouter(new TelegramAuthService(new Set(["100"])), projectService);
+    await seedDraftEditingProject(repository);
+
+    const response = await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "shorten intro" });
+
+    expect(message(response[0]).text).toContain("обновляю черновик");
+    const job = await jobs.claimNextDue({ workerId: "worker-1" });
+    expect(job).toMatchObject({ type: "REVISE_DRAFT", payload: { latestUserEdit: "shorten intro" } });
+    expect((await repository.findActiveByTelegramUser("100"))?.posts[0]?.currentDraft).toBe("Current draft");
+  });
+
+  it("routes production draft voice edits to text-edit guidance without mock transcription", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projectService = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const botRouter = new BotRouter(new TelegramAuthService(new Set(["100"])), projectService);
+    await seedDraftEditingProject(repository);
+
+    const response = await botRouter.handleAudio({ telegramUserId: "100", chatId: "200", audio: { kind: "voice", telegramFileId: "edit-voice-id" } });
+
+    expect(message(response[0]).text).toContain("Напишите правку текстом");
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toBeUndefined();
+  });
+
   it("returns fallback router text without mojibake", async () => {
     const botRouter = router();
     const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "unknown:action" }))[0]);
@@ -81,6 +109,27 @@ async function seedRewriteProject(repository: InMemoryProjectRepository): Promis
     planOptions: [selectedPlan],
     selectedPlan,
     posts: [{ id: "post-1", index: 1, planSlice: selectedPlan.posts[0] }],
+    currentPostIndex: 1,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  await repository.save(project);
+  return project;
+}
+
+async function seedDraftEditingProject(repository: InMemoryProjectRepository): Promise<Project> {
+  const selectedPlan = planOption();
+  const project: Project = {
+    id: "project-1",
+    telegramUserId: "100",
+    chatId: "200",
+    state: "draft_editing",
+    isActive: true,
+    transcript: "REAL TRANSCRIPT",
+    selectedPlan,
+    rewriteMode: "make_post",
+    posts: [{ id: "post-1", index: 1, planSlice: selectedPlan.posts[0], currentDraft: "Current draft" }],
     currentPostIndex: 1,
     messages: [],
     createdAt: new Date(),

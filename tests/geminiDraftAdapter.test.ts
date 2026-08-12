@@ -97,6 +97,76 @@ describe("GeminiDraftAdapter", () => {
     expect(logs).not.toContain("SECRET USER EDIT");
     expect(logs).not.toContain("LEAKY MODEL DRAFT");
   });
+
+  it("maps valid revision JSON to a full updated draft", async () => {
+    const adapter = new GeminiDraftAdapter({ client: fakeClient(validOutput("Updated draft text")), model: "gemini-2.5-pro" });
+
+    const result = await adapter.reviseDraft(baseReviseInput());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.meta).toMatchObject({ provider: "gemini", modelLabel: "gemini-2.5-pro" });
+    expect(result.value.updatedDraft.fullText).toBe("Updated draft text");
+  });
+
+  it("preserves paragraph breaks in revised draft full text and body", async () => {
+    const adapter = new GeminiDraftAdapter({
+      client: fakeClient(
+        JSON.stringify({
+          full_text: "  First revised paragraph\r\n\r\nSecond revised paragraph\n\n\nThird revised paragraph  ",
+          body: "  Body one\r\n\r\nBody two  "
+        })
+      ),
+      model: "gemini-2.5-pro"
+    });
+
+    const result = await adapter.reviseDraft(baseReviseInput());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.updatedDraft.fullText).toBe("First revised paragraph\n\nSecond revised paragraph\n\nThird revised paragraph");
+    expect(result.value.updatedDraft.body).toBe("Body one\n\nBody two");
+  });
+
+  it("rejects malformed revision JSON", async () => {
+    const adapter = new GeminiDraftAdapter({ client: fakeClient("{not json"), model: "gemini-2.5-pro" });
+
+    const result = await adapter.reviseDraft(baseReviseInput());
+
+    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_DRAFT_REVISION_OUTPUT_INVALID", retryable: true } });
+  });
+
+  it("rejects empty, unbounded, or unknown-field revision output", async () => {
+    const empty = new GeminiDraftAdapter({ client: fakeClient(JSON.stringify({ full_text: "   " })), model: "gemini-2.5-pro" });
+    const overLimit = new GeminiDraftAdapter({ client: fakeClient(JSON.stringify({ full_text: "x".repeat(101) })), model: "gemini-2.5-pro", maxFullTextChars: 100 });
+    const unknown = new GeminiDraftAdapter({ client: fakeClient(JSON.stringify({ full_text: "Updated draft", markdown_entities: [] })), model: "gemini-2.5-pro" });
+
+    await expect(empty.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
+    await expect(overLimit.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
+    await expect(unknown.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
+  });
+
+  it("does not log current draft, latest edit, user context, or raw revision output", async () => {
+    const logger = new CapturingLogger();
+    const adapter = new GeminiDraftAdapter({
+      client: fakeClient(validOutput("LEAKY REVISED DRAFT")),
+      model: "gemini-2.5-pro",
+      logger
+    });
+
+    await adapter.reviseDraft({
+      ...baseReviseInput(),
+      currentDraft: "SECRET CURRENT DRAFT",
+      latestUserEdit: "SECRET USER EDIT",
+      compactContext: ["SECRET CONTEXT"]
+    });
+
+    const logs = JSON.stringify(logger.entries);
+    expect(logs).not.toContain("SECRET CURRENT DRAFT");
+    expect(logs).not.toContain("SECRET USER EDIT");
+    expect(logs).not.toContain("SECRET CONTEXT");
+    expect(logs).not.toContain("LEAKY REVISED DRAFT");
+  });
 });
 
 function baseInput(): Parameters<GeminiDraftAdapter["generateDraft"]>[0] {
@@ -106,6 +176,15 @@ function baseInput(): Parameters<GeminiDraftAdapter["generateDraft"]>[0] {
     postIndex: 1,
     rewriteMode: "make_post",
     transcript: "source transcript"
+  };
+}
+
+function baseReviseInput(): Parameters<GeminiDraftAdapter["reviseDraft"]>[0] {
+  return {
+    projectId: "project-1",
+    currentDraft: "Current draft text",
+    latestUserEdit: "Make the intro sharper",
+    compactContext: ["Earlier edit"]
   };
 }
 
