@@ -35,3 +35,8 @@ After Phase 9 is accepted, choose whether to implement real edit-audio transcrip
 Current owner focus: 2/3.
 
 Reason: this is mostly state-machine and worker correctness. Manual Telegram testing becomes more valuable after real edit-audio transcription and Stage 3 formatting.
+
+
+Accepted owner attention policy: use `docs/dashboard/owner-acceptance-policy.md` for all future phases. The agent must run realistic basic and medium-frequency tests for 2/3 phases, using unit/integration and Telethon where Telegram UI is touched. For 3/3 phases, the agent must prepare preflight evidence and then stop for explicit owner acceptance.
+
+Credential gate: create the development Telegram bot in BotFather after Phase 9 is accepted and before Phase 10 begins. Store `BOT_TOKEN` only in VPS environment/secrets and keep real tokens out of git and logs.

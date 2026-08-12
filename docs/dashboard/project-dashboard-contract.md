@@ -31,6 +31,12 @@ The dashboard can summarize and link these sources. It must not invent hidden st
 
 Every non-trivial phase should record phase id, product stage, status, owner focus, automated checks, manual owner checks, Telethon relevance, and deferred risks.
 
+Owner focus must follow `docs/dashboard/owner-acceptance-policy.md`:
+
+- 1/3 means agent-owned validation and owner background awareness;
+- 2/3 means agent-owned unit/integration plus Telethon where Telegram UI is touched, followed by owner logic review;
+- 3/3 means an explicit owner acceptance gate after agent preflight and Telethon evidence.
+
 ## Quality Gates
 
 Baseline gates for code phases:
@@ -49,6 +55,10 @@ Future Telegram gates:
 - light real Telegram smoke after deployment-sensitive bot/runtime changes;
 - focused Telethon smoke after real edit-audio transcription;
 - full Telethon E2E after Stage 3 formatting and final artifact generation.
+
+Paid model calls are not part of the default automated test tree. Use fake/staging providers by default and run live model canaries only with owner approval or a tiny checkpoint canary.
+
+Create the development BotFather bot after Phase 9 is accepted and before Phase 10 begins. Store the token only in VPS environment/secrets.
 
 ## Update Rule
 
