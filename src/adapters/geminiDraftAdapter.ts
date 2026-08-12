@@ -127,11 +127,11 @@ function parseDraft(raw: string, maxFullTextChars: number): DraftText {
     if (!allowedDraftKeys.has(key)) throw new Error("Draft output contains an unsupported field.");
   }
 
-  const fullText = cleanString(parsed.full_text, maxFullTextChars, "full_text");
+  const fullText = cleanMultilineString(parsed.full_text, maxFullTextChars, "full_text");
   return {
     fullText,
     title: optionalCleanString(parsed.title, 180, "title"),
-    body: optionalCleanString(parsed.body, maxFullTextChars, "body"),
+    body: optionalCleanMultilineString(parsed.body, maxFullTextChars, "body"),
     cta: optionalCleanString(parsed.cta, 280, "cta"),
     notes: optionalCleanStringArray(parsed.notes, 8, 180)
   };
@@ -148,6 +148,26 @@ function cleanString(value: unknown, maxLength: number, fieldName: string): stri
 function optionalCleanString(value: unknown, maxLength: number, fieldName: string): string | undefined {
   if (value === undefined) return undefined;
   return cleanString(value, maxLength, fieldName);
+}
+
+function cleanMultilineString(value: unknown, maxLength: number, fieldName: string): string {
+  if (typeof value !== "string") throw new Error(`Draft ${fieldName} must be a string.`);
+  const cleaned = value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, "").replace(/^[ \t]+/g, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!cleaned) throw new Error(`Draft ${fieldName} must not be empty.`);
+  if (cleaned.length > maxLength) throw new Error(`Draft ${fieldName} exceeds the configured length limit.`);
+  return cleaned;
+}
+
+function optionalCleanMultilineString(value: unknown, maxLength: number, fieldName: string): string | undefined {
+  if (value === undefined) return undefined;
+  return cleanMultilineString(value, maxLength, fieldName);
 }
 
 function optionalCleanStringArray(value: unknown, maxItems: number, maxLength: number): string[] | undefined {

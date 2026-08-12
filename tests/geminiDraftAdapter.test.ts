@@ -22,6 +22,31 @@ describe("GeminiDraftAdapter", () => {
     expect(result.value.draft.notes).toEqual(["safe note"]);
   });
 
+  it("preserves Telegram-readable paragraph breaks in full text and body", async () => {
+    const adapter = new GeminiDraftAdapter({
+      client: fakeClient(
+        JSON.stringify({
+          full_text: "  First paragraph\r\n\r\nSecond paragraph\n\n\nThird paragraph  ",
+          title: " Draft title ",
+          body: "  Body intro\r\n\r\nBody outro  ",
+          cta: " CTA ",
+          notes: [" safe note "]
+        })
+      ),
+      model: "gemini-2.5-pro"
+    });
+
+    const result = await adapter.generateDraft(baseInput());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.draft.fullText).toBe("First paragraph\n\nSecond paragraph\n\nThird paragraph");
+    expect(result.value.draft.body).toBe("Body intro\n\nBody outro");
+    expect(result.value.draft.title).toBe("Draft title");
+    expect(result.value.draft.cta).toBe("CTA");
+    expect(result.value.draft.notes).toEqual(["safe note"]);
+  });
+
   it("rejects malformed JSON", async () => {
     const adapter = new GeminiDraftAdapter({ client: fakeClient("{not json"), model: "gemini-2.5-pro" });
 
