@@ -42,3 +42,5 @@ Credential Gate: passed. The development bot runtime uses VPS-only secrets; no t
 ## Phase 10 Preflight
 
 Automated preflight is complete for voice corrections in planning and draft_editing only. The production path transcribes temporary edit audio, rejects stale state before applying it, and routes bounded saved edit text to real Gemini revise-plan or draft-revision jobs. Voice corrections in formatted_editing are deferred to Stage 3. Mandatory 3/3 real-Telegram owner acceptance is pending; Phase 10 is not closed.
+
+Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
