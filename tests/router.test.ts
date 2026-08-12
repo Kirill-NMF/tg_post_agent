@@ -68,6 +68,11 @@ describe("BotRouter", () => {
     const job = await jobs.claimNextDue({ workerId: "worker-1" });
     expect(job).toMatchObject({ type: "REVISE_DRAFT", payload: { latestUserEdit: "shorten intro" } });
     expect((await repository.findActiveByTelegramUser("100"))?.posts[0]?.currentDraft).toBe("Current draft");
+    expect((await repository.findActiveByTelegramUser("100"))?.state).toBe("draft_generating");
+
+    const staleFormat = await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "format:open" });
+    expect(message(staleFormat[0]).buttons).toBeUndefined();
+    expect((await repository.findActiveByTelegramUser("100"))?.state).toBe("draft_generating");
   });
 
   it("routes production draft voice edits to text-edit guidance without mock transcription", async () => {

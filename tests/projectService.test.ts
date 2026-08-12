@@ -100,9 +100,14 @@ describe("ProjectService mock state machine", () => {
 
     expect(message(response[0]).text).toContain("обновляю черновик");
     const updated = await repository.findById(project.id);
-    expect(updated?.state).toBe("draft_editing");
+    expect(updated?.state).toBe("draft_generating");
     expect(updated?.posts[0]?.currentDraft).toBe("Current draft");
     expect(updated?.messages.at(-1)).toMatchObject({ kind: "draft_edit", text: "shorten intro" });
+
+    const staleFormat = await projects.openFormatChoice("100");
+    expect(message(staleFormat[0]).buttons).toBeUndefined();
+    expect((await repository.findById(project.id))?.state).toBe("draft_generating");
+
     const job = await jobs.claimNextDue({ workerId: "worker-1" });
     expect(job).toMatchObject({
       type: "REVISE_DRAFT",

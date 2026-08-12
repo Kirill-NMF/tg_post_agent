@@ -84,7 +84,7 @@ async function seedDraftEditingProject(projects: InMemoryProjectRepository, over
     id: "project-1",
     telegramUserId: "100",
     chatId: "200",
-    state: "draft_editing",
+    state: "draft_generating",
     isActive: true,
     transcript: "REAL TRANSCRIPT",
     selectedPlan,

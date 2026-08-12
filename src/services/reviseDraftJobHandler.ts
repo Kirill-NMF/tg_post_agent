@@ -24,7 +24,7 @@ export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): Jo
     const logger = deps.logger ?? noopLogger;
     const project = await deps.projects.findById(job.projectId);
     if (!project || !project.isActive) throw new PermanentJobError("PROJECT_NOT_ACTIVE", "Project is no longer active.");
-    if (project.state !== "draft_editing") throw new PermanentJobError("PROJECT_STATE_INVALID", "Project is not waiting for draft revision.");
+    if (project.state !== "draft_generating") throw new PermanentJobError("PROJECT_STATE_INVALID", "Project is not waiting for draft revision.");
     if (!project.transcript?.trim()) throw new PermanentJobError("DRAFT_TRANSCRIPT_MISSING", "Project transcript is required before draft revision.");
     if (!project.selectedPlan) throw new PermanentJobError("DRAFT_PLAN_MISSING", "Selected plan is required before draft revision.");
     if (!project.rewriteMode) throw new PermanentJobError("DRAFT_REWRITE_MODE_MISSING", "Rewrite mode is required before draft revision.");

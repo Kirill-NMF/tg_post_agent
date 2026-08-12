@@ -5,23 +5,21 @@ Updated: 2026-08-12
 ## Now
 
 - Product stage: Stage 2, Gemini rewrite/draft editing.
-- Engineering phase: Phase 9, draft revision/edit loop.
-- Status: implemented but supervisor-blocked by a state-machine race.
+- Engineering phase: Credential Gate after Phase 9 acceptance.
+- Status: waiting for a dev bot token and allowlisted Telegram IDs.
 - Branch: codex/phase-1-architecture-data-model.
 
-## Next Required Fix
+## Next Required Owner Action
 
-Block stale draft actions while REVISE_DRAFT is pending:
+Create a separate development bot in BotFather and share its token through the approved VPS secret path. Also provide the Telegram IDs for the allowlist.
 
-- set project state to draft_generating when a text edit queues revision;
-- let the worker accept that busy state and return to draft_editing after save;
-- prove format:open cannot proceed while revision is queued.
+Once that is installed, the agent will run light real-Telegram smoke: /start, allowlist denial, and one callback response.
 
 ## Owner Focus
 
 Current: 2/3.
 
-You do not need to manually test yet. Your next 3/3 testing moment is real edit-audio transcription and then Stage 3 formatting.
+You do not need to manually test the Phase 9 race. Your immediate action is Telegram provisioning; the next 3/3 testing moment is real edit-audio transcription and then Stage 3 formatting.
 
 ## Upcoming Owner Testing Windows
 

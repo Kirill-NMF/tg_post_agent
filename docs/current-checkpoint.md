@@ -10,13 +10,13 @@ The project has built the foundations for Stage 1 transcription and the first re
 
 ## Current Engineering Phase
 
-Phase 9: Gemini Draft Revision/Edit Loop.
+Credential Gate: create a development Telegram bot in BotFather and install its token only in the VPS environment.
 
-Implementation exists on branch codex/phase-1-architecture-data-model, but supervisor acceptance is blocked by one state-machine race found during review:
+Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attention policy:
 
-- text edits enqueue REVISE_DRAFT, but the project remains in draft_editing while the job is pending;
-- this can allow formatting or another edit against the stale draft;
-- required fix: move the project to the existing busy state draft_generating while revision is pending, then return to draft_editing after the job saves the updated draft.
+- text edits enqueue REVISE_DRAFT and move the project to draft_generating;
+- stale format callbacks are rejected while the revision is pending;
+- after the worker saves the revised draft, the project returns to draft_editing.
 
 ## Branch And GitHub
 
@@ -26,17 +26,17 @@ Implementation exists on branch codex/phase-1-architecture-data-model, but super
 
 ## Next Step
 
-Close the Phase 9 race fix, rerun the full verification suite, commit, and push.
+Owner action: create the development bot in BotFather, provide the bot token through the approved VPS secret path, and provide the Telegram IDs for the allowlist.
 
-After Phase 9 is accepted, choose whether to implement real edit-audio transcription for corrections or Stage 3 formatting foundation.
+After the token is installed, run the light Telegram smoke: /start, allowlist denial, and one callback response. Then start Phase 10 real edit-audio transcription.
 
 ## Owner Focus
 
 Current owner focus: 2/3.
 
-Reason: this is mostly state-machine and worker correctness. Manual Telegram testing becomes more valuable after real edit-audio transcription and Stage 3 formatting.
+Reason: the owner must provision real Telegram access. The agent will then run the light smoke; manual product acceptance remains scheduled for Phase 10 and Stage 3 formatting.
 
 
 Accepted owner attention policy: use `docs/dashboard/owner-acceptance-policy.md` for all future phases. The agent must run realistic basic and medium-frequency tests for 2/3 phases, using unit/integration and Telethon where Telegram UI is touched. For 3/3 phases, the agent must prepare preflight evidence and then stop for explicit owner acceptance.
 
-Credential gate: create the development Telegram bot in BotFather after Phase 9 is accepted and before Phase 10 begins. Store `BOT_TOKEN` only in VPS environment/secrets and keep real tokens out of git and logs.
+Credential gate: Phase 9 is accepted. Create the development Telegram bot in BotFather before Phase 10 begins. Store `BOT_TOKEN` only in VPS environment/secrets and keep real tokens out of git and logs.

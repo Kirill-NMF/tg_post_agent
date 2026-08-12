@@ -336,6 +336,7 @@ export class ProjectService {
 
   private async enqueueDraftRevision(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, latestUserEdit: string): Promise<void> {
     if (!this.jobs) throw new Error("Cannot enqueue draft revision without job repository.");
+    project.state = "draft_generating";
     await this.jobs.enqueue({
       type: "REVISE_DRAFT",
       projectId: project.id,
