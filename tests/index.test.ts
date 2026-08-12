@@ -43,3 +43,15 @@ describe("application wiring", () => {
     ).toThrow("GEMINI_API_KEY");
   });
 });
+
+describe("OpenRouter worker wiring", () => {
+  it("accepts one OpenRouter credential for both provider operation families", () => {
+    expect(() => buildApplication({
+      BOT_TOKEN: "0000000000:mock-token-for-smoke",
+      ALLOWED_TELEGRAM_IDS: "12345",
+      JOB_WORKER_ENABLED: "true",
+      DATABASE_URL: "postgresql://example.invalid/test",
+      OPENROUTER_API_KEY: "router-key"
+    })).not.toThrow();
+  });
+});

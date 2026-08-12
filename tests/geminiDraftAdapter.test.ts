@@ -52,7 +52,7 @@ describe("GeminiDraftAdapter", () => {
 
     const result = await adapter.generateDraft(baseInput());
 
-    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_DRAFT_OUTPUT_INVALID", retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_DRAFT_OUTPUT_INVALID", retryable: false } });
   });
 
   it("rejects empty full text", async () => {
@@ -60,7 +60,7 @@ describe("GeminiDraftAdapter", () => {
 
     const result = await adapter.generateDraft(baseInput());
 
-    expect(result).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("rejects wrong or unsafe output shapes", async () => {
@@ -71,7 +71,7 @@ describe("GeminiDraftAdapter", () => {
 
     const result = await adapter.generateDraft(baseInput());
 
-    expect(result).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("rejects unbounded full text", async () => {
@@ -79,7 +79,7 @@ describe("GeminiDraftAdapter", () => {
 
     const result = await adapter.generateDraft(baseInput());
 
-    expect(result).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("does not log transcript, prompt, user context, or raw model output", async () => {
@@ -133,7 +133,7 @@ describe("GeminiDraftAdapter", () => {
 
     const result = await adapter.reviseDraft(baseReviseInput());
 
-    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_DRAFT_REVISION_OUTPUT_INVALID", retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_DRAFT_REVISION_OUTPUT_INVALID", retryable: false } });
   });
 
   it("rejects empty, unbounded, or unknown-field revision output", async () => {
@@ -141,9 +141,9 @@ describe("GeminiDraftAdapter", () => {
     const overLimit = new GeminiDraftAdapter({ client: fakeClient(JSON.stringify({ full_text: "x".repeat(101) })), model: "gemini-2.5-pro", maxFullTextChars: 100 });
     const unknown = new GeminiDraftAdapter({ client: fakeClient(JSON.stringify({ full_text: "Updated draft", markdown_entities: [] })), model: "gemini-2.5-pro" });
 
-    await expect(empty.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
-    await expect(overLimit.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
-    await expect(unknown.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: true } });
+    await expect(empty.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: false } });
+    await expect(overLimit.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: false } });
+    await expect(unknown.reviseDraft(baseReviseInput())).resolves.toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("does not log current draft, latest edit, user context, or raw revision output", async () => {

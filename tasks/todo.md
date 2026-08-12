@@ -198,6 +198,13 @@ Phase 10 real edit-audio transcription is active next. Prepare implementation pr
 - [x] Add real Gemini `REVISE_PLAN` job wiring; real draft revision remains on its existing job path.
 - [x] Keep `formatted_editing` voice corrections deferred to Stage 3; do not use mock formatting in production.
 - [x] Complete automated preflight without paid provider calls.
-- [ ] Owner configures DATABASE_URL, OPENAI_API_KEY, and GEMINI_API_KEY through the VPS-only secret/environment path.
+- [ ] Owner configures DATABASE_URL plus OPENROUTER_API_KEY, or both compatible direct provider credentials, through the VPS-only secret/environment path.
 - [ ] Owner explicitly authorizes one controlled worker-enabled runtime restart.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram.
+
+## Provider Routing Foundation
+
+- [x] Add OpenRouter-first configuration for Stage 1 transcription and Stage 2 planning/drafts.
+- [x] Keep direct OpenAI and Gemini credentials as optional, retryable-failure-only fallbacks.
+- [x] Keep provider selection and fallback logs redacted to safe provider/model/error-code labels.
+- [x] Preserve the Phase 10 owner runtime configuration and controlled-restart gate.

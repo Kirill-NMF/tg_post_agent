@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { providerHttpError } from "./providerErrors.js";
 import type { AudioChunk, TranscriptionAdapter, TranscriptionInput, TranscriptionResult } from "../domain/audioTypes.js";
 
 export type OpenAITranscriptionRequest = (input: { filePath: string; model: string; apiKey: string }) => Promise<{ text?: unknown }>;
@@ -53,6 +54,6 @@ async function requestOpenAITranscription(input: { filePath: string; model: stri
     headers: { authorization: `Bearer ${input.apiKey}` },
     body: form
   });
-  if (!response.ok) throw new Error(`OpenAI transcription failed with status ${response.status}.`);
+  if (!response.ok) throw providerHttpError(response.status);
   return (await response.json()) as { text?: unknown };
 }

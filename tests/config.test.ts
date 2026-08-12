@@ -22,6 +22,9 @@ describe("env config", () => {
     expect(config.audioTempDir).toBe(".runtime/audio");
     expect(config.telegramApiBaseUrl).toBe("https://api.telegram.org");
     expect(config.telegramMaxDownloadBytes).toBe(20 * 1024 * 1024);
+    expect(config.openRouterTranscriptionModel).toBe("openai/whisper-large-v3");
+    expect(config.openRouterPlanningModel).toBe("google/gemini-2.5-pro");
+    expect(config.openRouterDraftModel).toBe("google/gemini-2.5-pro");
     expect(config.openaiTranscriptionModel).toBe("whisper-1");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-pro");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
@@ -62,5 +65,23 @@ describe("env config", () => {
     expect(config.geminiApiKey).toBe("test-gemini-key");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-flash");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
+  });
+});
+
+describe("OpenRouter config priority", () => {
+  it("uses OpenRouter defaults while retaining optional direct provider values", () => {
+    const config = loadConfig({
+      BOT_TOKEN: "token",
+      ALLOWED_TELEGRAM_IDS: "123",
+      OPENROUTER_API_KEY: "router-key",
+      OPENAI_API_KEY: "openai-key",
+      GEMINI_API_KEY: "gemini-key"
+    });
+    expect(config.openRouterApiKey).toBe("router-key");
+    expect(config.openRouterTranscriptionModel).toBe("openai/whisper-large-v3");
+    expect(config.openRouterPlanningModel).toBe("google/gemini-2.5-pro");
+    expect(config.openRouterDraftModel).toBe("google/gemini-2.5-pro");
+    expect(config.openaiApiKey).toBe("openai-key");
+    expect(config.geminiApiKey).toBe("gemini-key");
   });
 });

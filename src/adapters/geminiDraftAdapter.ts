@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import type { AdapterResult, DraftText, PlanPostSlice } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
+import { isRetryableProviderError } from "./providerErrors.js";
 
 export type DraftAdapter = Pick<ModelAdapters, "generateDraft" | "reviseDraft">;
 
@@ -28,6 +29,7 @@ export class GeminiDraftAdapter implements DraftAdapter {
       model: string;
       maxFullTextChars?: number;
       logger?: Logger;
+      provider?: "gemini" | "openrouter";
     }
   ) {
     this.maxFullTextChars = input.maxFullTextChars ?? 4000;
@@ -52,20 +54,20 @@ export class GeminiDraftAdapter implements DraftAdapter {
         }
       });
       if (typeof interaction.output_text !== "string") {
-        return failure("GEMINI_DRAFT_OUTPUT_INVALID", "Gemini draft output was missing text.", true);
+        return failure("GEMINI_DRAFT_OUTPUT_INVALID", "Gemini draft output was missing text.", false);
       }
       const draft = parseDraft(interaction.output_text, this.maxFullTextChars);
       logger.info(
         { event: "gemini_draft_output_validated", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, draftLength: draft.fullText.length },
         "gemini draft output validated"
       );
-      return { ok: true, value: { draft }, meta: { provider: "gemini", modelLabel: this.input.model } };
+      return { ok: true, value: { draft }, meta: { provider: this.input.provider ?? "gemini", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn(
         { event: "gemini_draft_request_failed", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, errorCode: safeErrorCode(error) },
         "gemini draft request failed"
       );
-      return failure("GEMINI_DRAFT_OUTPUT_INVALID", safeMessage(error), true);
+      return failure("GEMINI_DRAFT_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
     }
   }
 
@@ -88,20 +90,20 @@ export class GeminiDraftAdapter implements DraftAdapter {
         }
       });
       if (typeof interaction.output_text !== "string") {
-        return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", "Gemini draft revision output was missing text.", true);
+        return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", "Gemini draft revision output was missing text.", false);
       }
       const updatedDraft = parseDraft(interaction.output_text, this.maxFullTextChars);
       logger.info(
         { event: "gemini_draft_revision_output_validated", projectId: params.projectId, modelLabel: this.input.model, draftLength: updatedDraft.fullText.length },
         "gemini draft revision output validated"
       );
-      return { ok: true, value: { updatedDraft }, meta: { provider: "gemini", modelLabel: this.input.model } };
+      return { ok: true, value: { updatedDraft }, meta: { provider: this.input.provider ?? "gemini", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn(
         { event: "gemini_draft_revision_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) },
         "gemini draft revision request failed"
       );
-      return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", safeMessage(error), true);
+      return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
     }
   }
 }

@@ -1,0 +1,56 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { describe, expect, it } from "vitest";
+import { createOpenRouterInteractionClient } from "../src/adapters/openRouterInteractionClient.js";
+import { OpenRouterTranscriptionAdapter } from "../src/adapters/openRouterTranscriptionAdapter.js";
+import { FallbackPlanningAdapter, FallbackTranscriptionAdapter } from "../src/adapters/providerFallbackAdapters.js";
+import { ProviderRequestError } from "../src/adapters/providerErrors.js";
+import type { PlanSplitAdapter } from "../src/adapters/geminiPlanningAdapter.js";
+import type { TranscriptionAdapter } from "../src/domain/audioTypes.js";
+
+const planInput = { projectId: "project-1", transcript: "SECRET TRANSCRIPT", planningHistory: [] };
+
+describe("OpenRouter provider boundary", () => {
+  it("maps chat structured output without logging the prompt", async () => {
+    let received: Record<string, unknown> | undefined;
+    const client = createOpenRouterInteractionClient({
+      apiKey: "test-key",
+      fetchImpl: async (_url, init) => {
+        received = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return new Response(JSON.stringify({ choices: [{ message: { content: "{\\\"ok\\\":true}" } }] }), { status: 200 });
+      }
+    });
+    await expect(client.create({ model: "google/gemini-2.5-pro", input: "SECRET TRANSCRIPT", response_format: { type: "text", mime_type: "application/json", schema: { type: "object" } } })).resolves.toEqual({ output_text: "{\\\"ok\\\":true}" });
+    expect(received).toMatchObject({ model: "google/gemini-2.5-pro", response_format: { type: "json_schema" } });
+    expect(JSON.stringify(received)).toContain("SECRET TRANSCRIPT");
+  });
+
+  it("maps OpenRouter transcription chunks with its configured model", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "tg-openrouter-"));
+    const filePath = join(dir, "chunk-000.mp3");
+    await writeFile(filePath, "fixture");
+    const adapter = new OpenRouterTranscriptionAdapter({ apiKey: "test-key", request: async ({ model }) => ({ text: model }) });
+    const result = await adapter.transcribe({ projectId: "project-1", jobId: "job-1", source: { kind: "source_audio", telegramFileId: "file-1" }, chunks: [{ index: 0, path: filePath }] });
+    expect(result).toMatchObject({ transcript: "openai/whisper-large-v3", meta: { provider: "openrouter", modelLabel: "openai/whisper-large-v3" } });
+  });
+
+  it("uses one direct fallback only for retryable provider failures", async () => {
+    let fallbackCalls = 0;
+    const primary: TranscriptionAdapter = { transcribe: async () => { throw new ProviderRequestError("HTTP_429", true); } };
+    const fallback: TranscriptionAdapter = { transcribe: async () => { fallbackCalls += 1; return { transcript: "safe", meta: { provider: "whisper", modelLabel: "whisper-1", chunkCount: 1 } }; } };
+    const adapter = new FallbackTranscriptionAdapter({ primary, primaryProvider: "openrouter", fallback, fallbackProvider: "whisper" });
+    await expect(adapter.transcribe({ projectId: "p", jobId: "j", source: { kind: "source_audio", telegramFileId: "f" }, chunks: [] })).resolves.toMatchObject({ transcript: "safe" });
+    expect(fallbackCalls).toBe(1);
+  });
+
+  it("does not fallback after permanent model output failure", async () => {
+    let fallbackCalls = 0;
+    const primary: PlanSplitAdapter = { planSplit: async () => ({ ok: false, error: { code: "INVALID_OUTPUT", message: "invalid", retryable: false } }), revisePlan: async () => ({ ok: false, error: { code: "INVALID_OUTPUT", message: "invalid", retryable: false } }) };
+    const fallback: PlanSplitAdapter = { planSplit: async () => { fallbackCalls += 1; return { ok: false, error: { code: "UNUSED", message: "unused", retryable: false } }; }, revisePlan: async () => { fallbackCalls += 1; return { ok: false, error: { code: "UNUSED", message: "unused", retryable: false } }; } };
+    const adapter = new FallbackPlanningAdapter({ primary, primaryProvider: "openrouter", fallback, fallbackProvider: "gemini" });
+    const result = await adapter.planSplit(planInput);
+    expect(result).toMatchObject({ ok: false, error: { code: "INVALID_OUTPUT" } });
+    expect(fallbackCalls).toBe(0);
+  });
+});

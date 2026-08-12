@@ -53,3 +53,7 @@ Date: 2026-08-12
 ## Current Gate
 
 Phase 10: Real Edit-Audio Transcription is active next. Credential Gate passed; Phase 10 requires 3/3 owner manual acceptance in real Telegram after preflight evidence.
+
+## Provider Configuration Update
+
+OpenRouter routing is implemented as the primary Stage 1/2 gateway. It does not replace the Phase 10 owner acceptance gate: live acceptance remains blocked until VPS-only runtime credentials and an explicitly authorized single worker-enabled restart are available.

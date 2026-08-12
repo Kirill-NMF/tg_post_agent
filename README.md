@@ -4,11 +4,9 @@ Personal Telegram bot that turns voice messages or audio files into Telegram pos
 
 MVP flow:
 
-`	ext
-/start -> audio/voice -> transcript -> 1/2/3 post plan -> rewrite mode -> draft edit loop -> Option 1/2 formatting -> Telegram message + .txt
-`
+`/start -> audio/voice -> transcript -> 1/2/3 post plan -> rewrite mode -> draft edit loop -> Option 1/2 formatting -> Telegram message + .txt`
 
-Authoritative project docs live in docs/project-spec/.
+Authoritative project docs live in `docs/project-spec/`.
 
 ## Runtime Config
 
@@ -20,25 +18,19 @@ Copy `.env.example` to a runtime-only env file outside git and fill values there
 - `AUDIO_TEMP_DIR`: temp audio root, defaults to `.runtime/audio`.
 - `TELEGRAM_API_BASE_URL`: defaults to the cloud Bot API.
 - `TELEGRAM_MAX_DOWNLOAD_BYTES`: defaults to 20 MB, matching the cloud Bot API `getFile` download limit. A future local Bot API server can raise this operational limit.
-- `OPENAI_API_KEY`: required only when creating the real transcription worker handler.
-- `OPENAI_TRANSCRIPTION_MODEL`: defaults to `whisper-1`.
-- `GEMINI_API_KEY`: required only when creating the real Gemini planning/draft worker handlers.
-- `GEMINI_PLANNING_MODEL`: defaults to `gemini-2.5-pro`; override at runtime if cost/latency needs a different documented Gemini model.
-- `GEMINI_DRAFT_MODEL`: defaults to `GEMINI_PLANNING_MODEL`; override separately if draft generation should use a different documented Gemini model.
-- `JOB_WORKER_ENABLED`: defaults to `false`; set to `true` only when `DATABASE_URL`, `OPENAI_API_KEY`, and `GEMINI_API_KEY` are configured.
-- `JOB_WORKER_INTERVAL_MS`: serial worker tick interval, defaults to `1000`.
-- `JOB_WORKER_STALE_MS`: stale running job recovery threshold, defaults to `900000`.
-- `JOB_WORKER_ID`: optional stable worker id for logs/locks.
+- `OPENROUTER_API_KEY`: primary gateway for transcription, planning, and draft work. `OPENROUTER_TRANSCRIPTION_MODEL` defaults to `openai/whisper-large-v3`; `OPENROUTER_PLANNING_MODEL` and `OPENROUTER_DRAFT_MODEL` default to `google/gemini-2.5-pro`.
+- `OPENAI_API_KEY` with `OPENAI_TRANSCRIPTION_MODEL` (default `whisper-1`) is an optional direct transcription fallback.
+- `GEMINI_API_KEY` with `GEMINI_PLANNING_MODEL` and `GEMINI_DRAFT_MODEL` is an optional direct planning/draft fallback.
+- `JOB_WORKER_ENABLED`: defaults to `false`. When enabled, `DATABASE_URL` plus either `OPENROUTER_API_KEY`, or both compatible direct provider keys, is required.
+- `JOB_WORKER_INTERVAL_MS`, `JOB_WORKER_STALE_MS`, `JOB_WORKER_ID`: serial worker runtime controls.
+
+OpenRouter is selected first when configured. A direct fallback is attempted once only after a retryable network, rate-limit, or 5xx failure. Authentication, authorization, malformed input/output, and validation failures do not fallback. Logs record only provider/model/error-code labels, never prompts, transcripts, API keys, or full provider responses.
 
 ## Audio Pipeline Foundation
 
 Phase 6 stores source audio and ffmpeg chunks only under the temp audio directory and deletes them on success and failure. Transcripts are persisted on the project, but the normal bot flow does not show transcript text to the user.
 
-The bot can enqueue `TRANSCRIBE_AUDIO` when a job repository is configured. Set `JOB_WORKER_ENABLED=true` to start the serial in-process worker runtime. When enabled, startup fails fast unless `DATABASE_URL`, `OPENAI_API_KEY`, and `GEMINI_API_KEY` are present. Smoke mode still builds without DB, OpenAI, or Gemini.
-
-After transcription, Phase 7 enqueues `PLAN_SPLIT`, saves Gemini-generated 1/2/3 plan options, and sends selection buttons without exposing transcript text.
-
-After rewrite mode selection, Phase 8 enqueues `GENERATE_DRAFT`, saves the full current draft, and sends it with the `Оформить` button. Draft revision remains a later phase.
+The bot can enqueue `TRANSCRIBE_AUDIO` when a job repository is configured. Set `JOB_WORKER_ENABLED=true` to start the serial in-process worker runtime. Smoke mode still builds without DB or provider credentials.
 
 ## Testing
 

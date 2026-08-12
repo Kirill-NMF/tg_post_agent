@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import type { PlanOption, PlanOptionId, PlanPostSlice } from "../domain/types.js";
+import { isRetryableProviderError } from "./providerErrors.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { planOptionOrder } from "../services/planningPresentation.js";
 
@@ -26,6 +27,7 @@ export class GeminiPlanningAdapter implements PlanSplitAdapter {
       client: GeminiPlanningClient;
       model: string;
       logger?: Logger;
+      provider?: "gemini" | "openrouter";
     }
   ) {}
 
@@ -48,14 +50,14 @@ export class GeminiPlanningAdapter implements PlanSplitAdapter {
         }
       });
       if (typeof interaction.output_text !== "string") {
-        return failure("GEMINI_PLAN_OUTPUT_INVALID", "Gemini planning output was missing text.", true);
+        return failure("GEMINI_PLAN_OUTPUT_INVALID", "Gemini planning output was missing text.", false);
       }
       const options = parsePlanOptions(interaction.output_text);
       logger.info({ event: "gemini_plan_output_validated", projectId: params.projectId, modelLabel: this.input.model, optionCount: options.length }, "gemini planning output validated");
-      return { ok: true, value: { options }, meta: { provider: "gemini", modelLabel: this.input.model } };
+      return { ok: true, value: { options }, meta: { provider: this.input.provider ?? "gemini", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn({ event: "gemini_plan_request_failed", projectId: params.projectId, modelLabel: this.input.model, errorCode: safeErrorCode(error) }, "gemini planning request failed");
-      return failure("GEMINI_PLAN_OUTPUT_INVALID", safeMessage(error), true);
+      return failure("GEMINI_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
     }
   }
 

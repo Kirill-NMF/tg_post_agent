@@ -46,7 +46,7 @@ export type TranscriptionResult = {
   transcript: string;
   languageDetected?: "ru" | "en" | "mixed" | "unknown";
   meta: {
-    provider: "whisper";
+    provider: "whisper" | "openrouter";
     modelLabel: string;
     chunkCount: number;
     durationSeconds?: number;

@@ -21,7 +21,7 @@ describe("GeminiPlanningAdapter", () => {
 
     const result = await adapter.planSplit({ projectId: "project-1", transcript: "source transcript", planningHistory: [] });
 
-    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_PLAN_OUTPUT_INVALID", retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { code: "GEMINI_PLAN_OUTPUT_INVALID", retryable: false } });
   });
 
   it("rejects missing or duplicate option ids", async () => {
@@ -31,7 +31,7 @@ describe("GeminiPlanningAdapter", () => {
 
     const result = await adapter.planSplit({ projectId: "project-1", transcript: "source transcript", planningHistory: [] });
 
-    expect(result).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("rejects wrong post_count and post slice count", async () => {
@@ -41,7 +41,7 @@ describe("GeminiPlanningAdapter", () => {
 
     const result = await adapter.planSplit({ projectId: "project-1", transcript: "source transcript", planningHistory: [] });
 
-    expect(result).toMatchObject({ ok: false, error: { retryable: true } });
+    expect(result).toMatchObject({ ok: false, error: { retryable: false } });
   });
 
   it("does not log transcript, prompt, or raw model output", async () => {

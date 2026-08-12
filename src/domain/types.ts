@@ -23,7 +23,7 @@ export type FormattingOption = "option_1" | "option_2";
 export type PlanOptionId = "one_post" | "two_posts" | "three_posts";
 
 export type AdapterMeta = {
-  provider: "mock" | "whisper" | "gemini" | "claude" | "gpt";
+  provider: "mock" | "whisper" | "gemini" | "openrouter" | "claude" | "gpt";
   modelLabel?: string;
 };
 
