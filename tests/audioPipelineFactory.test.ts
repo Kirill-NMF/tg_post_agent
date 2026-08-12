@@ -20,7 +20,7 @@ describe("audio pipeline factory", () => {
     expect(() => createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toThrow("GEMINI_API_KEY");
   });
 
-  it("creates TRANSCRIBE_AUDIO and PLAN_SPLIT handlers from env-backed config", () => {
+  it("creates TRANSCRIBE_AUDIO, PLAN_SPLIT, and GENERATE_DRAFT handlers from env-backed config", () => {
     const config = loadConfig({
       BOT_TOKEN: "token",
       ALLOWED_TELEGRAM_IDS: "123",
@@ -31,5 +31,6 @@ describe("audio pipeline factory", () => {
 
     expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("TRANSCRIBE_AUDIO");
     expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("PLAN_SPLIT");
+    expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("GENERATE_DRAFT");
   });
 });

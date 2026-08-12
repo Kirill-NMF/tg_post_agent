@@ -37,6 +37,7 @@ export type ModelAdapters = {
     postIndex: 1 | 2 | 3;
     rewriteMode: RewriteMode;
     transcript: string;
+    compactContext?: string[];
   }): Promise<AdapterResult<{ draft: DraftText }>>;
   reviseDraft(input: {
     projectId: ProjectId;

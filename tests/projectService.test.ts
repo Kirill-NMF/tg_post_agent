@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MockModelAdapters } from "../src/adapters/mockModelAdapters.js";
+import type { PlanOption, Project } from "../src/domain/types.js";
+import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository.js";
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { ProjectService } from "../src/services/projectService.js";
 import type { BotResponse } from "../src/domain/types.js";
@@ -65,6 +67,29 @@ describe("ProjectService mock state machine", () => {
     expect((await projects.getActiveProject("100"))?.state).toBe("draft_editing");
   });
 
+  it("enqueues draft generation instead of running mock draft synchronously when jobs are configured", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const project = await seedRewriteProject(repository);
+
+    const response = await projects.chooseRewriteMode("100", "make_post");
+
+    expect(message(response[0]).text).not.toContain("Mock draft");
+    const updated = await repository.findById(project.id);
+    expect(updated?.state).toBe("draft_generating");
+    expect(updated?.rewriteMode).toBe("make_post");
+    expect(updated?.posts[0]?.currentDraft).toBeUndefined();
+    const job = await jobs.claimNextDue({ workerId: "worker-1" });
+    expect(job).toMatchObject({
+      type: "GENERATE_DRAFT",
+      projectId: project.id,
+      postId: "post-1",
+      dedupeKey: `project:${project.id}:post:1:draft:make_post`,
+      payload: { postIndex: 1, rewriteMode: "make_post" }
+    });
+  });
+
   it("routes voice edits through the current state stub transcription", async () => {
     const { projects } = service();
 
@@ -81,4 +106,36 @@ describe("ProjectService mock state machine", () => {
 function message(response: BotResponse | undefined) {
   if (!response || response.kind !== "message") throw new Error("Expected message response.");
   return response;
+}
+
+async function seedRewriteProject(repository: InMemoryProjectRepository): Promise<Project> {
+  const selectedPlan = planOption();
+  const project: Project = {
+    id: "project-1",
+    telegramUserId: "100",
+    chatId: "200",
+    state: "rewrite_mode",
+    isActive: true,
+    transcript: "REAL TRANSCRIPT",
+    planOptions: [selectedPlan],
+    selectedPlan,
+    posts: [{ id: "post-1", index: 1, planSlice: selectedPlan.posts[0] }],
+    currentPostIndex: 1,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  await repository.save(project);
+  return project;
+}
+
+function planOption(): PlanOption {
+  return {
+    optionId: "one_post",
+    postCount: 1,
+    title: "Plan",
+    angle: "Angle",
+    summary: "Summary",
+    posts: [{ index: 1, topic: "Topic", angle: "Angle", includes: ["Point"] }]
+  };
 }

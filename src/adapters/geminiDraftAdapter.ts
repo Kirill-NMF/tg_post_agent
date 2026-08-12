@@ -1,0 +1,179 @@
+import { GoogleGenAI } from "@google/genai";
+import type { ModelAdapters } from "../domain/modelContracts.js";
+import type { DraftText, PlanPostSlice } from "../domain/types.js";
+import { noopLogger, type Logger } from "../observability/logger.js";
+
+export type GenerateDraftAdapter = Pick<ModelAdapters, "generateDraft">;
+
+export type GeminiDraftInteractionRequest = {
+  model: string;
+  input: string;
+  response_format: {
+    type: "text";
+    mime_type: "application/json";
+    schema: Record<string, unknown>;
+  };
+};
+
+export type GeminiDraftClient = {
+  create(request: GeminiDraftInteractionRequest): Promise<{ output_text?: unknown }>;
+};
+
+export class GeminiDraftAdapter implements GenerateDraftAdapter {
+  private readonly maxFullTextChars: number;
+
+  constructor(
+    private readonly input: {
+      client: GeminiDraftClient;
+      model: string;
+      maxFullTextChars?: number;
+      logger?: Logger;
+    }
+  ) {
+    this.maxFullTextChars = input.maxFullTextChars ?? 4000;
+  }
+
+  async generateDraft(params: Parameters<ModelAdapters["generateDraft"]>[0]): ReturnType<ModelAdapters["generateDraft"]> {
+    if (!params.transcript.trim()) return failure("GEMINI_DRAFT_TRANSCRIPT_EMPTY", "Transcript is required for draft generation.", false);
+    const slice = params.selectedPlan.posts.find((post) => post.index === params.postIndex);
+    if (!slice) return failure("GEMINI_DRAFT_PLAN_SLICE_MISSING", "Selected plan does not contain the requested post index.", false);
+
+    const logger = this.input.logger ?? noopLogger;
+    logger.info({ event: "gemini_draft_request_started", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex }, "gemini draft request started");
+
+    try {
+      const interaction = await this.input.client.create({
+        model: this.input.model,
+        input: buildDraftPrompt({ ...params, slice }),
+        response_format: {
+          type: "text",
+          mime_type: "application/json",
+          schema: draftSchema
+        }
+      });
+      if (typeof interaction.output_text !== "string") {
+        return failure("GEMINI_DRAFT_OUTPUT_INVALID", "Gemini draft output was missing text.", true);
+      }
+      const draft = parseDraft(interaction.output_text, this.maxFullTextChars);
+      logger.info(
+        { event: "gemini_draft_output_validated", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, draftLength: draft.fullText.length },
+        "gemini draft output validated"
+      );
+      return { ok: true, value: { draft }, meta: { provider: "gemini", modelLabel: this.input.model } };
+    } catch (error) {
+      logger.warn(
+        { event: "gemini_draft_request_failed", projectId: params.projectId, modelLabel: this.input.model, postIndex: params.postIndex, errorCode: safeErrorCode(error) },
+        "gemini draft request failed"
+      );
+      return failure("GEMINI_DRAFT_OUTPUT_INVALID", safeMessage(error), true);
+    }
+  }
+}
+
+export function createGeminiDraftClient(apiKey: string): GeminiDraftClient {
+  const ai = new GoogleGenAI({ apiKey }) as unknown as {
+    interactions: { create(request: GeminiDraftInteractionRequest): Promise<{ output_text?: unknown }> };
+  };
+  return {
+    create(request) {
+      return ai.interactions.create(request);
+    }
+  };
+}
+
+function buildDraftPrompt(params: Parameters<ModelAdapters["generateDraft"]>[0] & { slice: PlanPostSlice }): string {
+  const modeInstruction =
+    params.rewriteMode === "clean_up"
+      ? "Clean up the transcript into a coherent Telegram draft while preserving wording, meaning, and tone as much as possible."
+      : "Turn the selected transcript material into a polished Telegram post while preserving facts, intent, and voice.";
+  const compactContext = params.compactContext?.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+
+  return [
+    "Generate one complete Russian Telegram post draft for the selected plan slice.",
+    "Return only JSON that matches the schema.",
+    "The output must be a full replacement draft, not a patch or instructions.",
+    "Do not format as Option 1 or Option 2; formatting is a later stage.",
+    modeInstruction,
+    `Post index: ${params.postIndex} of ${params.selectedPlan.postCount}`,
+    `Plan title: ${params.selectedPlan.title}`,
+    `Plan slice topic: ${params.slice.topic}`,
+    `Plan slice angle: ${params.slice.angle}`,
+    `Plan slice includes: ${params.slice.includes.join("; ")}`,
+    `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
+    `Compact edit context:\n${compactContext}`,
+    `Transcript:\n${params.transcript}`
+  ].join("\n\n");
+}
+
+const draftSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["full_text"],
+  properties: {
+    full_text: { type: "string" },
+    title: { type: "string" },
+    body: { type: "string" },
+    cta: { type: "string" },
+    notes: { type: "array", items: { type: "string" } }
+  }
+};
+
+const allowedDraftKeys = new Set(["full_text", "title", "body", "cta", "notes"]);
+
+function parseDraft(raw: string, maxFullTextChars: number): DraftText {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!isRecord(parsed)) throw new Error("Draft output must be an object.");
+  for (const key of Object.keys(parsed)) {
+    if (!allowedDraftKeys.has(key)) throw new Error("Draft output contains an unsupported field.");
+  }
+
+  const fullText = cleanString(parsed.full_text, maxFullTextChars, "full_text");
+  return {
+    fullText,
+    title: optionalCleanString(parsed.title, 180, "title"),
+    body: optionalCleanString(parsed.body, maxFullTextChars, "body"),
+    cta: optionalCleanString(parsed.cta, 280, "cta"),
+    notes: optionalCleanStringArray(parsed.notes, 8, 180)
+  };
+}
+
+function cleanString(value: unknown, maxLength: number, fieldName: string): string {
+  if (typeof value !== "string") throw new Error(`Draft ${fieldName} must be a string.`);
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) throw new Error(`Draft ${fieldName} must not be empty.`);
+  if (cleaned.length > maxLength) throw new Error(`Draft ${fieldName} exceeds the configured length limit.`);
+  return cleaned;
+}
+
+function optionalCleanString(value: unknown, maxLength: number, fieldName: string): string | undefined {
+  if (value === undefined) return undefined;
+  return cleanString(value, maxLength, fieldName);
+}
+
+function optionalCleanStringArray(value: unknown, maxItems: number, maxLength: number): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error("Draft notes must be an array.");
+  const notes = value.map((item) => cleanString(item, maxLength, "note"));
+  if (notes.length > maxItems) throw new Error("Draft notes exceed the configured item limit.");
+  return notes.length ? notes : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function failure(code: string, message: string, retryable: boolean): ReturnType<ModelAdapters["generateDraft"]> extends Promise<infer Result> ? Result : never {
+  return { ok: false, error: { code, message: message.slice(0, 500), retryable } };
+}
+
+function safeMessage(error: unknown): string {
+  if (error instanceof SyntaxError) return "Gemini draft output was not valid JSON.";
+  if (error instanceof Error) return error.message.replace(/AIza[0-9A-Za-z_-]+/g, "[redacted]").slice(0, 500);
+  return "Gemini draft request failed.";
+}
+
+function safeErrorCode(error: unknown): string {
+  if (error instanceof SyntaxError) return "SyntaxError";
+  if (error instanceof Error && error.name) return error.name.slice(0, 80);
+  return "GEMINI_DRAFT_FAILED";
+}

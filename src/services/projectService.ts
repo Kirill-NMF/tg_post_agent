@@ -14,6 +14,7 @@ import type {
 } from "../domain/types.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
+import { draftActionButtons } from "./draftPresentation.js";
 
 export class ProjectService {
   constructor(
@@ -127,9 +128,15 @@ export class ProjectService {
     }
 
     project.rewriteMode = rewriteMode;
+    if (this.jobs) {
+      await this.enqueueDraftGeneration(project);
+      await this.projects.save(project);
+      return [{ kind: "message", text: "Режим выбран. Генерирую черновик; пришлю его здесь, когда он будет готов." }];
+    }
+
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons() }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
@@ -146,7 +153,7 @@ export class ProjectService {
     post.currentDraft = updated.updatedDraft.fullText;
     project.messages.push(message("draft", post.currentDraft));
     await this.projects.save(project);
-    return [{ kind: "message", text: post.currentDraft, buttons: [{ label: "Оформить", action: "format:open" }] }];
+    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons() }];
   }
 
   async openFormatChoice(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
@@ -245,9 +252,15 @@ export class ProjectService {
     }
 
     project.currentPostIndex = nextIndex;
+    if (this.jobs) {
+      await this.enqueueDraftGeneration(project);
+      await this.projects.save(project);
+      return [{ kind: "message", text: "Генерирую следующий черновик; пришлю его здесь, когда он будет готов." }];
+    }
+
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: [{ label: "Оформить", action: "format:open" }] }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons() }];
   }
 
   async handleEditAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
@@ -286,13 +299,30 @@ export class ProjectService {
         selectedPlan: project.selectedPlan,
         postIndex: project.currentPostIndex,
         rewriteMode: project.rewriteMode,
-        transcript: project.transcript
+        transcript: project.transcript,
+        compactContext: recentEditMessages(project)
       })
     );
     post.currentDraft = draft.draft.fullText;
     project.state = "draft_editing";
     project.messages.push(message("draft", post.currentDraft));
     return post.currentDraft;
+  }
+
+  private async enqueueDraftGeneration(project: Project): Promise<void> {
+    if (!this.jobs || !project.currentPostIndex || !project.rewriteMode) {
+      throw new Error("Cannot enqueue draft generation without job repository, post index, and rewrite mode.");
+    }
+    const post = currentPost(project);
+    if (!post) throw new Error("Current post not found.");
+    project.state = "draft_generating";
+    await this.jobs.enqueue({
+      type: "GENERATE_DRAFT",
+      projectId: project.id,
+      postId: post.id,
+      dedupeKey: `project:${project.id}:post:${project.currentPostIndex}:draft:${project.rewriteMode}`,
+      payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode }
+    });
   }
 }
 

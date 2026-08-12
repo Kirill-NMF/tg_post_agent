@@ -12,6 +12,7 @@ export type AppConfig = {
   openaiTranscriptionModel: string;
   geminiApiKey?: string;
   geminiPlanningModel: string;
+  geminiDraftModel: string;
   jobWorkerEnabled: boolean;
   jobWorkerIntervalMs: number;
   jobWorkerStaleMs: number;
@@ -22,6 +23,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const botToken = readRequired(env, "BOT_TOKEN");
   const allowedTelegramIds = parseTelegramIdAllowlist(readRequired(env, "ALLOWED_TELEGRAM_IDS"));
   const databaseUrl = resolveDatabaseUrl(env);
+  const geminiPlanningModel = readOptional(env, "GEMINI_PLANNING_MODEL") ?? "gemini-2.5-pro";
   return {
     botToken,
     allowedTelegramIds,
@@ -32,7 +34,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     openaiApiKey: readOptional(env, "OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional(env, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
     geminiApiKey: readOptional(env, "GEMINI_API_KEY"),
-    geminiPlanningModel: readOptional(env, "GEMINI_PLANNING_MODEL") ?? "gemini-2.5-pro",
+    geminiPlanningModel,
+    geminiDraftModel: readOptional(env, "GEMINI_DRAFT_MODEL") ?? geminiPlanningModel,
     jobWorkerEnabled: readOptionalBoolean(env, "JOB_WORKER_ENABLED") ?? false,
     jobWorkerIntervalMs: readOptionalInteger(env, "JOB_WORKER_INTERVAL_MS") ?? 1000,
     jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,

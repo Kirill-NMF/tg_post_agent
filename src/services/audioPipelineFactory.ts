@@ -1,5 +1,6 @@
 import { FfmpegAudioProcessor } from "../audio/ffmpegAudioProcessor.js";
 import { TempAudioStorage } from "../audio/tempAudioStorage.js";
+import { createGeminiDraftClient, GeminiDraftAdapter } from "../adapters/geminiDraftAdapter.js";
 import { createGeminiPlanningClient, GeminiPlanningAdapter } from "../adapters/geminiPlanningAdapter.js";
 import { OpenAITranscriptionAdapter } from "../adapters/openAITranscriptionAdapter.js";
 import type { AppConfig } from "../config/env.js";
@@ -8,6 +9,7 @@ import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import { TelegramFileClient } from "../telegram/telegramFileClient.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
+import { createGenerateDraftJobHandler } from "./generateDraftJobHandler.js";
 import { createPlanSplitJobHandler } from "./planSplitJobHandler.js";
 import { createTranscribeAudioJobHandler } from "./transcribeAudioJobHandler.js";
 
@@ -16,7 +18,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
     throw new Error("OPENAI_API_KEY is required to create the real audio transcription handler.");
   }
   if (!input.config.geminiApiKey) {
-    throw new Error("GEMINI_API_KEY is required to create the real planning handler.");
+    throw new Error("GEMINI_API_KEY is required to create the real planning and draft handlers.");
   }
 
   return {
@@ -42,6 +44,16 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
       planning: new GeminiPlanningAdapter({
         client: createGeminiPlanningClient(input.config.geminiApiKey),
         model: input.config.geminiPlanningModel,
+        logger: input.logger
+      }),
+      notifier: input.notifier,
+      logger: input.logger
+    }),
+    GENERATE_DRAFT: createGenerateDraftJobHandler({
+      projects: input.projects,
+      drafting: new GeminiDraftAdapter({
+        client: createGeminiDraftClient(input.config.geminiApiKey),
+        model: input.config.geminiDraftModel,
         logger: input.logger
       }),
       notifier: input.notifier,

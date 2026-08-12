@@ -222,3 +222,9 @@ The runtime logs start, stop, stale recovery, tick completion, and tick failures
 After transcript persistence, `TRANSCRIBE_AUDIO` now enqueues `PLAN_SPLIT` with `dedupe_key = project:{id}:plan-split:initial`. The user-facing transcription notification says that plan generation is in progress and never includes transcript text.
 
 `PLAN_SPLIT` calls the Gemini planning adapter, validates structured 1/2/3 plan options as untrusted model output, persists `plan_options_json`, keeps project state at `planning`, appends a `plan_options` history message, and sends the rendered options with inline selection buttons. If Telegram delivery fails after persistence, the job still succeeds with `notificationStatus = failed`; the saved plan is not rolled back or regenerated only for delivery.
+
+## Phase 8 Implementation Note
+
+When a user chooses `Почистить` or `Сделать пост`, the production path saves `rewrite_mode`, moves the project to `draft_generating`, and enqueues `GENERATE_DRAFT` with `dedupe_key = project:{id}:post:{index}:draft:{rewriteMode}`. The no-job path continues to use mock synchronous draft generation for unit and smoke flows.
+
+`GENERATE_DRAFT` calls the Gemini draft adapter for the selected post slice only, validates a full replacement draft as untrusted structured JSON, persists `project_posts.current_draft`, appends a `draft` history message, moves the project to `draft_editing`, and sends the draft with the `Оформить` button. If Telegram delivery fails after persistence, the job still succeeds with `notificationStatus = failed`; the saved draft is not rolled back or regenerated only for delivery.

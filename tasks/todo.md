@@ -147,3 +147,19 @@ Phase 7 should add Gemini planning over the persisted transcript. Do not add dra
 ## Next Gate After Phase 7
 
 Phase 8 should add the rewrite/draft stage over the selected plan. Do not add real formatting, channel publishing, frontend, mini app, Redis/BullMQ/S3, Docker, or Telethon E2E without the matching phase approval.
+
+## Phase 8. Gemini Rewrite/Draft Generation
+
+- [x] Add a real Gemini draft-generation adapter for the `generateDraft` contract.
+- [x] Validate draft JSON as untrusted model output, including malformed, empty, wrong-shape, and unbounded output.
+- [x] Add a `GENERATE_DRAFT` job handler that persists full replacement drafts and moves projects to `draft_editing`.
+- [x] Send generated drafts with an inline `Оформить` button without rolling back state on notification failure.
+- [x] Enqueue `GENERATE_DRAFT` from rewrite mode selection when a job repository is configured.
+- [x] Preserve the synchronous mock draft path when no job repository is configured.
+- [x] Wire the worker handler factory for `GENERATE_DRAFT` without adding non-Gemini provider integrations.
+- [x] Add tests for adapter validation, job persistence/delivery, notification failure, service/router enqueue paths, and config/factory wiring.
+- [x] Stop before real draft revision, formatting adapters, edit-audio real transcription, channel publishing, frontend, mini app, Telethon, Docker/systemd, Redis/BullMQ/S3, or custom emoji.
+
+## Next Gate After Phase 8
+
+Phase 9 should add the draft revision/edit loop over the saved current draft. Do not add real formatting or channel publishing before the matching phase approval.

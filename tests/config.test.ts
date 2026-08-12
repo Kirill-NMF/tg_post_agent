@@ -24,6 +24,7 @@ describe("env config", () => {
     expect(config.telegramMaxDownloadBytes).toBe(20 * 1024 * 1024);
     expect(config.openaiTranscriptionModel).toBe("whisper-1");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-pro");
+    expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
     expect(config.jobWorkerEnabled).toBe(false);
     expect(config.jobWorkerIntervalMs).toBe(1000);
     expect(config.jobWorkerStaleMs).toBe(15 * 60 * 1000);
@@ -49,15 +50,17 @@ describe("env config", () => {
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", JOB_WORKER_ENABLED: "yes" })).toThrow("true or false");
   });
 
-  it("parses Gemini planning config", () => {
+  it("parses Gemini planning and draft config", () => {
     const config = loadConfig({
       BOT_TOKEN: "token",
       ALLOWED_TELEGRAM_IDS: "123",
       GEMINI_API_KEY: "test-gemini-key",
-      GEMINI_PLANNING_MODEL: "gemini-2.5-flash"
+      GEMINI_PLANNING_MODEL: "gemini-2.5-flash",
+      GEMINI_DRAFT_MODEL: "gemini-2.5-pro"
     });
 
     expect(config.geminiApiKey).toBe("test-gemini-key");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-flash");
+    expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
   });
 });
