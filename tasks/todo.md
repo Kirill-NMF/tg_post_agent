@@ -188,7 +188,7 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 
 ## Next Gate: Phase 10
 
-Phase 10 real edit-audio transcription has passed automated production preflight. Owner acceptance exposed and the project repaired an OpenRouter PLAN_SPLIT structured-output compatibility failure; a controlled repair restart and a fresh mandatory 3/3 owner manual acceptance are required before the phase can close. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
+Phase 10 real edit-audio transcription has passed automated production preflight. The OpenRouter PLAN_SPLIT structured-output compatibility repair is deployed after a controlled restart; a fresh mandatory 3/3 owner manual acceptance is required before the phase can close. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
 
 ## Phase 10. Real Edit-Audio Transcription
 

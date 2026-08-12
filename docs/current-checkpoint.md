@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. Owner acceptance exposed an OpenRouter structured-output compatibility failure in PLAN_SPLIT; the focused repair is tested and requires one controlled deployment restart before a fresh owner run. Do not close the phase or begin Phase 11 before explicit acceptance.
+Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The focused OpenRouter PLAN_SPLIT compatibility repair is deployed after a controlled restart, and the owner must now perform a fresh real-Telegram run. Do not close the phase or begin Phase 11 before explicit acceptance.
 
 ## Owner Focus
 
@@ -47,7 +47,7 @@ Concurrency note: the current repository ports do not expose a shared project-pl
 
 Runtime acceptance repair: the OpenRouter chat adapter now uses documented JSON-object response mode and supplies the logical schema as model instruction; existing application-level parsers still reject malformed or unexpected output. HTTP 400 remains a permanent provider error and never triggers a paid fallback. Permanent planning failures now return the active project to awaiting_audio and send a safe retry message; permanent draft generation and revision failures likewise restore their retryable UI states. The already failed production planning job is not retried automatically and its user content is not modified; after the controlled restart, the user receives only a safe instruction to start a new project.
 
-The production database remains migrated. A controlled restart must restore exactly one poller and one worker without provider calls before the owner repeats 3/3 manual acceptance. No secrets are stored in git or this checkpoint.
+The production database remains migrated. The controlled restart restored exactly one poller and one worker with no provider calls; a boolean-only VPS preflight reconfirmed database access, migration journal, Bot API access, inactive webhook, safe temp storage, and the recovery notification. No secrets are stored in git or this checkpoint.
 
 ## Provider Routing Update
 
