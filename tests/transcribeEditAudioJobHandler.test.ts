@@ -13,6 +13,7 @@ import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRe
 import { PermanentJobError } from "../src/services/jobWorker.js";
 import { createTranscribeEditAudioJobHandler } from "../src/services/transcribeEditAudioJobHandler.js";
 import type { TelegramFileClientPort } from "../src/telegram/telegramFileClient.js";
+import type { TelegramNotifier } from "../src/telegram/telegramNotifier.js";
 
 describe("TRANSCRIBE_EDIT_AUDIO job handler", () => {
   it("persists a planning edit before an immediately claimed plan revision can save", async () => {
@@ -86,8 +87,28 @@ describe("TRANSCRIBE_EDIT_AUDIO job handler", () => {
     await expect(long({ ...editJob(project.id, "planning"), payload: { source: { ...source(), durationSeconds: 3601 }, stateAtEdit: "planning" } })).rejects.toBeInstanceOf(PermanentJobError);
     expect(await storage.listProjectWorkspaces(project.id)).toEqual([]);
   });
-});
 
+  it("sends a single retry notice and a terminal recovery notice without exposing stored text", async () => {
+    const projects = new InMemoryProjectRepository();
+    const project = await seedProject(projects, "planning");
+    const jobs = new InspectingJobs();
+    const storage = new TempAudioStorage({ baseDir: await mkdtemp(join(tmpdir(), "tg-edit-audio-")) });
+    const notifier = new CapturingNotifier();
+    const handler = createTranscribeEditAudioJobHandler({
+      ...deps(projects, jobs, storage, unavailableTranscription()),
+      notifier
+    });
+
+    await expect(handler(editJob(project.id, "planning"))).rejects.toMatchObject({ code: "EDIT_AUDIO_TRANSCRIPTION_FAILED" });
+    await expect(handler({ ...editJob(project.id, "planning"), attempts: 3 })).rejects.toMatchObject({ code: "EDIT_AUDIO_TRANSCRIPTION_FAILED" });
+
+    expect(notifier.messages).toHaveLength(2);
+    expect(notifier.messages[0]).toContain("\u041f\u043e\u0432\u0442\u043e\u0440\u044e");
+    expect(notifier.messages[1]).toContain("\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043f\u043b\u0430\u043d");
+    expect(notifier.messages.join("\\n")).not.toContain("Stored source transcript");
+    expect(await storage.listProjectWorkspaces(project.id)).toEqual([]);
+  });
+});
 function deps(
   projects: InMemoryProjectRepository,
   jobs: JobRepository,
@@ -168,12 +189,28 @@ function fakeProcessor(durationSeconds: number): AudioProcessor {
   };
 }
 
+function unavailableTranscription(): TranscriptionAdapter {
+  return {
+    async transcribe() {
+      throw new Error("provider unavailable");
+    }
+  };
+}
+
 function fakeTranscription(transcript: string): TranscriptionAdapter {
   return {
     async transcribe() {
       return { transcript, meta: { provider: "whisper", modelLabel: "whisper-1", chunkCount: 1 } };
     }
   };
+}
+
+class CapturingNotifier implements TelegramNotifier {
+  readonly messages: string[] = [];
+
+  async sendMessage(_chatId: string, text: string): Promise<void> {
+    this.messages.push(text);
+  }
 }
 
 class InspectingJobs implements JobRepository {

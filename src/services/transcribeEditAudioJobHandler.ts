@@ -7,6 +7,7 @@ import type { Logger } from "../observability/logger.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import type { TelegramFileClientPort } from "../telegram/telegramFileClient.js";
+import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWorker.js";
 
 const maxEditDurationSeconds = 60 * 60;
@@ -21,6 +22,7 @@ export function createTranscribeEditAudioJobHandler(deps: {
   audioProcessor: AudioProcessor;
   transcription: TranscriptionAdapter;
   storage: TempAudioStorage;
+  notifier?: TelegramNotifier;
   logger?: Logger;
 }): JobHandler {
   return async (job: Job) => {
@@ -93,12 +95,39 @@ export function createTranscribeEditAudioJobHandler(deps: {
       );
       return { provider: result.meta.provider, modelLabel: result.meta.modelLabel, stateAtEdit: payload.stateAtEdit, transcriptStored: true };
     } catch (error) {
-      if (error instanceof PermanentJobError || error instanceof RetryableJobError) throw error;
-      throw new RetryableJobError("EDIT_AUDIO_TRANSCRIPTION_FAILED", "Voice edit transcription failed.");
+      const failure = error instanceof PermanentJobError || error instanceof RetryableJobError
+        ? error
+        : new RetryableJobError("EDIT_AUDIO_TRANSCRIPTION_FAILED", "Voice edit transcription failed.");
+      await notifyEditAudioFailure(deps, project, job, payload.stateAtEdit, failure);
+      throw failure;
     } finally {
       if (workspace) await deps.storage.cleanup(workspace);
     }
   };
+}
+
+async function notifyEditAudioFailure(
+  deps: { notifier?: TelegramNotifier; logger?: Logger },
+  project: { id: string; chatId: string },
+  job: Job,
+  stateAtEdit: Payload["stateAtEdit"],
+  failure: PermanentJobError | RetryableJobError
+): Promise<void> {
+  if (!deps.notifier || failure.code === "EDIT_AUDIO_STALE") return;
+  const willRetry = failure instanceof RetryableJobError && job.attempts < job.maxAttempts;
+  if (willRetry && job.attempts !== 1) return;
+  const currentWork = stateAtEdit === "planning" ? "\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043f\u043b\u0430\u043d \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d" : "\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d";
+  const text = willRetry
+    ? "\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u0443\u044e \u043f\u0440\u0430\u0432\u043a\u0443 \u043f\u043e\u043a\u0430 \u043d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c. \u041f\u043e\u0432\u0442\u043e\u0440\u044e \u043f\u043e\u043f\u044b\u0442\u043a\u0443 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438."
+    : "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u044c \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0443\u044e \u043f\u0440\u0430\u0432\u043a\u0443. " + currentWork + ": \u043e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 \u043f\u0440\u0430\u0432\u043a\u0443 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0438\u043b\u0438 \u0437\u0430\u043f\u0438\u0448\u0438\u0442\u0435 \u0435\u0451 \u0435\u0449\u0451 \u0440\u0430\u0437.";
+  try {
+    await deps.notifier.sendMessage(project.chatId, text);
+  } catch {
+    deps.logger?.warn(
+      { event: "edit_audio_failure_notification_failed", jobId: job.id, projectId: project.id, errorCode: failure.code },
+      "edit audio recovery notification failed"
+    );
+  }
 }
 
 function parse(payload: Record<string, unknown>): Payload {
