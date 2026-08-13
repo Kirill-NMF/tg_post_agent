@@ -28,10 +28,13 @@ describe("env config", () => {
     expect(config.openaiTranscriptionModel).toBe("whisper-1");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-pro");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
+    expect(config.providerFallbacksEnabled).toBe(true);
     expect(config.jobWorkerEnabled).toBe(false);
     expect(config.jobWorkerIntervalMs).toBe(1000);
     expect(config.jobWorkerStaleMs).toBe(15 * 60 * 1000);
     expect(config.jobWorkerId).toContain("tg-post-agent-");
+    expect(config.sourceAudioJobMaxAttempts).toBe(3);
+    expect(config.planSplitJobMaxAttempts).toBe(3);
 
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TELEGRAM_MAX_DOWNLOAD_BYTES: "0" })).toThrow("positive integer");
   });
@@ -43,13 +46,19 @@ describe("env config", () => {
       JOB_WORKER_ENABLED: "true",
       JOB_WORKER_INTERVAL_MS: "250",
       JOB_WORKER_STALE_MS: "5000",
-      JOB_WORKER_ID: "worker-a"
+      JOB_WORKER_ID: "worker-a",
+      SOURCE_AUDIO_JOB_MAX_ATTEMPTS: "1",
+      PLAN_SPLIT_JOB_MAX_ATTEMPTS: "1",
+      PROVIDER_FALLBACKS_ENABLED: "false"
     });
 
     expect(config.jobWorkerEnabled).toBe(true);
     expect(config.jobWorkerIntervalMs).toBe(250);
     expect(config.jobWorkerStaleMs).toBe(5000);
     expect(config.jobWorkerId).toBe("worker-a");
+    expect(config.sourceAudioJobMaxAttempts).toBe(1);
+    expect(config.planSplitJobMaxAttempts).toBe(1);
+    expect(config.providerFallbacksEnabled).toBe(false);
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", JOB_WORKER_ENABLED: "yes" })).toThrow("true or false");
   });
 

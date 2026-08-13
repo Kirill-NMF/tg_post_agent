@@ -23,7 +23,8 @@ export class ProjectService {
   constructor(
     private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters,
-    private readonly jobs?: JobRepository
+    private readonly jobs?: JobRepository,
+    private readonly jobAttempts: { sourceAudio: number } = { sourceAudio: 3 }
   ) {}
 
   async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
@@ -60,7 +61,8 @@ export class ProjectService {
         type: "TRANSCRIBE_AUDIO",
         projectId: project.id,
         dedupeKey: `project:${project.id}:source-transcription`,
-        payload: { source: toAudioSourceMetadata(source) }
+        payload: { source: toAudioSourceMetadata(source) },
+        maxAttempts: this.jobAttempts.sourceAudio
       });
       project.state = "transcribing";
       await this.projects.save(project);

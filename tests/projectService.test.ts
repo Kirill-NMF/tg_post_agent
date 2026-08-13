@@ -136,6 +136,17 @@ describe("ProjectService mock state machine", () => {
     expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({ type: "TRANSCRIBE_EDIT_AUDIO", projectId: project.id });
   });
 
+  it("applies a bounded source-audio attempt override only when configured", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, { sourceAudio: 1 });
+
+    await projects.start("100", "200");
+    await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
+
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({ type: "TRANSCRIBE_AUDIO", maxAttempts: 1 });
+  });
+
   it("routes voice edits through the current state stub transcription", async () => {
     const { projects } = service();
 

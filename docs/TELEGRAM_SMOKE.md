@@ -46,3 +46,23 @@ After the transport gate passes, coordinator may run the separately approved bou
 The canonical transport subgate has passed. The next canary is deliberately bounded: one already-authorized test account, the canonical bot identity from active getMe, one non-user short Russian speech fixture, one approved STT provider path, and one audio upload. It records only safe outcome categories, delivery/state outcomes, and cleanup confirmation.
 
 Before it runs, select an approved fixture generator. Current VPS inventory has ffmpeg/ffprobe but no local TTS engine. An external TTS request needs explicit coordinator or owner approval; installing a TTS engine is a separate stack change. Do not upload, transcribe, or retain audio until one of those paths is approved. Delete the generated fixture and all temporary processing files after the canary, regardless of outcome.
+
+
+## One-Shot Audio Canary
+
+The authorized Tier 2 audio canary is run only from a dedicated allowlisted account. It has one synthetic Russian voice fixture, one Telegram upload, one Stage 1 transcription attempt, and one Stage 2 planning attempt. It uses the external Google Translate TTS endpoint for that isolated fixture because no local Russian TTS engine is installed. It is outside CI.
+
+Before the run, set these temporary non-secret runtime values for the controlled bot process only:
+
+- PROVIDER_FALLBACKS_ENABLED=false
+- SOURCE_AUDIO_JOB_MAX_ATTEMPTS=1
+- PLAN_SPLIT_JOB_MAX_ATTEMPTS=1
+- TG_POST_AGENT_AUDIO_CANARY_ENABLED=true
+- TG_POST_AGENT_AUDIO_CANARY_CLEANUP_CONFIRMATION=DELETE_DEDICATED_TEST_ACCOUNT_ONLY
+- TG_POST_AGENT_AUDIO_CANARY_TIMEOUT_SECONDS
+- TG_POST_AGENT_AUDIO_CANARY_MAX_SECONDS=8
+- TG_POST_AGENT_AUDIO_CANARY_MAX_BYTES=524288
+
+The harness inherits DATABASE_URL and the active BOT_TOKEN only as process environment. It resolves the bot through getMe, starts a clean dedicated test project, creates one OGG/Opus voice note, and waits only for a planning response or safe recovery. Its report at /tmp/tg-post-agent-audio-canary-report.json contains booleans, category, timing, and no credentials, IDs, audio, transcripts, or Telegram bodies.
+
+Run pnpm run test:telegram-audio-canary-contract before pnpm run smoke:telegram-audio. The harness removes generated local audio and deletes only the dedicated test account's project rows through the guarded production DATABASE_URL. After its terminal report, remove the temporary one-attempt/no-fallback values and restore the normal worker runtime before any further live work.

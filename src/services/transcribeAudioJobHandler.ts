@@ -22,6 +22,7 @@ export type TranscribeAudioJobHandlerDeps = {
   jobs?: JobRepository;
   notifier?: TelegramNotifier;
   logger?: Logger;
+  planSplitJobMaxAttempts?: number;
 };
 
 export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerDeps): JobHandler {
@@ -69,7 +70,8 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
             type: "PLAN_SPLIT",
             projectId: project.id,
             dedupeKey: `project:${project.id}:plan-split:initial`,
-            payload: { trigger: "transcription_saved" }
+            payload: { trigger: "transcription_saved" },
+            maxAttempts: deps.planSplitJobMaxAttempts ?? 3
           })
         : undefined;
       const notificationStatus = await notifyTranscriptionComplete(deps, project.chatId, job.id, job.projectId);

@@ -17,10 +17,13 @@ export type AppConfig = {
   geminiApiKey?: string;
   geminiPlanningModel: string;
   geminiDraftModel: string;
+  providerFallbacksEnabled: boolean;
   jobWorkerEnabled: boolean;
   jobWorkerIntervalMs: number;
   jobWorkerStaleMs: number;
   jobWorkerId: string;
+  sourceAudioJobMaxAttempts: number;
+  planSplitJobMaxAttempts: number;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -46,10 +49,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     geminiApiKey: readOptional(env, "GEMINI_API_KEY"),
     geminiPlanningModel,
     geminiDraftModel: readOptional(env, "GEMINI_DRAFT_MODEL") ?? geminiPlanningModel,
+    providerFallbacksEnabled: readOptionalBoolean(env, "PROVIDER_FALLBACKS_ENABLED") ?? true,
     jobWorkerEnabled: readOptionalBoolean(env, "JOB_WORKER_ENABLED") ?? false,
     jobWorkerIntervalMs: readOptionalInteger(env, "JOB_WORKER_INTERVAL_MS") ?? 1000,
     jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,
-    jobWorkerId: readOptional(env, "JOB_WORKER_ID") ?? `tg-post-agent-${process.pid}`
+    jobWorkerId: readOptional(env, "JOB_WORKER_ID") ?? `tg-post-agent-${process.pid}`,
+    sourceAudioJobMaxAttempts: readOptionalInteger(env, "SOURCE_AUDIO_JOB_MAX_ATTEMPTS") ?? 3,
+    planSplitJobMaxAttempts: readOptionalInteger(env, "PLAN_SPLIT_JOB_MAX_ATTEMPTS") ?? 3
   };
 }
 

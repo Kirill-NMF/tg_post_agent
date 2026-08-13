@@ -38,7 +38,8 @@ describe("TRANSCRIBE_AUDIO job handler", () => {
         transcription: fakeTranscription("real transcript text"),
         storage,
         jobs,
-        notifier
+        notifier,
+        planSplitJobMaxAttempts: 1
       })
     });
     const processed = await worker.processOne({ workerId: "worker-1" });
@@ -50,7 +51,7 @@ describe("TRANSCRIBE_AUDIO job handler", () => {
     expect(notifier.messages[0]?.chatId).toBe("200");
     expect(notifier.messages[0]?.text).not.toContain("real transcript");
     const planningJob = await jobs.claimNextDue({ workerId: "worker-2" });
-    expect(planningJob).toMatchObject({ type: "PLAN_SPLIT", projectId: updated?.id, dedupeKey: `project:${updated?.id}:plan-split:initial` });
+    expect(planningJob).toMatchObject({ type: "PLAN_SPLIT", projectId: updated?.id, dedupeKey: `project:${updated?.id}:plan-split:initial`, maxAttempts: 1 });
     await expect(stat(join(baseDir, updated?.id ?? "", "missing"))).rejects.toThrow();
     await expect(stat(baseDir)).resolves.toBeDefined();
   });

@@ -27,7 +27,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
   const processor = new FfmpegAudioProcessor();
   const storage = new TempAudioStorage({ baseDir: input.config.audioTempDir });
   return {
-    TRANSCRIBE_AUDIO: createTranscribeAudioJobHandler({ projects: input.projects, telegramFiles: files, audioProcessor: processor, transcription, storage, jobs: input.jobs, notifier: input.notifier, logger: input.logger }),
+    TRANSCRIBE_AUDIO: createTranscribeAudioJobHandler({ projects: input.projects, telegramFiles: files, audioProcessor: processor, transcription, storage, jobs: input.jobs, notifier: input.notifier, logger: input.logger, planSplitJobMaxAttempts: input.config.planSplitJobMaxAttempts }),
     TRANSCRIBE_EDIT_AUDIO: createTranscribeEditAudioJobHandler({ projects: input.projects, jobs: input.jobs!, telegramFiles: files, audioProcessor: processor, transcription, storage, notifier: input.notifier, logger: input.logger }),
     PLAN_SPLIT: createPlanSplitJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     REVISE_PLAN: createRevisePlanJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
@@ -43,7 +43,7 @@ function createTranscriptionAdapter(config: AppConfig, logger?: Logger) {
     if (!direct) throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY is required to create real transcription handlers.");
     return direct;
   }
-  return new FallbackTranscriptionAdapter({ primary: new OpenRouterTranscriptionAdapter({ apiKey: config.openRouterApiKey, model: config.openRouterTranscriptionModel }), primaryProvider: "openrouter", fallback: direct, fallbackProvider: direct ? "whisper" : undefined, logger });
+  return new FallbackTranscriptionAdapter({ primary: new OpenRouterTranscriptionAdapter({ apiKey: config.openRouterApiKey, model: config.openRouterTranscriptionModel }), primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "whisper" : undefined, logger });
 }
 
 function createPlanningAdapter(config: AppConfig, logger?: Logger) {
@@ -54,7 +54,7 @@ function createPlanningAdapter(config: AppConfig, logger?: Logger) {
     return direct;
   }
   const primary = new GeminiPlanningAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey }), model: config.openRouterPlanningModel, logger, provider: "openrouter" });
-  return new FallbackPlanningAdapter({ primary, primaryProvider: "openrouter", fallback: direct, fallbackProvider: direct ? "gemini" : undefined, logger });
+  return new FallbackPlanningAdapter({ primary, primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "gemini" : undefined, logger });
 }
 
 function createDraftAdapter(config: AppConfig, logger?: Logger) {
@@ -65,5 +65,5 @@ function createDraftAdapter(config: AppConfig, logger?: Logger) {
     return direct;
   }
   const primary = new GeminiDraftAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey }), model: config.openRouterDraftModel, logger, provider: "openrouter" });
-  return new FallbackDraftAdapter({ primary, primaryProvider: "openrouter", fallback: direct, fallbackProvider: direct ? "gemini" : undefined, logger });
+  return new FallbackDraftAdapter({ primary, primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "gemini" : undefined, logger });
 }
