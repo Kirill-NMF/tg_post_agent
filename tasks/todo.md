@@ -196,12 +196,12 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Document non-user synthetic audio corpus, Tier 1 propagation/cleanup assertions, and bounded Tier 2 STT/Telegram canary rule.
 - [x] Document risk-based resilience matrix and trigger cadence; reproduced functional owner feedback returns to Tier 1/2.
 - [x] Run the approved one-shot synthetic Russian TTS plus source-audio STT/Telegram canary: one planning response, no fallback/retry, and cleanup confirmed.
-- [ ] Coordinator action: run the remaining dedicated-chat text/voice correction regressions; do not reuse the spent source-audio canary budget.
+- [x] Run the remaining dedicated-chat text/voice correction regressions with bounded synthetic fixtures, one-attempt/no-fallback controls, delivery/no-duplicate evidence, and cleanup.
 - [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
 
 ## Next Gate: Phase 10
 
-Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. Its canonical transport and bounded source-audio-to-planning subgates are passed. Do not begin Phase 11 or Stage 3 work before the remaining real correction regressions pass.
+Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. Tier 1 and Tier 2 are complete, including dedicated-chat text and voice planning-correction evidence. Do not begin Phase 11 or Stage 3 work before explicit owner 3/3 literary/product/UX acceptance.
 
 ## Phase 10. Real Edit-Audio Transcription
 
@@ -214,7 +214,7 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Owner configured DATABASE_URL plus compatible provider credentials through the VPS-only secret/environment path.
 - [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
 - [x] Run the approved bounded synthetic source-audio canary through real transcription and planning, with one-attempt/no-fallback controls and cleanup.
-- [ ] Run dedicated-chat real text/voice correction regressions for planning and draft paths; this is separate from the completed source-audio canary.
+- [x] Run dedicated-chat real text and voice planning-correction regressions with bounded synthetic fixtures, one-attempt/no-fallback controls, exactly-one delivery observation, and cleanup; draft correction remains covered by deterministic workflow tests.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram only after Tier 2 passes.
 
 ## Stage 2 Output Language Repair

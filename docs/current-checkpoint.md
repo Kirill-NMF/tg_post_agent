@@ -4,13 +4,13 @@ Date: 2026-08-13
 
 ## Current Product Stage
 
-- Stage 1 core implementation is built; real acceptance is pending Tier 2 dedicated-test-chat validation.
-- Stage 2 core planning, draft, and revision implementation is built; real acceptance is pending Tier 2 dedicated-test-chat validation.
+- Stage 1 core implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
+- Stage 2 core planning, draft, and revision implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
 - Stage 3 has not started.
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation is built. Tier 2 now has canonical /start transport evidence and a bounded non-user synthetic Russian source-audio canary: one upload reached the real Stage 1 transcription and Stage 2 planning response, with local audio and dedicated-test-project cleanup confirmed. Phase 10 and the affected stages remain unaccepted until the remaining real text/voice correction regression evidence passes.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and Tier 2 technical validation are complete: canonical /start transport, bounded synthetic source-audio, text planning correction, and voice planning correction all have dedicated-test-chat evidence. Phase 10 remains open only for owner 3/3 literary, product, and UX acceptance; Stage 3 has not started.
 
 ## Branch And GitHub
 
@@ -20,13 +20,13 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Tier 2 /start transport and the bounded source-audio-to-planning canary are complete. The next bounded check is the dedicated-chat text/voice correction regression set. Owner policy permits up to ten billable STT, LLM, or external-TTS test attempts per Moscow day when each is synthetic, bounded, category-ledgered, and outside CI; this checkpoint does not record secret values or content.
+Tier 2 /start transport, source-audio-to-planning, text planning correction, and voice planning correction are complete. The next gate is owner 3/3 acceptance from a clean `/start`; it evaluates literary style, UX, and product quality only, not technical delivery or instruction compliance. The owner-approved one-day synthetic-canary exception raised the category-only daily cap to 15; 14 actual attempts were recorded without retaining secret values or content.
 
-The one-shot canary used approved external synthetic Russian TTS because the VPS has no local RU TTS engine. It was limited to one TTS request, one upload, one Stage 1 attempt, and one Stage 2 attempt; no transcript, audio, credential, or user content was retained. Owner 3/3 remains unavailable until the remaining Tier 2 correction evidence passes.
+The one-shot canary used approved external synthetic Russian TTS because the VPS has no local RU TTS engine. It was limited to one TTS request, one upload, one Stage 1 attempt, and one Stage 2 attempt; no transcript, audio, credential, or user content was retained. Tier 2 correction evidence is now complete; owner 3/3 is the remaining gate.
 
 ## Owner Focus
 
-Current owner focus: none at this transport-setup gate. Owner 3/3 is not ready until coordinator Tier 2 evidence passes.
+Current owner focus: perform 3/3 literary, product, and UX acceptance in real Telegram. Tier 1 and Tier 2 technical evidence are complete.
 
 Accepted owner attention policy: use docs/dashboard/owner-acceptance-policy.md for all future phases. The agent must run realistic basic and medium-frequency tests for 2/3 phases, using unit/integration and Telethon where Telegram UI is touched. For 3/3 phases, the agent must prepare preflight evidence and then stop for explicit owner acceptance.
 
@@ -39,9 +39,9 @@ Two standing gates apply before any owner review. The Synthetic Audio Protocol u
 The Resilience Protocol uses the risk-based manifest for state-machine scenarios: in-flight reset, duplicates, stale callbacks, out-of-order input, retry/timeout/permanent failure, delivery failure, worker reclaim, authorization, and malformed/oversized media. Every change gets focused Tier 1 coverage; a user-flow slice gets its happy/resilience automation plus Tier 2; queue/auth/storage/provider/Telegram boundary changes and stage boundaries run the full relevant matrix. Reproducible owner flow defects return to Tier 1/2 before closure.
 ## Phase 10 Preflight
 
-Tier 1 implementation and automated preflight are green. Tier 2 canonical /start transport passed. The approved one-shot source-audio canary then passed end to end through real transcription and planning delivery with category-only evidence, bounded one-attempt/no-fallback runtime controls, and local/project cleanup. It did not exercise a planning or draft correction; those real Tier 2 correction regressions remain pending.
+Tier 1 implementation and automated preflight are green. Tier 2 canonical /start transport passed. The bounded synthetic source-audio and text planning-correction checks passed with one-attempt/no-fallback controls and cleanup. The final bounded voice planning-correction check recorded voice acknowledgement, successful edit transcription, successful plan revision, and exactly one terminal Telegram result via the hardened bounded-history observer (`single_observed`). The synthetic fixture, jobs, local audio, temporary overlay, and normal single-poller/worker runtime were cleaned/restored.
 
-The bounded voice planning-correction revalidation reached voice acknowledgement, successful edit transcription, successful plan revision, and terminal notification observation. The synthetic fixture, jobs, local audio, temporary overlay, and normal single-worker runtime were cleaned/restored. Its final post-delivery no-duplicate observer became unavailable; a read-only historical Telethon check could not establish the exact one-result count without exposing message content. The deterministic observer now classifies `single_observed`, `duplicate_observed`, or `observation_unavailable`; Tier 2 delivery/no-duplicate evidence remains open until `single_observed` is recorded in a future bounded check. This checkpoint does not claim Tier 2 or owner 3/3 closure from the incomplete observation.
+Tier 2 is complete. Phase 10 is ready only for mandatory owner 3/3 literary, product, and UX acceptance. It is not closed, and this evidence does not assess writing quality.
 
 Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
 
