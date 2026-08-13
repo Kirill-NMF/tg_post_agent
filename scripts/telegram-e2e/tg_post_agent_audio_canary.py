@@ -44,6 +44,7 @@ class Config:
     api_hash: str = field(repr=False)
     string_session: str = field(repr=False)
     bot_token: str = field(repr=False)
+    test_target_chat_id: int
     database_url: str = field(repr=False)
     expected_intake_fragment: str
     timeout_seconds: float
@@ -66,6 +67,7 @@ def parse_config(env: Mapping[str, str]) -> Config:
         api_hash=required(env, "TG_POST_AGENT_REAL_TG_API_HASH"),
         string_session=required(env, "TG_POST_AGENT_REAL_TG_STRING_SESSION"),
         bot_token=required(env, "TG_POST_AGENT_REAL_TG_BOT_TOKEN"),
+        test_target_chat_id=positive_int(env, "TG_POST_AGENT_REAL_TG_TEST_TARGET_CHAT_ID"),
         database_url=database_url,
         expected_intake_fragment=bounded_text(env, "TG_POST_AGENT_REAL_TG_EXPECTED_INTAKE_FRAGMENT", 200),
         timeout_seconds=bounded_float(env, "TG_POST_AGENT_AUDIO_CANARY_TIMEOUT_SECONDS", 20, 180),
@@ -93,7 +95,11 @@ async def run(config: Config) -> dict[str, object]:
             raise UnauthorizedSessionError("unauthorized session")
         account = await client.get_me()
         target = await client.get_entity(identity.username)
-        if not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity):
+        if (
+            not getattr(target, "bot", False)
+            or not target_matches_canonical_identity(target.id, identity)
+            or not target_matches_canonical_identity(config.test_target_chat_id, identity)
+        ):
             raise CanonicalTargetMismatchError()
 
         await asyncio.to_thread(cleanup_test_account, config.database_url, account.id)
@@ -222,10 +228,13 @@ def validate_audio(path: Path, config: Config) -> None:
         raise CanaryError("audio_validation")
 
 
+def cleanup_command(database_url: str, telegram_user_id: int) -> list[str]:
+    return ["psql", database_url, "-v", "ON_ERROR_STOP=1", "-q", "-c", f"delete from users where telegram_user_id = {int(telegram_user_id)};"]
+
 def cleanup_test_account(database_url: str, telegram_user_id: int) -> None:
     try:
         subprocess.run(
-            ["psql", database_url, "-v", "ON_ERROR_STOP=1", "-v", f"telegram_user_id={telegram_user_id}", "-q", "-c", "delete from users where telegram_user_id = :'telegram_user_id';"],
+            cleanup_command(database_url, telegram_user_id),
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

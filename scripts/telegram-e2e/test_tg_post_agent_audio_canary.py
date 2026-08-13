@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tg_post_agent_audio_canary import CanaryError, parse_config, report
+from tg_post_agent_audio_canary import CanaryError, cleanup_command, parse_config, report
 
 
 def valid_env() -> dict[str, str]:
@@ -17,6 +17,7 @@ def valid_env() -> dict[str, str]:
         "TG_POST_AGENT_REAL_TG_API_HASH": "api-hash",
         "TG_POST_AGENT_REAL_TG_STRING_SESSION": "session",
         "TG_POST_AGENT_REAL_TG_BOT_TOKEN": "bot-token",
+        "TG_POST_AGENT_REAL_TG_TEST_TARGET_CHAT_ID": "123456",
         "DATABASE_URL": "postgresql:///tg_post_agent?host=/var/run/postgresql",
         "TG_POST_AGENT_REAL_TG_EXPECTED_INTAKE_FRAGMENT": "intake prompt",
         "TG_POST_AGENT_AUDIO_CANARY_TIMEOUT_SECONDS": "60",
@@ -47,6 +48,11 @@ class AudioCanaryContractTests(unittest.TestCase):
         env["TG_POST_AGENT_AUDIO_CANARY_MAX_SECONDS"] = "9"
         with self.assertRaises(CanaryError):
             parse_config(env)
+
+    def test_builds_numeric_only_cleanup_command(self) -> None:
+        command = cleanup_command("postgresql:///tg_post_agent?host=/var/run/postgresql", 123456)
+        self.assertNotIn("telegram_user_id=123456", command)
+        self.assertEqual(command[-1], "delete from users where telegram_user_id = 123456;")
 
     def test_report_contains_only_safe_outcomes(self) -> None:
         payload = report(
