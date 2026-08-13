@@ -28,18 +28,31 @@ def valid_env() -> dict[str, str]:
 
 
 class CorrectionCanaryContractTests(unittest.TestCase):
-    def test_requires_explicit_fixture_and_target_guards(self) -> None:
+    def test_requires_explicit_guards_and_voice_only_mode(self) -> None:
         env = valid_env()
         env["TG_POST_AGENT_CORRECTION_CANARY_ENABLED"] = "false"
         with self.assertRaises(canary.CanaryError):
             canary.parse_config(env)
 
         env = valid_env()
-        env["TG_POST_AGENT_CORRECTION_CANARY_FIXTURE_CONFIRMATION"] = "wrong"
+        env["TG_POST_AGENT_CORRECTION_CANARY_MODE"] = "voice_only"
+        self.assertEqual(canary.parse_config(env).mode, "voice_only")
+
+        env["TG_POST_AGENT_CORRECTION_CANARY_MODE"] = "unknown"
         with self.assertRaises(canary.CanaryError):
             canary.parse_config(env)
 
-    def test_refuses_test_database_and_overlong_audio(self) -> None:
+    def test_local_failure_is_classified_without_ledger_consumption(self) -> None:
+        original = canary.LEDGER_PATH
+        with tempfile.TemporaryDirectory() as directory:
+            canary.LEDGER_PATH = Path(directory) / "ledger.json"
+            with self.assertRaises(canary.CanaryError) as raised:
+                canary.run_local_stage("ffmpeg_conversion", lambda: (_ for _ in ()).throw(OSError()))
+            self.assertEqual(raised.exception.category, "ffmpeg_conversion")
+            self.assertFalse(canary.LEDGER_PATH.exists())
+        canary.LEDGER_PATH = original
+
+    def test_refuses_test_database_and_unbounded_audio(self) -> None:
         env = valid_env()
         env["DATABASE_URL"] = "postgresql:///tg_post_agent_test?host=/var/run/postgresql"
         with self.assertRaises(canary.CanaryError):
@@ -50,17 +63,22 @@ class CorrectionCanaryContractTests(unittest.TestCase):
         with self.assertRaises(canary.CanaryError):
             canary.parse_config(env)
 
-    def test_category_only_ledger_reserves_each_attempt_before_provider_work(self) -> None:
+    def test_records_billable_and_transport_boundaries_one_by_one(self) -> None:
         original = canary.LEDGER_PATH
         with tempfile.TemporaryDirectory() as directory:
             canary.LEDGER_PATH = Path(directory) / "ledger.json"
-            canary.reserve("llm_plan_revision_text")
-            canary.reserve("external_tts")
+            started = 1.0
+            canary.reserve_billable("external_tts", "google_translate", started)
+            canary.record_transport("telegram_upload", started)
+            canary.reserve_billable("stt_edit_transcription", "openrouter", started)
             payload = json.loads(canary.LEDGER_PATH.read_text(encoding="utf-8"))
             self.assertEqual(payload["attemptedBillableOperations"], 2)
             self.assertEqual(payload["remainingBudget"], 8)
-            self.assertEqual([entry["category"] for entry in payload["entries"]], ["llm_plan_revision_text", "external_tts"])
-            self.assertNotIn("session", json.dumps(payload))
+            self.assertEqual(
+                [(entry["category"], entry["billable"]) for entry in payload["entries"]],
+                [("external_tts", True), ("telegram_upload", False), ("stt_edit_transcription", True)],
+            )
+            self.assertNotIn("bot-token", json.dumps(payload))
         canary.LEDGER_PATH = original
 
 
