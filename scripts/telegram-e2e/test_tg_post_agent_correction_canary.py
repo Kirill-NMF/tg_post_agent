@@ -136,6 +136,23 @@ class CorrectionCanaryContractTests(unittest.TestCase):
         )
         self.assertIsNotNone(message)
 
+    def test_duplicate_observer_classifies_one_duplicate_or_unavailable_without_storing_text(self) -> None:
+        single = asyncio.run(
+            canary.observe_terminal_delivery(
+                FakeClient([], [FakeMessage(42, canary.PLAN_MARKER)]), object(), 42, 100, 0.01
+            )
+        )
+        duplicate = asyncio.run(
+            canary.observe_terminal_delivery(
+                FakeClient([], [FakeMessage(42, canary.PLAN_MARKER), FakeMessage(42, canary.SAFE_ERROR_MARKER)]), object(), 42, 100, 0.01
+            )
+        )
+        unavailable = asyncio.run(canary.observe_terminal_delivery(FailingHistoryClient(), object(), 42, 100, 0.01))
+
+        self.assertEqual(single, "single_observed")
+        self.assertEqual(duplicate, "duplicate_observed")
+        self.assertEqual(unavailable, "observation_unavailable")
+
     def run_voice_with_responses(self, responses):
         original_ledger = canary.LEDGER_PATH
         original_checkpoint = canary.CHECKPOINT_PATH
@@ -196,6 +213,15 @@ class FakeClient:
 
 class FakeSentMessage:
     id = 100
+
+
+class FailingHistoryClient(FakeClient):
+    def __init__(self):
+        super().__init__([])
+
+    async def iter_messages(self, *_args, **_kwargs):
+        raise RuntimeError("offline test")
+        yield None
 
 
 if __name__ == "__main__":

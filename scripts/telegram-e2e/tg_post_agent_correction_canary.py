@@ -109,6 +109,7 @@ async def run(config: Config) -> dict[str, object]:
         "revisionHandoff": "not_observed",
         "revisionTerminal": "not_observed",
         "notificationObservation": "not_observed",
+        "duplicateObservation": "not_observed",
         "lastStage": "not_started",
     }
     client = None
@@ -232,7 +233,18 @@ async def run_voice_correction(client, target, bot_id: int, config: Config, star
                 )
                 observations["notificationObservation"] = "terminal"
                 write_checkpoint(observations)
-                await assert_no_duplicate(conversation, config.duplicate_wait_seconds)
+                duplicate_observation = await observe_terminal_delivery(
+                    client,
+                    target,
+                    bot_id,
+                    sent_message_id,
+                    config.duplicate_wait_seconds,
+                )
+                observations["duplicateObservation"] = duplicate_observation
+                if duplicate_observation == "duplicate_observed":
+                    raise CanaryError("duplicate_terminal_response")
+                if duplicate_observation == "observation_unavailable":
+                    raise CanaryError("observation_unavailable")
                 observations["voiceNoDuplicate"] = True
                 return True, terminal, True
     finally:
@@ -330,6 +342,31 @@ async def history_message(client, target, bot_id: int, sent_message_id: int, mar
     except BaseException:
         return None
     return None
+
+
+async def observe_terminal_delivery(client, target, bot_id: int, sent_message_id: int, timeout: float) -> str:
+    deadline = asyncio.get_running_loop().time() + timeout
+    available = False
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            count = 0
+            async for message in client.iter_messages(target, min_id=sent_message_id, limit=20):
+                if message.sender_id == bot_id and is_terminal_message(message):
+                    count += 1
+            available = True
+            if count > 1:
+                return "duplicate_observed"
+        except BaseException:
+            pass
+        await asyncio.sleep(0.25)
+    if not available:
+        return "observation_unavailable"
+    return "single_observed"
+
+
+def is_terminal_message(message: object) -> bool:
+    text = getattr(message, "raw_text", "")
+    return isinstance(text, str) and (PLAN_MARKER in text or SAFE_ERROR_MARKER in text)
 
 
 async def receive(conversation, bot_id: int, timeout: float, failure_category: str):
