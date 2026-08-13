@@ -116,6 +116,14 @@ class CorrectionCanaryContractTests(unittest.TestCase):
             self.assertEqual(payload, {"editJob": "succeeded", "revisionJob": "running", "revisionStarted": True, "notificationObserved": False})
         canary.LIFECYCLE_PATH = original
 
+    def test_accepts_an_explicit_owner_approved_fifteen_operation_ledger(self) -> None:
+        original = canary.LEDGER_PATH
+        with tempfile.TemporaryDirectory() as directory:
+            canary.LEDGER_PATH = Path(directory) / "ledger.json"
+            canary.write_json(canary.LEDGER_PATH, {"dailyBudget": 15, "attemptedBillableOperations": 8, "remainingBudget": 7, "entries": []})
+            self.assertEqual(canary.read_ledger()["remainingBudget"], 7)
+        canary.LEDGER_PATH = original
+
     def test_history_observer_matches_only_new_bot_marker(self) -> None:
         message = asyncio.run(
             canary.history_message(

@@ -426,7 +426,9 @@ def read_ledger() -> dict[str, object]:
         ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise CanaryError("ledger") from exc
-    if not isinstance(ledger, dict) or ledger.get("dailyBudget") != 10 or not isinstance(ledger.get("attemptedBillableOperations"), int) or not isinstance(ledger.get("remainingBudget"), int) or not isinstance(ledger.get("entries"), list):
+    if not isinstance(ledger, dict) or ledger.get("dailyBudget") not in {10, 15} or not isinstance(ledger.get("attemptedBillableOperations"), int) or not isinstance(ledger.get("remainingBudget"), int) or not isinstance(ledger.get("entries"), list):
+        raise CanaryError("ledger")
+    if ledger["remainingBudget"] != ledger["dailyBudget"] - ledger["attemptedBillableOperations"]:
         raise CanaryError("ledger")
     return ledger
 
