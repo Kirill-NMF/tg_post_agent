@@ -21,6 +21,7 @@ Provide these names only through a VPS runtime environment, never through git:
 - optional `TG_POST_AGENT_REAL_TG_REPORT_PATH`
 
 The confirmation value and a dedicated target chat are mandatory guards. Never configure the owner production DM as the target. Use an already-authorized dedicated Telethon test account and keep its API credentials and StringSession runtime-only with mode 600.
+A runtime-only smoke config may reference a separately maintained authorized-session source by variable name or file path, but it must not copy credential values into git or reports.
 
 ## Run
 
@@ -30,7 +31,7 @@ The confirmation value and a dedicated target chat are mandatory guards. Never c
 4. Run `pnpm run smoke:telegram` once. Do not run concurrent sessions.
 5. Read only the boolean/category JSON report at `/tmp/tg-post-agent-telegram-smoke-report.json` by default. The report never contains credentials, target IDs, transcript text, or Telegram message bodies.
 
-Failure categories are `configuration`, `timeout`, `duplicate_response`, `unauthorized_session`, `unexpected_response`, and `runtime`. The harness returns non-zero before importing Telethon or sending a message when the explicit enabled/target/confirmation guards are absent.
+Failure categories are configuration, timeout, duplicate_response, unauthorized_session, unexpected_sender, intake_fragment_mismatch, and runtime.
 
 ## Coverage And Limits
 

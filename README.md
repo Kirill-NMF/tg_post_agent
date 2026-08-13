@@ -8,6 +8,10 @@ MVP flow:
 
 Authoritative project docs live in `docs/project-spec/`.
 
+## Reusable Practices
+
+Portable engineering playbooks for future projects live in [docs/reusable-practices/](docs/reusable-practices/README.md). They contain general quality, resilience, operating, and cost-control checklists without runtime credentials or user data.
+
 ## Runtime Config
 
 Copy `.env.example` to a runtime-only env file outside git and fill values there.

@@ -12,6 +12,7 @@ from tg_post_agent_smoke import (
     ConfigurationError,
     DuplicateResponseError,
     SmokeTimeoutError,
+    UnexpectedBotResponseError,
     parse_config,
     report_for_error,
     write_report,
@@ -93,6 +94,18 @@ class SmokeContractTests(unittest.TestCase):
         self.assertEqual(report["botReplyObserved"], True)
         self.assertEqual(report["duplicateResponseObserved"], True)
 
+
+    def test_classifies_safe_unexpected_response_reason_without_message_content(self) -> None:
+        report = report_for_error(
+            UnexpectedBotResponseError("intake_fragment_mismatch"),
+            target_configured=True,
+            bot_reply_observed=True,
+            duplicate_response_observed=False,
+        )
+
+        self.assertEqual(report["failureCategory"], "intake_fragment_mismatch")
+        self.assertEqual(report["botReplyObserved"], True)
+        self.assertNotIn("intake prompt", json.dumps(report))
 
 if __name__ == "__main__":
     unittest.main()

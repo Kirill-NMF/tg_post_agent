@@ -28,7 +28,10 @@ class DuplicateResponseError(RuntimeError):
 
 
 class UnexpectedBotResponseError(RuntimeError):
-    pass
+    def __init__(self, category: str):
+        self.category = category
+        self.bot_reply_observed = True
+        super().__init__(category)
 
 
 class UnauthorizedSessionError(RuntimeError):
@@ -106,9 +109,9 @@ async def run_smoke(config: SmokeConfig) -> dict[str, object]:
                 raise SmokeTimeoutError() from exc
 
             if response.sender_id != bot.id:
-                raise UnexpectedBotResponseError("Expected response was not sent by the configured bot.")
+                raise UnexpectedBotResponseError("unexpected_sender")
             if config.expected_intake_fragment not in (response.raw_text or ""):
-                raise UnexpectedBotResponseError("Configured intake fragment was not observed.")
+                raise UnexpectedBotResponseError("intake_fragment_mismatch")
 
             try:
                 await asyncio.wait_for(
@@ -154,7 +157,7 @@ def failure_category(error: BaseException) -> str:
     if isinstance(error, UnauthorizedSessionError):
         return "unauthorized_session"
     if isinstance(error, UnexpectedBotResponseError):
-        return "unexpected_response"
+        return error.category
     return "runtime"
 
 
@@ -245,7 +248,7 @@ def main() -> int:
         report = report_for_error(
             error,
             target_configured=bool(env.get("TG_POST_AGENT_REAL_TG_TEST_TARGET_CHAT_ID", "").strip()),
-            bot_reply_observed=False,
+            bot_reply_observed=getattr(error, "bot_reply_observed", False),
             duplicate_response_observed=isinstance(error, DuplicateResponseError),
         )
         write_report(path, report)

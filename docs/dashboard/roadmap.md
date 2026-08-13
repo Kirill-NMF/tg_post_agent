@@ -22,10 +22,10 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 | Product stage | Status | Summary | Owner focus | Manual testing focus |
 | --- | --- | --- | --- | --- |
-| Stage 1: Transcription | mostly built | Telegram audio download, ffmpeg preparation, Whisper adapter, transcript persistence. | 2/3 | Later test short and long audio on real bot. |
-| Stage 2: Rewrite/draft | active | Gemini planning, draft generation, and guarded draft revision are built. | 2/3 now, 3/3 after real edit-audio | Review draft quality and correction loop once real bot smoke exists. |
-| Stage 3: Formatting | later | Option 1 plain Telegram formatting and Option 2 emoji/reference style. | 3/3 | Inspect readability, emoji density, and word preservation. |
-| Packaging/deploy | later | VPS service, env, monitoring, and controlled real Telegram smoke. | 3/3 | Validate full flow in real Telegram. |
+| Stage 1: Transcription | core implementation built; real acceptance pending | Audio intake, temporary processing, transcription, and persisted transcript are built. | Tier 2 intake-contract repair | Re-run guarded transport validation after the coordinator repair. |
+| Stage 2: Plan/draft/revision | core implementation built; real acceptance pending | Planning, draft generation, text and edit-audio correction paths are built. | Tier 2 intake-contract repair | Validate delivery and corrections after the coordinator repair. |
+| Stage 3: Formatting | not started | Formatting and final-post behavior remain deferred. | none | none |
+| Packaging/deploy | later | Runtime operations continue only through controlled authorized work. | as scoped | Controlled runtime checks only. |
 
 ## Engineering Phase Roadmap
 
@@ -42,7 +42,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 7: Gemini Planning | Stage 2 | done | 2/3 | adapter validation, planning job tests | Review plan options when real bot flow is available. |
 | Phase 8: Gemini Draft Generation | Stage 2 | done | 2/3 | adapter/job/service tests | Review draft quality later. |
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
-| Phase 10: Real Edit-Audio Transcription + Planning Quality | Stage 1/2 | ready for 3/3 | 3/3 | Whisper edit tests, Russian output-language prompt/guard tests, recommendation contract/UI tests, temp cleanup, production preflight | Mandatory owner manual acceptance: Russian planning/draft/revision output, voice corrections, and recommendation quality in Telegram. |
+| Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | implementation built; Tier 2 intake-contract repair | 3/3 after Tier 2 | Tier 1 green; first guarded /start reply mismatched intake contract; then synthetic-audio STT/Telegram canary and text/voice regressions | Owner quality acceptance only after Tier 2. |
 | Phase 11: Formatting Foundation | Stage 3 | next candidate | 3/3 | formatting contracts, preservation tests | Review Option 1/Option 2 outputs. |
 | Phase 12: Real Formatting Adapter | Stage 3 | later | 3/3 | provider validation, preservation check | Check emoji density and no word rewrites. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
@@ -61,7 +61,10 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 ## Current Gate
 
-Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke before owner 3/3 acceptance. The smoke uses synthetic fixtures and covers the affected happy path plus voice/text planning-correction regressions. Owner then verifies Russian default output, recommendation-first planning, meaningful alternatives, and text/voice corrections from a clean project. A clear explicit user request may override Russian for that project.
+Phase 10 is implementation-built but not accepted or ready for owner 3/3. The existing authorized dedicated test account/session and dedicated bot DM target are configured through a mode-600 runtime-only smoke config; no new owner prerequisite exists.
+
+The first guarded /start smoke reached the verified bot and observed one bot reply, but failed only with the transcript-free category intake_fragment_mismatch. Coordinator must reconcile the deployed intake response with the current source-audio contract and repeat that smoke. Only after the Tier 2 /start smoke, bounded synthetic-audio STT plus Telegram canary, and text/voice correction regressions pass may the owner run 3/3 literary, UX, and quality acceptance. Stage 3 remains unstarted.
+
 ## Provider Configuration Update
 
 OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production credentials and one controlled worker-enabled restart are in place; the Phase 10 owner acceptance gate remains mandatory.

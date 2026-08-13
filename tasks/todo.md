@@ -189,18 +189,19 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 ## Mandatory Delivery Quality Gate
 
 - [x] Tier 1 deterministic Stage 2 correction workflow tests cover edit-audio hand-off, terminal recovery, bounded retries, text correction, and safe delivery.
-- [ ] Tier 2 coordinator automated integration plus dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures covers the affected happy path and regressions before owner review.
-- [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
 - [x] Prompt/model constraints use offline evaluator fixtures; paid provider canaries remain explicit, bounded, and outside CI.
-- [x] Add an opt-in Telethon `/start` transport harness with explicit test-target guard, duplicate-response check, and transcript-free diagnostic report.
-- [ ] Configure an already-authorized dedicated Telethon test account and target chat, then run the bounded Tier 2 transport smoke.
-
+- [x] Add an opt-in Telethon /start transport harness with explicit test-target guard, duplicate-response check, and transcript-free diagnostic report.
 - [x] Document non-user synthetic audio corpus, Tier 1 propagation/cleanup assertions, and bounded Tier 2 STT/Telegram canary rule.
 - [x] Document risk-based resilience matrix and trigger cadence; reproduced functional owner feedback returns to Tier 1/2.
+- [x] Configure the runtime-only smoke reference to the already-authorized allowlisted test account/session and verified dedicated bot DM target.
+- [ ] Coordinator action: reconcile the safe intake_fragment_mismatch from the first guarded /start smoke, then rerun it before the bounded synthetic-audio STT canary and text/voice correction regressions.
+- [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
 - [ ] Before an audio canary, inspect approved VPS tooling and record the TTS/fixture generation choice; do not assume a provider or engine.
+
 ## Next Gate: Phase 10
 
-Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures before the mandatory 3/3 owner manual acceptance. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
+Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. It is built but not accepted or ready for owner 3/3: the existing test session and target are configured, but the first guarded /start reply has an intake-contract mismatch that coordinator must repair before the remaining Tier 2 checks.
+
 ## Phase 10. Real Edit-Audio Transcription
 
 - [x] Enqueue durable `TRANSCRIBE_EDIT_AUDIO` jobs for voice/audio edits in `planning` and `draft_editing`.
@@ -211,7 +212,8 @@ Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated
 - [x] Complete automated preflight without paid provider calls.
 - [x] Owner configured DATABASE_URL plus compatible provider credentials through the VPS-only secret/environment path.
 - [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
-- [ ] Mandatory 3/3 owner manual acceptance in real Telegram.
+- [ ] Complete the blocked Tier 2 dedicated-test-chat smoke, synthetic-audio STT canary, and text/voice correction regressions.
+- [ ] Mandatory 3/3 owner manual acceptance in real Telegram only after Tier 2 passes.
 
 ## Stage 2 Output Language Repair
 

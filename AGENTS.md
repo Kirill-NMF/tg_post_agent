@@ -22,6 +22,10 @@ Secondary VPS practices may be used only when compatible:
 - /opt/shorttalk/docs/playbooks/telegram-real-account-e2e.md
 - /opt/shorttalk/docs/playbooks/linux-remote-codex-builder.md
 
+## Reusable Practices
+
+Portable, project-neutral playbooks are in [docs/reusable-practices/](docs/reusable-practices/README.md). Apply the relevant checklist alongside the project specification; it does not replace project-specific gates.
+
 ## Completion Gate
 
 - Do not signal `DONE` or call changed behavior ready until Tier 1 deterministic evidence and the applicable Tier 2 coordinator integration/Telegram smoke evidence exist.
