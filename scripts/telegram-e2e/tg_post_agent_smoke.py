@@ -10,12 +10,23 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 REPORT_PATH_DEFAULT = "/tmp/tg-post-agent-telegram-smoke-report.json"
 REQUIRED_CONFIRMATION = "DEDICATED_TEST_CHAT"
+BOT_API_GET_ME_BASE_URL = "https://api.telegram.org/bot"
 
 
 class ConfigurationError(RuntimeError):
+    pass
+
+
+class BotIdentityError(RuntimeError):
+    pass
+
+
+class CanonicalTargetMismatchError(RuntimeError):
     pass
 
 
@@ -39,11 +50,17 @@ class UnauthorizedSessionError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class BotIdentity:
+    telegram_id: int = field(repr=False)
+    username: str = field(repr=False)
+
+
+@dataclass(frozen=True)
 class SmokeConfig:
     api_id: int
     api_hash: str = field(repr=False)
     string_session: str = field(repr=False)
-    bot_username: str
+    bot_token: str = field(repr=False)
     test_target_chat_id: int
     expected_intake_fragment: str
     timeout_seconds: float
@@ -64,7 +81,7 @@ def parse_config(env: Mapping[str, str]) -> SmokeConfig:
         api_id=required_positive_int(env, "TG_POST_AGENT_REAL_TG_API_ID"),
         api_hash=required(env, "TG_POST_AGENT_REAL_TG_API_HASH"),
         string_session=required(env, "TG_POST_AGENT_REAL_TG_STRING_SESSION"),
-        bot_username=required(env, "TG_POST_AGENT_REAL_TG_BOT_USERNAME"),
+        bot_token=required(env, "TG_POST_AGENT_REAL_TG_BOT_TOKEN"),
         test_target_chat_id=required_int(env, "TG_POST_AGENT_REAL_TG_TEST_TARGET_CHAT_ID"),
         expected_intake_fragment=required_bounded_text(
             env, "TG_POST_AGENT_REAL_TG_EXPECTED_INTAKE_FRAGMENT", 200
@@ -78,7 +95,42 @@ def parse_config(env: Mapping[str, str]) -> SmokeConfig:
     )
 
 
+def parse_bot_identity(payload: bytes) -> BotIdentity:
+    try:
+        parsed = json.loads(payload)
+        result = parsed["result"] if parsed.get("ok") is True else None
+        telegram_id = result["id"]
+        username = result["username"]
+    except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise BotIdentityError("Could not validate the runtime bot identity.") from exc
+
+    if (
+        not isinstance(telegram_id, int)
+        or isinstance(telegram_id, bool)
+        or telegram_id < 1
+        or not isinstance(username, str)
+        or not username.strip()
+    ):
+        raise BotIdentityError("Could not validate the runtime bot identity.")
+    return BotIdentity(telegram_id=telegram_id, username=username.strip())
+
+
+def fetch_runtime_bot_identity(bot_token: str) -> BotIdentity:
+    request = Request(f"{BOT_API_GET_ME_BASE_URL}{bot_token}/getMe", method="GET")
+    try:
+        with urlopen(request, timeout=15) as response:
+            return parse_bot_identity(response.read())
+    except (OSError, URLError, ValueError, BotIdentityError) as exc:
+        raise BotIdentityError("Could not validate the runtime bot identity.") from exc
+
+
+def target_matches_canonical_identity(target_id: int, identity: BotIdentity) -> bool:
+    return target_id == identity.telegram_id
+
+
 async def run_smoke(config: SmokeConfig) -> dict[str, object]:
+    identity = await asyncio.to_thread(fetch_runtime_bot_identity, config.bot_token)
+
     try:
         from telethon import TelegramClient
         from telethon.sessions import StringSession
@@ -97,8 +149,14 @@ async def run_smoke(config: SmokeConfig) -> dict[str, object]:
         if not await client.is_user_authorized():
             raise UnauthorizedSessionError("Configured Telethon session is not authorized.")
 
-        bot = await client.get_entity(config.bot_username)
-        target = await client.get_entity(config.test_target_chat_id)
+        target = await client.get_entity(identity.username)
+        if (
+            not getattr(target, "bot", False)
+            or not target_matches_canonical_identity(target.id, identity)
+            or not target_matches_canonical_identity(config.test_target_chat_id, identity)
+        ):
+            raise CanonicalTargetMismatchError()
+
         async with client.conversation(target, timeout=config.timeout_seconds, exclusive=True) as conversation:
             await conversation.send_message("/start")
             try:
@@ -108,7 +166,7 @@ async def run_smoke(config: SmokeConfig) -> dict[str, object]:
             except TimeoutError as exc:
                 raise SmokeTimeoutError() from exc
 
-            if response.sender_id != bot.id:
+            if response.sender_id != identity.telegram_id:
                 raise UnexpectedBotResponseError("unexpected_sender")
             if config.expected_intake_fragment not in (response.raw_text or ""):
                 raise UnexpectedBotResponseError("intake_fragment_mismatch")
@@ -150,6 +208,10 @@ def report_for_error(
 def failure_category(error: BaseException) -> str:
     if isinstance(error, ConfigurationError):
         return "configuration"
+    if isinstance(error, BotIdentityError):
+        return "bot_identity"
+    if isinstance(error, CanonicalTargetMismatchError):
+        return "target_identity_mismatch"
     if isinstance(error, SmokeTimeoutError):
         return "timeout"
     if isinstance(error, DuplicateResponseError):

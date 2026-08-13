@@ -10,7 +10,7 @@ Date: 2026-08-13
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation is built, but Phase 10 and the affected stages are not accepted or closed because the first Tier 2 dedicated-test-chat Telethon smoke returned the safe intake_fragment_mismatch category; the session and target configuration are complete.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation is built. The Tier 2 transport subgate passed using canonical bot identity from active Bot API getMe, a dedicated allowlisted Telethon session, one /start reply, and no duplicate reply. Phase 10 and the affected stages remain unaccepted until the bounded synthetic-audio STT canary and correction regressions pass.
 
 ## Branch And GitHub
 
@@ -20,9 +20,9 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-The existing authorized dedicated test account/session is now referenced through a mode-600 runtime-only smoke config, and the dedicated bot DM target is verified. No new owner account, session, or allowlist action is required.
+Tier 2 /start transport is complete. The next bounded check is one synthetic-audio STT plus Telegram canary followed by text/voice correction regressions.
 
-Coordinator action: reconcile the live bot intake response with the current source-audio contract, then repeat the guarded Tier 2 /start transport smoke. After it passes, run the separately approved bounded synthetic-audio STT plus Telegram canary and text/voice correction regressions. Only then may the owner run 3/3 literary, UX, and quality acceptance. Do not close Phase 10 or start Phase 11 before this sequence completes.
+VPS inspection found ffmpeg and ffprobe but no approved local TTS engine. Before creating speech audio, coordinator/owner must either approve one bounded external TTS canary or approve installation of a local TTS engine. The choice is limited to the synthetic fixture and stays outside CI. After the audio-related Tier 2 checks pass, the owner may run 3/3 literary, UX, and quality acceptance.
 
 ## Owner Focus
 
@@ -39,7 +39,7 @@ Two standing gates apply before any owner review. The Synthetic Audio Protocol u
 The Resilience Protocol uses the risk-based manifest for state-machine scenarios: in-flight reset, duplicates, stale callbacks, out-of-order input, retry/timeout/permanent failure, delivery failure, worker reclaim, authorization, and malformed/oversized media. Every change gets focused Tier 1 coverage; a user-flow slice gets its happy/resilience automation plus Tier 2; queue/auth/storage/provider/Telegram boundary changes and stage boundaries run the full relevant matrix. Reproducible owner flow defects return to Tier 1/2 before closure.
 ## Phase 10 Preflight
 
-Tier 1 implementation and automated preflight are green. The first Tier 2 dedicated-test-chat /start smoke verified the existing session, target, and one bot reply but failed safely with intake_fragment_mismatch; reconcile the live intake contract before retrying. Phase 10 is not accepted, closed, or ready for owner 3/3.
+Tier 1 implementation and automated preflight are green. The canonical Tier 2 /start transport subgate passed: active Bot API getMe identity matched the Telethon target, one reply arrived, and no duplicate reply arrived. No audio, STT, or LLM call ran. The synthetic-audio canary and correction regressions remain pending.
 
 Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
 

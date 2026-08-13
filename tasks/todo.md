@@ -191,16 +191,17 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Tier 1 deterministic Stage 2 correction workflow tests cover edit-audio hand-off, terminal recovery, bounded retries, text correction, and safe delivery.
 - [x] Prompt/model constraints use offline evaluator fixtures; paid provider canaries remain explicit, bounded, and outside CI.
 - [x] Add an opt-in Telethon /start transport harness with explicit test-target guard, duplicate-response check, and transcript-free diagnostic report.
+- [x] Replace manual bot username/display-name targeting with canonical Bot API getMe identity verification before /start.
+- [x] Run the guarded dedicated-test-chat Tier 2 /start transport smoke: one reply observed and no duplicate response.
 - [x] Document non-user synthetic audio corpus, Tier 1 propagation/cleanup assertions, and bounded Tier 2 STT/Telegram canary rule.
 - [x] Document risk-based resilience matrix and trigger cadence; reproduced functional owner feedback returns to Tier 1/2.
-- [x] Configure the runtime-only smoke reference to the already-authorized allowlisted test account/session and verified dedicated bot DM target.
-- [ ] Coordinator action: reconcile the safe intake_fragment_mismatch from the first guarded /start smoke, then rerun it before the bounded synthetic-audio STT canary and text/voice correction regressions.
+- [ ] Approve either a bounded external synthetic-TTS canary or installation of a local TTS engine; current VPS inventory has only ffmpeg/ffprobe.
+- [ ] Coordinator action: run the bounded synthetic-audio STT plus Telegram canary and text/voice correction regressions.
 - [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
-- [ ] Before an audio canary, inspect approved VPS tooling and record the TTS/fixture generation choice; do not assume a provider or engine.
 
 ## Next Gate: Phase 10
 
-Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. It is built but not accepted or ready for owner 3/3: the existing test session and target are configured, but the first guarded /start reply has an intake-contract mismatch that coordinator must repair before the remaining Tier 2 checks.
+Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. Its canonical dedicated-test-chat transport subgate is passed. Do not begin Phase 11 or Stage 3 work before the approved synthetic-audio canary and remaining correction regressions pass.
 
 ## Phase 10. Real Edit-Audio Transcription
 
@@ -212,7 +213,7 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Complete automated preflight without paid provider calls.
 - [x] Owner configured DATABASE_URL plus compatible provider credentials through the VPS-only secret/environment path.
 - [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
-- [ ] Complete the blocked Tier 2 dedicated-test-chat smoke, synthetic-audio STT canary, and text/voice correction regressions.
+- [ ] Run the approved synthetic-audio STT canary and text/voice correction regressions after fixture-generator approval.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram only after Tier 2 passes.
 
 ## Stage 2 Output Language Repair
