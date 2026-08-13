@@ -83,8 +83,8 @@ class CorrectionCanaryContractTests(unittest.TestCase):
             self.assertNotIn("bot-token", json.dumps(payload))
         canary.LEDGER_PATH = original
 
-    def test_post_upload_timeout_keeps_precise_ack_category_and_actual_ledger(self) -> None:
-        observations, error, ledger, checkpoint = self.run_voice_with_responses([TimeoutError()])
+    def test_post_upload_receive_exception_keeps_precise_ack_category_and_actual_ledger(self) -> None:
+        observations, error, ledger, checkpoint = self.run_voice_with_responses([RuntimeError("transport")])
 
         self.assertEqual(error.category, "ack_timeout")
         self.assertTrue(observations["telegramUploadAttempted"])

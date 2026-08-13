@@ -276,7 +276,7 @@ async def await_voice_terminal(conversation, bot_id: int, config: Config, starte
 async def receive(conversation, bot_id: int, timeout: float, failure_category: str):
     try:
         message = await asyncio.wait_for(conversation.get_response(), timeout=timeout)
-    except TimeoutError as exc:
+    except BaseException as exc:
         raise CanaryError(failure_category) from exc
     if message.sender_id != bot_id:
         raise CanaryError(failure_category)
