@@ -20,7 +20,7 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Tier 2 /start transport and the bounded source-audio-to-planning canary are complete. The next bounded check is the dedicated-chat text/voice correction regression set; no new owner decision or broad provider canary is implied.
+Tier 2 /start transport and the bounded source-audio-to-planning canary are complete. The next bounded check is the dedicated-chat text/voice correction regression set. Owner policy permits up to ten billable STT, LLM, or external-TTS test attempts per Moscow day when each is synthetic, bounded, category-ledgered, and outside CI; this checkpoint does not record secret values or content.
 
 The one-shot canary used approved external synthetic Russian TTS because the VPS has no local RU TTS engine. It was limited to one TTS request, one upload, one Stage 1 attempt, and one Stage 2 attempt; no transcript, audio, credential, or user content was retained. Owner 3/3 remains unavailable until the remaining Tier 2 correction evidence passes.
 

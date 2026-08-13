@@ -58,7 +58,7 @@ Before signaling `DONE` or reporting a feature ready, the builder must attach ev
 - Tier 2 coordinator automated integration plus dedicated-test-chat Telegram/Telethon smoke covers the affected happy path and regressions with synthetic fixtures.
 - Tier 3 owner manual acceptance is only for literary quality, UX, or product judgement. It never substitutes for Tier 1 or Tier 2 technical/instruction-compliance checks.
 
-Do not signal `DONE` with an unresolved required gate. Paid provider canaries stay outside CI and require an explicit, bounded approval.
+Do not signal `DONE` with an unresolved required gate. Paid provider canaries stay outside CI. The coordinator may authorize up to 10 billable STT, LLM, or external-TTS attempts per Moscow day when each is bounded, synthetic, ledgered by safe category/outcome/timing, and does not widen product impact; otherwise require owner approval.
 
 ### Audio And Resilience Dispatch Triggers
 

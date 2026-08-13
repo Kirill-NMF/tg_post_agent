@@ -28,7 +28,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
   const storage = new TempAudioStorage({ baseDir: input.config.audioTempDir });
   return {
     TRANSCRIBE_AUDIO: createTranscribeAudioJobHandler({ projects: input.projects, telegramFiles: files, audioProcessor: processor, transcription, storage, jobs: input.jobs, notifier: input.notifier, logger: input.logger, planSplitJobMaxAttempts: input.config.planSplitJobMaxAttempts }),
-    TRANSCRIBE_EDIT_AUDIO: createTranscribeEditAudioJobHandler({ projects: input.projects, jobs: input.jobs!, telegramFiles: files, audioProcessor: processor, transcription, storage, notifier: input.notifier, logger: input.logger }),
+    TRANSCRIBE_EDIT_AUDIO: createTranscribeEditAudioJobHandler({ projects: input.projects, jobs: input.jobs!, telegramFiles: files, audioProcessor: processor, transcription, storage, notifier: input.notifier, logger: input.logger, planRevisionJobMaxAttempts: input.config.planRevisionJobMaxAttempts }),
     PLAN_SPLIT: createPlanSplitJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     REVISE_PLAN: createRevisePlanJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     GENERATE_DRAFT: createGenerateDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger }),

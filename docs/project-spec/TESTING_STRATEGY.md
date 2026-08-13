@@ -49,7 +49,7 @@ The opt-in `/start` transport harness is documented in `docs/TELEGRAM_SMOKE.md`.
 
 The smoke uses only synthetic fixtures and covers the complete affected happy path plus the regression that motivated the change. It must verify Telegram delivery and callbacks where applicable, one poller/worker, authorization, persistence/cleanup evidence, and recovery messages. It must not trigger a broad paid-provider tree.
 
-A prompt or provider behavior change may use one bounded live-provider canary only after explicit coordinator or owner approval. Record its narrow scope and cost. Do not add paid canaries to CI.
+A prompt or provider behavior change may use a bounded live-provider canary outside CI. The coordinator may autonomously make up to 10 billable STT, LLM, or external-TTS attempts per Moscow calendar day; record only category, outcome, timing, and remaining budget in a mode-600 runtime ledger. More than 10 attempts, a new provider/credential, unusually costly model, or wider product impact requires explicit owner approval.
 
 ## Tier 3/3: Owner Manual Acceptance
 

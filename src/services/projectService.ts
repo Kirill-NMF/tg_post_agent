@@ -24,7 +24,7 @@ export class ProjectService {
     private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters,
     private readonly jobs?: JobRepository,
-    private readonly jobAttempts: { sourceAudio: number } = { sourceAudio: 3 }
+    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3 }
   ) {}
 
   async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
@@ -62,7 +62,7 @@ export class ProjectService {
         projectId: project.id,
         dedupeKey: `project:${project.id}:source-transcription`,
         payload: { source: toAudioSourceMetadata(source) },
-        maxAttempts: this.jobAttempts.sourceAudio
+        maxAttempts: this.jobAttempts.sourceAudio ?? 3
       });
       project.state = "transcribing";
       await this.projects.save(project);
@@ -98,7 +98,8 @@ export class ProjectService {
         type: "REVISE_PLAN",
         projectId: project.id,
         dedupeKey: `project:${project.id}:revise-plan:text:${project.messages.filter((item) => item.kind === "planning_edit").length}`,
-        payload: { latestUserEdit }
+        payload: { latestUserEdit },
+        maxAttempts: this.jobAttempts.planRevision ?? 3,
       });
       return [{ kind: "message", text: "Принял правку, обновляю рекомендацию." }];
     }
@@ -307,7 +308,8 @@ export class ProjectService {
         type: "TRANSCRIBE_EDIT_AUDIO",
         projectId: project.id,
         dedupeKey: `project:${project.id}:edit-audio:${source.telegramFileId}`,
-        payload: { source: { kind: "edit_audio", telegramFileId: source.telegramFileId, originalFileName: source.fileName, mimeType: source.mimeType, durationSeconds: source.durationSeconds, sizeBytes: source.sizeBytes }, stateAtEdit }
+        payload: { source: { kind: "edit_audio", telegramFileId: source.telegramFileId, originalFileName: source.fileName, mimeType: source.mimeType, durationSeconds: source.durationSeconds, sizeBytes: source.sizeBytes }, stateAtEdit },
+        maxAttempts: this.jobAttempts.editAudio ?? 3,
       });
       return [{ kind: "message", text: "Голосовая правка принята. Расшифровываю её и применю к текущему шагу." }];
     }

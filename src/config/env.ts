@@ -24,6 +24,8 @@ export type AppConfig = {
   jobWorkerId: string;
   sourceAudioJobMaxAttempts: number;
   planSplitJobMaxAttempts: number;
+  editAudioJobMaxAttempts: number;
+  planRevisionJobMaxAttempts: number;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -55,7 +57,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,
     jobWorkerId: readOptional(env, "JOB_WORKER_ID") ?? `tg-post-agent-${process.pid}`,
     sourceAudioJobMaxAttempts: readOptionalInteger(env, "SOURCE_AUDIO_JOB_MAX_ATTEMPTS") ?? 3,
-    planSplitJobMaxAttempts: readOptionalInteger(env, "PLAN_SPLIT_JOB_MAX_ATTEMPTS") ?? 3
+    planSplitJobMaxAttempts: readOptionalInteger(env, "PLAN_SPLIT_JOB_MAX_ATTEMPTS") ?? 3,
+    editAudioJobMaxAttempts: readOptionalInteger(env, "EDIT_AUDIO_JOB_MAX_ATTEMPTS") ?? 3,
+    planRevisionJobMaxAttempts: readOptionalInteger(env, "PLAN_REVISION_JOB_MAX_ATTEMPTS") ?? 3
   };
 }
 

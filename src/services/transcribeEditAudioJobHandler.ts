@@ -24,6 +24,7 @@ export function createTranscribeEditAudioJobHandler(deps: {
   storage: TempAudioStorage;
   notifier?: TelegramNotifier;
   logger?: Logger;
+  planRevisionJobMaxAttempts?: number;
 }): JobHandler {
   return async (job: Job) => {
     if (job.type !== "TRANSCRIBE_EDIT_AUDIO" || !job.projectId) {
@@ -69,7 +70,8 @@ export function createTranscribeEditAudioJobHandler(deps: {
           type: "REVISE_PLAN",
           projectId: project.id,
           dedupeKey: "project:" + project.id + ":revise-plan:voice:" + job.id,
-          payload: { latestUserEdit }
+          payload: { latestUserEdit },
+          maxAttempts: deps.planRevisionJobMaxAttempts ?? 3,
         });
       } else {
         project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
