@@ -22,6 +22,12 @@ Secondary VPS practices may be used only when compatible:
 - /opt/shorttalk/docs/playbooks/telegram-real-account-e2e.md
 - /opt/shorttalk/docs/playbooks/linux-remote-codex-builder.md
 
+## Completion Gate
+
+- Do not signal `DONE` or call changed behavior ready until Tier 1 deterministic evidence and the applicable Tier 2 coordinator integration/Telegram smoke evidence exist.
+- Tier 3 owner review is limited to literary, UX, and product judgement; it never substitutes for technical or instruction-compliance verification.
+- Follow `docs/project-spec/TESTING_STRATEGY.md` and the builder dispatch checklist for the applicable evidence.
+
 ## MVP Boundaries
 
 Build only the Telegram bot MVP:

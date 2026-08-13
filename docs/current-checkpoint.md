@@ -26,7 +26,7 @@ Phase 9: Gemini Draft Revision/Edit Loop is accepted under the 2/3 owner-attenti
 
 ## Next Step
 
-Phase 10 remains open for mandatory 3/3 owner manual acceptance in real Telegram. The deployed Stage 2 language repair makes Russian the default for planning, plan revision, draft generation, and draft revision; a clear explicit user instruction can select another output language for the project. The owner should restart the failed planning flow with /start and verify Russian recommendation, draft, and revision output. Do not close the phase or begin Phase 11 before explicit acceptance.
+Phase 10 first requires the Tier 2 coordinator automated integration and dedicated-test-chat Telegram/Telethon smoke, using synthetic fixtures to cover the full affected happy path and voice/text correction regressions. Only after Tier 1 deterministic coverage and Tier 2 pass may the owner perform 3/3 manual acceptance. The owner evaluates Russian recommendation, draft, revision output, and quality from a clean project; it does not replace technical or instruction-compliance checks. Do not close the phase or begin Phase 11 before explicit acceptance.
 
 ## Owner Focus
 

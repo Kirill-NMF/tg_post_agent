@@ -186,10 +186,16 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Telegram IDs were supplied for the allowlist.
 - [x] Agent completed the light Telegram smoke: /start, allowlist denial, and one callback response.
 
+## Mandatory Delivery Quality Gate
+
+- [x] Tier 1 deterministic Stage 2 correction workflow tests cover edit-audio hand-off, terminal recovery, bounded retries, text correction, and safe delivery.
+- [ ] Tier 2 coordinator automated integration plus dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures covers the affected happy path and regressions before owner review.
+- [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
+- [x] Prompt/model constraints use offline evaluator fixtures; paid provider canaries remain explicit, bounded, and outside CI.
+
 ## Next Gate: Phase 10
 
-Phase 10 real edit-audio transcription has passed automated production preflight. The OpenRouter PLAN_SPLIT structured-output compatibility repair is deployed after a controlled restart; a fresh mandatory 3/3 owner manual acceptance is required before the phase can close. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
-
+Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures before the mandatory 3/3 owner manual acceptance. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.
 ## Phase 10. Real Edit-Audio Transcription
 
 - [x] Enqueue durable `TRANSCRIBE_EDIT_AUDIO` jobs for voice/audio edits in `planning` and `draft_editing`.

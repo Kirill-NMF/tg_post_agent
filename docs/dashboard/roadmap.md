@@ -9,6 +9,10 @@ Date: 2026-08-13
 - Product Stage 3: draft to Telegram-formatted final post with Option 1/Option 2.
 - Engineering Phase: a smaller implementation slice inside a product stage.
 
+## Delivery Quality Gate
+
+No feature is ready for owner manual acceptance until its changed flows pass all applicable Tier 1 deterministic tests and Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke. These gates cover state/queue/job delivery, Telegram messages and callbacks, persistence/cleanup, authorization, and explicit instruction compliance. Owner 3/3 is limited to literary quality, product/UX judgement, and intentional manual evaluation; it does not substitute for technical verification. Prompt/provider changes require offline evaluator fixtures and may use one explicitly approved, bounded paid canary outside CI.
+
 ## Product Stage View
 
 | Product stage | Status | Summary | Owner focus | Manual testing focus |
@@ -52,8 +56,7 @@ Date: 2026-08-13
 
 ## Current Gate
 
-Phase 10 is ready for 3/3 owner manual acceptance in real Telegram. Start a clean project and verify Russian is the default output language for planning, draft generation, and revisions despite mixed-language source material. Then validate recommendation-first planning: one coherent source stays one post, alternatives appear only when meaningful, and a planning correction regenerates the recommendation. A clear explicit user request may override Russian for that project.
-
+Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke before owner 3/3 acceptance. The smoke uses synthetic fixtures and covers the affected happy path plus voice/text planning-correction regressions. Owner then verifies Russian default output, recommendation-first planning, meaningful alternatives, and text/voice corrections from a clean project. A clear explicit user request may override Russian for that project.
 ## Provider Configuration Update
 
 OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production credentials and one controlled worker-enabled restart are in place; the Phase 10 owner acceptance gate remains mandatory.
