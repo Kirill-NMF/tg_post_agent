@@ -25,6 +25,7 @@ from tg_post_agent_smoke import (
 )
 
 REPORT_PATH = Path("/tmp/tg-post-agent-correction-canary-report.json")
+CHECKPOINT_PATH = Path("/tmp/tg-post-agent-correction-canary-checkpoint.json")
 LEDGER_PATH = Path("/tmp/tg-post-agent-billable-ledger-2026-08-14.json")
 FIXTURE_STATE_PATH = Path("/tmp/tg-post-agent-correction-canary-state.json")
 FIXTURE_SCRIPT = Path(__file__).with_name("correction_fixture.mjs")
@@ -99,6 +100,15 @@ async def run(config: Config) -> dict[str, object]:
         "voiceNoDuplicate": False,
         "fixtureCleaned": False,
         "localAudioCleaned": False,
+        "ttsDone": False,
+        "ffmpegDone": False,
+        "telegramUploadAttempted": False,
+        "editAcknowledgementObserved": False,
+        "editTranscriptionTerminal": "not_observed",
+        "revisionHandoff": "not_observed",
+        "revisionTerminal": "not_observed",
+        "notificationObservation": "not_observed",
+        "lastStage": "not_started",
     }
     client = None
     account_id: int | None = None
@@ -110,7 +120,7 @@ async def run(config: Config) -> dict[str, object]:
         await asyncio.to_thread(run_fixture, "create", config, account_id)
         if config.mode == "both":
             observations["textAcknowledged"], observations["textTerminal"], observations["textNoDuplicate"] = await run_text_correction(client, target, identity.telegram_id, config, started)
-        observations["voiceAcknowledged"], observations["voiceTerminal"], observations["voiceNoDuplicate"], observations["localAudioCleaned"] = await run_voice_correction(client, target, identity.telegram_id, config, started)
+        observations["voiceAcknowledged"], observations["voiceTerminal"], observations["voiceNoDuplicate"] = await run_voice_correction(client, target, identity.telegram_id, config, started, observations)
         status = "passed"
         failure = None
     except BaseException as error:
@@ -124,6 +134,7 @@ async def run(config: Config) -> dict[str, object]:
                 observations["fixtureCleaned"] = False
         if client:
             await client.disconnect()
+        write_checkpoint(observations)
     return report(status, failure, started, observations)
 
 
@@ -164,50 +175,98 @@ async def run_text_correction(client, target, bot_id: int, config: Config, start
         return True, terminal, True
 
 
-async def run_voice_correction(client, target, bot_id: int, config: Config, started: float) -> tuple[bool, str, bool, bool]:
-    with tempfile.TemporaryDirectory(prefix="tg-post-agent-correction-canary-") as directory:
-        workspace = Path(directory)
-        mp3 = workspace / "synthetic-edit.mp3"
-        ogg = workspace / "synthetic-edit.ogg"
-        reserve_billable("external_tts", "google_translate", started)
-        await asyncio.to_thread(run_local_stage, "tts_generation", generate_tts, mp3)
-        await asyncio.to_thread(run_local_stage, "ffmpeg_conversion", convert_voice, mp3, ogg, config.max_audio_seconds)
-        await asyncio.to_thread(run_local_stage, "ffmpeg_conversion", validate_audio, ogg, config)
+async def run_voice_correction(client, target, bot_id: int, config: Config, started: float, observations: dict[str, object]) -> tuple[bool, str, bool]:
+    try:
+        with tempfile.TemporaryDirectory(prefix="tg-post-agent-correction-canary-") as directory:
+            workspace = Path(directory)
+            mp3 = workspace / "synthetic-edit.mp3"
+            ogg = workspace / "synthetic-edit.ogg"
+            observations["lastStage"] = "tts_generation"
+            reserve_billable("external_tts", "google_translate", started)
+            await asyncio.to_thread(run_local_stage, "tts_generation", generate_tts, mp3)
+            observations["ttsDone"] = True
+            write_checkpoint(observations)
+            observations["lastStage"] = "ffmpeg_conversion"
+            await asyncio.to_thread(run_local_stage, "ffmpeg_conversion", convert_voice, mp3, ogg, config.max_audio_seconds)
+            await asyncio.to_thread(run_local_stage, "ffmpeg_conversion", validate_audio, ogg, config)
+            observations["ffmpegDone"] = True
+            write_checkpoint(observations)
 
-        async with client.conversation(target, timeout=config.timeout_seconds, exclusive=True) as conversation:
-            record_transport("telegram_upload", started)
-            try:
-                await client.send_file(target, ogg, voice_note=True)
-            except BaseException as exc:
-                raise CanaryError("telegram_upload") from exc
-            reserve_billable("stt_edit_transcription", "openrouter", started)
-            acknowledgement = await receive(conversation, bot_id, config.timeout_seconds, "stt_wait")
-            if VOICE_ACK_MARKER not in (acknowledgement.raw_text or ""):
-                raise CanaryError("stt_wait")
-            terminal = await await_voice_terminal(conversation, bot_id, config, started)
-            await assert_no_duplicate(conversation, config.duplicate_wait_seconds)
-            return True, terminal, True, True
+            async with client.conversation(target, timeout=config.timeout_seconds, exclusive=True) as conversation:
+                observations["lastStage"] = "telegram_upload"
+                record_transport("telegram_upload", started)
+                try:
+                    await client.send_file(target, ogg, voice_note=True)
+                except BaseException as exc:
+                    raise CanaryError("telegram_upload") from exc
+                observations["telegramUploadAttempted"] = True
+                write_checkpoint(observations)
+                reserve_billable("stt_edit_transcription", "openrouter", started)
+                observations["lastStage"] = "ack_timeout"
+                acknowledgement = await receive(conversation, bot_id, config.timeout_seconds, "ack_timeout")
+                if VOICE_ACK_MARKER not in (acknowledgement.raw_text or ""):
+                    raise CanaryError("ack_timeout")
+                observations["voiceAcknowledged"] = True
+                observations["editAcknowledgementObserved"] = True
+                write_checkpoint(observations)
+                terminal = await await_voice_terminal(conversation, bot_id, config, started, observations)
+                observations["notificationObservation"] = "terminal"
+                write_checkpoint(observations)
+                await assert_no_duplicate(conversation, config.duplicate_wait_seconds)
+                observations["voiceNoDuplicate"] = True
+                return True, terminal, True
+    finally:
+        observations["localAudioCleaned"] = True
+        write_checkpoint(observations)
 
 
-async def await_voice_terminal(conversation, bot_id: int, config: Config, started: float) -> str:
+async def await_voice_terminal(conversation, bot_id: int, config: Config, started: float, observations: dict[str, object]) -> str:
     deadline = asyncio.get_running_loop().time() + config.timeout_seconds
-    revision_recorded = False
+    handoff_deadline: float | None = None
+    revision_billed = False
     while True:
-        if not revision_recorded and revision_job_exists(config):
-            reserve_billable("llm_plan_revision_voice", "openrouter", started)
-            revision_recorded = True
+        statuses = revision_job_status(config)
+        edit_status = statuses["edit"]
+        revision_status = statuses["revision"]
+        if edit_status in {"succeeded", "failed", "cancelled"}:
+            observations["editTranscriptionTerminal"] = edit_status
+            write_checkpoint(observations)
+        if edit_status in {"failed", "cancelled"}:
+            raise CanaryError("edit_transcription_terminal_failure")
+        if edit_status == "succeeded" and handoff_deadline is None:
+            handoff_deadline = asyncio.get_running_loop().time() + min(5, config.timeout_seconds)
+        if revision_status != "missing":
+            observations["revisionHandoff"] = "present"
+            observations["revisionTerminal"] = revision_status if revision_status in {"succeeded", "failed", "cancelled"} else "not_observed"
+            write_checkpoint(observations)
+            if statuses["revisionStarted"] and not revision_billed:
+                reserve_billable("llm_plan_revision_voice", "openrouter", started)
+                revision_billed = True
+            if revision_status in {"failed", "cancelled"}:
+                raise CanaryError("revision_terminal_failure")
+        elif handoff_deadline is not None and asyncio.get_running_loop().time() >= handoff_deadline:
+            observations["revisionHandoff"] = "missing"
+            write_checkpoint(observations)
+            raise CanaryError("revision_handoff_missing")
+
         remaining = deadline - asyncio.get_running_loop().time()
         if remaining <= 0:
-            raise CanaryError("revision_wait" if revision_recorded else "stt_wait")
+            if edit_status not in {"succeeded", "failed", "cancelled"}:
+                raise CanaryError("edit_transcription_timeout")
+            if revision_status == "missing":
+                raise CanaryError("revision_handoff_missing")
+            if revision_status not in {"succeeded", "failed", "cancelled"}:
+                raise CanaryError("revision_timeout")
+            raise CanaryError("notification_timeout")
         try:
             message = await asyncio.wait_for(conversation.get_response(), timeout=min(0.25, remaining))
         except TimeoutError:
             continue
         if message.sender_id != bot_id:
-            raise CanaryError("revision_wait" if revision_recorded else "stt_wait")
+            raise CanaryError("harness_runtime")
         text = message.raw_text or ""
         if PLAN_MARKER in text:
-            if not revision_recorded:
+            if not revision_billed:
                 reserve_billable("llm_plan_revision_voice", "openrouter", started)
             return "plan_response"
         if SAFE_ERROR_MARKER in text:
@@ -245,17 +304,20 @@ async def assert_no_duplicate(conversation, timeout: float) -> None:
     raise CanaryError("duplicate_terminal_response")
 
 
-def revision_job_exists(config: Config) -> bool:
+def revision_job_status(config: Config) -> dict[str, object]:
     try:
         state = json.loads(FIXTURE_STATE_PATH.read_text(encoding="utf-8"))
         project_id = state.get("projectId")
         if not isinstance(project_id, str) or not re.fullmatch(r"[0-9a-f-]{36}", project_id) or state.get("marker") != "tier2-correction-canary-v1":
             raise ValueError
-        query = "select exists (select 1 from jobs where project_id = '" + project_id + "' and type = 'REVISE_PLAN');"
+        query = "select coalesce((select status::text from jobs where project_id = '" + project_id + "' and type = 'TRANSCRIBE_EDIT_AUDIO' order by created_at desc limit 1),'missing'), coalesce((select status::text from jobs where project_id = '" + project_id + "' and type = 'REVISE_PLAN' order by created_at desc limit 1),'missing'), exists (select 1 from jobs where project_id = '" + project_id + "' and type = 'REVISE_PLAN' and started_at is not null);"
         result = subprocess.run(["psql", config.database_url, "-At", "-c", query], check=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-        return result.stdout.strip() == "t"
+        fields = result.stdout.strip().split("|")
+        if len(fields) != 3 or fields[2] not in {"t", "f"}:
+            raise ValueError
+        return {"edit": fields[0], "revision": fields[1], "revisionStarted": fields[2] == "t"}
     except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
-        raise CanaryError("fixture_db") from exc
+        raise CanaryError("harness_runtime") from exc
 
 
 def run_fixture(action: str, config: Config, account_id: int) -> None:
@@ -323,6 +385,10 @@ def write_json(path: Path, value: Mapping[str, object]) -> None:
     os.chmod(path, 0o600)
 
 
+def write_checkpoint(observations: Mapping[str, object]) -> None:
+    write_json(CHECKPOINT_PATH, observations)
+
+
 def required(env: Mapping[str, str], name: str) -> str:
     value = env.get(name, "").strip()
     if not value:
@@ -366,7 +432,7 @@ def category(error: BaseException) -> str:
         return "target_identity_mismatch"
     if isinstance(error, UnauthorizedSessionError):
         return "unauthorized_session"
-    return "runtime"
+    return "harness_runtime"
 
 
 def main() -> int:

@@ -1,8 +1,10 @@
+import asyncio
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -80,6 +82,79 @@ class CorrectionCanaryContractTests(unittest.TestCase):
             )
             self.assertNotIn("bot-token", json.dumps(payload))
         canary.LEDGER_PATH = original
+
+    def test_post_upload_timeout_keeps_precise_ack_category_and_actual_ledger(self) -> None:
+        observations, error, ledger, checkpoint = self.run_voice_with_responses([TimeoutError()])
+
+        self.assertEqual(error.category, "ack_timeout")
+        self.assertTrue(observations["telegramUploadAttempted"])
+        self.assertTrue(observations["localAudioCleaned"])
+        self.assertEqual(ledger["attemptedBillableOperations"], 2)
+        self.assertTrue(checkpoint["telegramUploadAttempted"])
+        self.assertTrue(checkpoint["localAudioCleaned"])
+
+    def test_post_ack_status_exception_is_harness_runtime_without_revision_ledger_entry(self) -> None:
+        acknowledgement = FakeMessage(42, canary.VOICE_ACK_MARKER)
+        with patch.object(canary, "revision_job_status", side_effect=RuntimeError("local test")):
+            observations, error, ledger, checkpoint = self.run_voice_with_responses([acknowledgement])
+
+        self.assertEqual(canary.category(error), "harness_runtime")
+        self.assertTrue(observations["editAcknowledgementObserved"])
+        self.assertTrue(observations["localAudioCleaned"])
+        self.assertEqual(ledger["attemptedBillableOperations"], 2)
+        self.assertEqual(checkpoint["lastStage"], "ack_timeout")
+
+    def run_voice_with_responses(self, responses):
+        original_ledger = canary.LEDGER_PATH
+        original_checkpoint = canary.CHECKPOINT_PATH
+        with tempfile.TemporaryDirectory() as directory:
+            canary.LEDGER_PATH = Path(directory) / "ledger.json"
+            canary.CHECKPOINT_PATH = Path(directory) / "checkpoint.json"
+            observations = {"localAudioCleaned": False, "telegramUploadAttempted": False, "editAcknowledgementObserved": False, "lastStage": "not_started"}
+            config = canary.Config(1, "hash", "session", "token", "postgresql:///tg_post_agent", 42, 20, 1, 8, 1024, "voice_only")
+            client = FakeClient(responses)
+            with patch.object(canary, "generate_tts", side_effect=lambda path: path.write_bytes(b"audio")), patch.object(canary, "convert_voice", side_effect=lambda _source, target, _seconds: target.write_bytes(b"ogg")), patch.object(canary, "validate_audio", return_value=None):
+                with self.assertRaises(BaseException) as raised:
+                    asyncio.run(canary.run_voice_correction(client, object(), 42, config, 1.0, observations))
+            ledger = json.loads(canary.LEDGER_PATH.read_text(encoding="utf-8"))
+            checkpoint = json.loads(canary.CHECKPOINT_PATH.read_text(encoding="utf-8"))
+        canary.LEDGER_PATH = original_ledger
+        canary.CHECKPOINT_PATH = original_checkpoint
+        return observations, raised.exception, ledger, checkpoint
+
+
+class FakeMessage:
+    def __init__(self, sender_id: int, raw_text: str):
+        self.sender_id = sender_id
+        self.raw_text = raw_text
+
+
+class FakeConversation:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def get_response(self):
+        value = next(self.responses)
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+
+class FakeClient:
+    def __init__(self, responses):
+        self.responses = responses
+
+    def conversation(self, *_args, **_kwargs):
+        return FakeConversation(self.responses)
+
+    async def send_file(self, *_args, **_kwargs):
+        return None
 
 
 if __name__ == "__main__":
