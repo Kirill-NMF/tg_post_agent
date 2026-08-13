@@ -10,7 +10,7 @@ Date: 2026-08-13
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation is built. The Tier 2 transport subgate passed using canonical bot identity from active Bot API getMe, a dedicated allowlisted Telethon session, one /start reply, and no duplicate reply. Phase 10 and the affected stages remain unaccepted until the bounded synthetic-audio STT canary and correction regressions pass.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation is built. Tier 2 now has canonical /start transport evidence and a bounded non-user synthetic Russian source-audio canary: one upload reached the real Stage 1 transcription and Stage 2 planning response, with local audio and dedicated-test-project cleanup confirmed. Phase 10 and the affected stages remain unaccepted until the remaining real text/voice correction regression evidence passes.
 
 ## Branch And GitHub
 
@@ -20,9 +20,9 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Tier 2 /start transport is complete. The next bounded check is one synthetic-audio STT plus Telegram canary followed by text/voice correction regressions.
+Tier 2 /start transport and the bounded source-audio-to-planning canary are complete. The next bounded check is the dedicated-chat text/voice correction regression set; no new owner decision or broad provider canary is implied.
 
-VPS inspection found ffmpeg and ffprobe but no approved local TTS engine. Before creating speech audio, coordinator/owner must either approve one bounded external TTS canary or approve installation of a local TTS engine. The choice is limited to the synthetic fixture and stays outside CI. After the audio-related Tier 2 checks pass, the owner may run 3/3 literary, UX, and quality acceptance.
+The one-shot canary used approved external synthetic Russian TTS because the VPS has no local RU TTS engine. It was limited to one TTS request, one upload, one Stage 1 attempt, and one Stage 2 attempt; no transcript, audio, credential, or user content was retained. Owner 3/3 remains unavailable until the remaining Tier 2 correction evidence passes.
 
 ## Owner Focus
 
@@ -39,7 +39,7 @@ Two standing gates apply before any owner review. The Synthetic Audio Protocol u
 The Resilience Protocol uses the risk-based manifest for state-machine scenarios: in-flight reset, duplicates, stale callbacks, out-of-order input, retry/timeout/permanent failure, delivery failure, worker reclaim, authorization, and malformed/oversized media. Every change gets focused Tier 1 coverage; a user-flow slice gets its happy/resilience automation plus Tier 2; queue/auth/storage/provider/Telegram boundary changes and stage boundaries run the full relevant matrix. Reproducible owner flow defects return to Tier 1/2 before closure.
 ## Phase 10 Preflight
 
-Tier 1 implementation and automated preflight are green. The canonical Tier 2 /start transport subgate passed: active Bot API getMe identity matched the Telethon target, one reply arrived, and no duplicate reply arrived. No audio, STT, or LLM call ran. The synthetic-audio canary and correction regressions remain pending.
+Tier 1 implementation and automated preflight are green. Tier 2 canonical /start transport passed. The approved one-shot source-audio canary then passed end to end through real transcription and planning delivery with category-only evidence, bounded one-attempt/no-fallback runtime controls, and local/project cleanup. It did not exercise a planning or draft correction; those real Tier 2 correction regressions remain pending.
 
 Concurrency note: the current repository ports do not expose a shared project-plus-job transaction or outbox. The handler persists edit history and busy state before enqueueing its follow-up job, which prevents a claimed follow-up from observing stale durable state. A process crash after that save and before enqueue can leave a persisted edit without its follow-up job; recovery/outbox work remains deferred to a future infrastructure phase.
 

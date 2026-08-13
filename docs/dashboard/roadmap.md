@@ -42,7 +42,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 7: Gemini Planning | Stage 2 | done | 2/3 | adapter validation, planning job tests | Review plan options when real bot flow is available. |
 | Phase 8: Gemini Draft Generation | Stage 2 | done | 2/3 | adapter/job/service tests | Review draft quality later. |
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
-| Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | transport passed; audio Tier 2 pending | 3/3 after Tier 2 | Canonical /start smoke passed; approve fixture generator, then synthetic-audio STT/Telegram canary and text/voice regressions | Owner quality acceptance only after Tier 2. |
+| Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | source-audio Tier 2 passed; correction Tier 2 pending | 3/3 after Tier 2 | Canonical /start and one bounded synthetic audio to planning response passed; run dedicated text/voice correction regressions | Owner quality acceptance only after Tier 2. |
 | Phase 11: Formatting Foundation | Stage 3 | next candidate | 3/3 | formatting contracts, preservation tests | Review Option 1/Option 2 outputs. |
 | Phase 12: Real Formatting Adapter | Stage 3 | later | 3/3 | provider validation, preservation check | Check emoji density and no word rewrites. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
@@ -61,9 +61,9 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 ## Current Gate
 
-Phase 10 transport is verified: the guarded dedicated-test-chat /start smoke resolved canonical bot identity from active Bot API getMe, observed one reply, and observed no duplicate response. It sent no audio and invoked no STT or LLM provider.
+Phase 10 has real Tier 2 source-audio transport evidence: canonical identity, one synthetic Russian OGG/Opus upload, one real Stage 1 transcription, and one real Stage 2 planning response. The category-only report confirms local fixture and dedicated-test-project cleanup; the normal single worker runtime was restored afterward.
 
-The next Tier 2 subgate is one bounded synthetic-audio STT plus Telegram canary and text/voice correction regressions. The VPS has ffmpeg/ffprobe but no approved local TTS engine, so coordinator/owner must approve either a bounded external synthetic-TTS canary or a local TTS installation before a speech fixture is generated. Only after those checks pass may the owner run 3/3 literary, UX, and quality acceptance. Stage 3 remains unstarted.
+The remaining Tier 2 subgate is the dedicated-chat text/voice correction regression set. The source-audio canary deliberately did not test correction behavior and does not substitute for it. Only after that evidence passes may the owner run 3/3 literary, UX, and quality acceptance. Stage 3 remains unstarted.
 
 ## Provider Configuration Update
 

@@ -195,13 +195,13 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Run the guarded dedicated-test-chat Tier 2 /start transport smoke: one reply observed and no duplicate response.
 - [x] Document non-user synthetic audio corpus, Tier 1 propagation/cleanup assertions, and bounded Tier 2 STT/Telegram canary rule.
 - [x] Document risk-based resilience matrix and trigger cadence; reproduced functional owner feedback returns to Tier 1/2.
-- [ ] Approve either a bounded external synthetic-TTS canary or installation of a local TTS engine; current VPS inventory has only ffmpeg/ffprobe.
-- [ ] Coordinator action: run the bounded synthetic-audio STT plus Telegram canary and text/voice correction regressions.
+- [x] Run the approved one-shot synthetic Russian TTS plus source-audio STT/Telegram canary: one planning response, no fallback/retry, and cleanup confirmed.
+- [ ] Coordinator action: run the remaining dedicated-chat text/voice correction regressions; do not reuse the spent source-audio canary budget.
 - [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
 
 ## Next Gate: Phase 10
 
-Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. Its canonical dedicated-test-chat transport subgate is passed. Do not begin Phase 11 or Stage 3 work before the approved synthetic-audio canary and remaining correction regressions pass.
+Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stage 2 plan/draft revision. Its canonical transport and bounded source-audio-to-planning subgates are passed. Do not begin Phase 11 or Stage 3 work before the remaining real correction regressions pass.
 
 ## Phase 10. Real Edit-Audio Transcription
 
@@ -213,7 +213,8 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Complete automated preflight without paid provider calls.
 - [x] Owner configured DATABASE_URL plus compatible provider credentials through the VPS-only secret/environment path.
 - [x] Owner explicitly authorized and agent completed one controlled worker-enabled runtime restart.
-- [ ] Run the approved synthetic-audio STT canary and text/voice correction regressions after fixture-generator approval.
+- [x] Run the approved bounded synthetic source-audio canary through real transcription and planning, with one-attempt/no-fallback controls and cleanup.
+- [ ] Run dedicated-chat real text/voice correction regressions for planning and draft paths; this is separate from the completed source-audio canary.
 - [ ] Mandatory 3/3 owner manual acceptance in real Telegram only after Tier 2 passes.
 
 ## Stage 2 Output Language Repair
