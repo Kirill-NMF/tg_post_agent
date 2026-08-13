@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts tests/postgresJobRepository.integration.test.ts",
-    "smoke": "node dist/src/index.js --smoke"
+    "smoke": "node dist/src/index.js --smoke",
+    "test:telegram-smoke-contract": "python3 -m unittest scripts/telegram-e2e/test_tg_post_agent_smoke.py",
+    "smoke:telegram": "python3 scripts/telegram-e2e/tg_post_agent_smoke.py"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

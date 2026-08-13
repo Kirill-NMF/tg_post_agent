@@ -24,6 +24,8 @@ For prompt or model changes, add offline evaluator fixtures for clear semantic c
 
 Before a feature is called ready for owner review, the coordinator runs automated integration and a real Telegram/Telethon smoke against a dedicated test chat.
 
+The opt-in `/start` transport harness is documented in `docs/TELEGRAM_SMOKE.md`. It is foundation only: an explicitly configured dedicated test account/chat must run it before Tier 2 is complete.
+
 The smoke uses only synthetic fixtures and covers the complete affected happy path plus the regression that motivated the change. It must verify Telegram delivery and callbacks where applicable, one poller/worker, authorization, persistence/cleanup evidence, and recovery messages. It must not trigger a broad paid-provider tree.
 
 A prompt or provider behavior change may use one bounded live-provider canary only after explicit coordinator or owner approval. Record its narrow scope and cost. Do not add paid canaries to CI.

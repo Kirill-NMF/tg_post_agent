@@ -192,6 +192,8 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [ ] Tier 2 coordinator automated integration plus dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures covers the affected happy path and regressions before owner review.
 - [ ] Tier 3 owner manual acceptance evaluates literary/product/UX quality only after Tier 1 and Tier 2 are complete.
 - [x] Prompt/model constraints use offline evaluator fixtures; paid provider canaries remain explicit, bounded, and outside CI.
+- [x] Add an opt-in Telethon `/start` transport harness with explicit test-target guard, duplicate-response check, and transcript-free diagnostic report.
+- [ ] Configure an already-authorized dedicated Telethon test account and target chat, then run the bounded Tier 2 transport smoke.
 
 ## Next Gate: Phase 10
 
