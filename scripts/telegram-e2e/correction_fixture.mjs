@@ -64,7 +64,10 @@ async function cleanupFixture() {
   try {
     state = JSON.parse(await readFile(statePath, "utf8"));
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOENT") return;
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      await cleanupOrphanedFixture();
+      return;
+    }
     throw new Error("invalid fixture state");
   }
   if (!state || typeof state.projectId !== "string" || state.marker !== marker) {
@@ -77,6 +80,21 @@ async function cleanupFixture() {
   await db.execute(sql`delete from projects where id = ${state.projectId}`);
   await unlink(statePath);
   console.log('{"fixtureCleaned":true}');
+}
+
+async function cleanupOrphanedFixture() {
+  await db.execute(sql`
+    delete from projects
+    where id in (
+      select projects.id
+      from projects
+      join users on users.id = projects.user_id
+      join project_messages on project_messages.project_id = projects.id
+      where users.telegram_user_id = ${accountId}
+        and project_messages.kind = 'command'
+        and project_messages.text = ${marker}
+    )
+  `);
 }
 
 async function writeState(value) {

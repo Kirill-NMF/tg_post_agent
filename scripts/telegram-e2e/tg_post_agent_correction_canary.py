@@ -197,20 +197,39 @@ async def run_voice_correction(client, target, bot_id: int, config: Config, star
                 observations["lastStage"] = "telegram_upload"
                 record_transport("telegram_upload", started)
                 try:
-                    await client.send_file(target, ogg, voice_note=True)
+                    sent_voice = await client.send_file(target, ogg, voice_note=True)
                 except BaseException as exc:
                     raise CanaryError("telegram_upload") from exc
+                sent_message_id = getattr(sent_voice, "id", None)
+                if not isinstance(sent_message_id, int) or sent_message_id < 1:
+                    raise CanaryError("harness_runtime")
                 observations["telegramUploadAttempted"] = True
                 write_checkpoint(observations)
                 reserve_billable("stt_edit_transcription", "openrouter", started)
                 observations["lastStage"] = "ack_timeout"
-                acknowledgement = await receive(conversation, bot_id, config.timeout_seconds, "ack_timeout")
+                acknowledgement = await acknowledgement_after_upload(
+                    conversation,
+                    client,
+                    target,
+                    bot_id,
+                    sent_message_id,
+                    config.timeout_seconds,
+                )
                 if VOICE_ACK_MARKER not in (acknowledgement.raw_text or ""):
                     raise CanaryError("ack_timeout")
                 observations["voiceAcknowledged"] = True
                 observations["editAcknowledgementObserved"] = True
                 write_checkpoint(observations)
-                terminal = await await_voice_terminal(conversation, bot_id, config, started, observations)
+                terminal = await await_voice_terminal(
+                    conversation,
+                    client,
+                    target,
+                    bot_id,
+                    sent_message_id,
+                    config,
+                    started,
+                    observations,
+                )
                 observations["notificationObservation"] = "terminal"
                 write_checkpoint(observations)
                 await assert_no_duplicate(conversation, config.duplicate_wait_seconds)
@@ -221,7 +240,20 @@ async def run_voice_correction(client, target, bot_id: int, config: Config, star
         write_checkpoint(observations)
 
 
-async def await_voice_terminal(conversation, bot_id: int, config: Config, started: float, observations: dict[str, object]) -> str:
+async def acknowledgement_after_upload(conversation, client, target, bot_id: int, sent_message_id: int, timeout: float):
+    try:
+        message = await receive(conversation, bot_id, min(5, timeout), "ack_timeout")
+        if VOICE_ACK_MARKER in (message.raw_text or ""):
+            return message
+    except CanaryError:
+        pass
+    message = await wait_for_history_marker(client, target, bot_id, sent_message_id, (VOICE_ACK_MARKER,), timeout)
+    if message is None:
+        raise CanaryError("ack_timeout")
+    return message
+
+
+async def await_voice_terminal(conversation, client, target, bot_id: int, sent_message_id: int, config: Config, started: float, observations: dict[str, object]) -> str:
     deadline = asyncio.get_running_loop().time() + config.timeout_seconds
     handoff_deadline: float | None = None
     revision_billed = False
@@ -260,9 +292,14 @@ async def await_voice_terminal(conversation, bot_id: int, config: Config, starte
             if revision_status not in {"succeeded", "failed", "cancelled"}:
                 raise CanaryError("revision_timeout")
             raise CanaryError("notification_timeout")
+        message = None
         try:
             message = await asyncio.wait_for(conversation.get_response(), timeout=min(0.25, remaining))
         except TimeoutError:
+            message = await history_message(client, target, bot_id, sent_message_id, (PLAN_MARKER, SAFE_ERROR_MARKER))
+        except BaseException:
+            message = await history_message(client, target, bot_id, sent_message_id, (PLAN_MARKER, SAFE_ERROR_MARKER))
+        if message is None:
             continue
         if message.sender_id != bot_id:
             raise CanaryError("harness_runtime")
@@ -273,6 +310,26 @@ async def await_voice_terminal(conversation, bot_id: int, config: Config, starte
             return "plan_response"
         if SAFE_ERROR_MARKER in text:
             return "safe_recovery"
+
+
+async def wait_for_history_marker(client, target, bot_id: int, sent_message_id: int, markers: tuple[str, ...], timeout: float):
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        message = await history_message(client, target, bot_id, sent_message_id, markers)
+        if message is not None:
+            return message
+        await asyncio.sleep(0.25)
+    return None
+
+
+async def history_message(client, target, bot_id: int, sent_message_id: int, markers: tuple[str, ...]):
+    try:
+        async for message in client.iter_messages(target, min_id=sent_message_id, limit=20):
+            if message.sender_id == bot_id and any(marker in (message.raw_text or "") for marker in markers):
+                return message
+    except BaseException:
+        return None
+    return None
 
 
 async def receive(conversation, bot_id: int, timeout: float, failure_category: str):

@@ -116,6 +116,18 @@ class CorrectionCanaryContractTests(unittest.TestCase):
             self.assertEqual(payload, {"editJob": "succeeded", "revisionJob": "running", "revisionStarted": True, "notificationObserved": False})
         canary.LIFECYCLE_PATH = original
 
+    def test_history_observer_matches_only_new_bot_marker(self) -> None:
+        message = asyncio.run(
+            canary.history_message(
+                FakeClient([], [FakeMessage(42, canary.VOICE_ACK_MARKER)]),
+                object(),
+                42,
+                100,
+                (canary.VOICE_ACK_MARKER,),
+            )
+        )
+        self.assertIsNotNone(message)
+
     def run_voice_with_responses(self, responses):
         original_ledger = canary.LEDGER_PATH
         original_checkpoint = canary.CHECKPOINT_PATH
@@ -123,7 +135,7 @@ class CorrectionCanaryContractTests(unittest.TestCase):
             canary.LEDGER_PATH = Path(directory) / "ledger.json"
             canary.CHECKPOINT_PATH = Path(directory) / "checkpoint.json"
             observations = {"localAudioCleaned": False, "telegramUploadAttempted": False, "editAcknowledgementObserved": False, "lastStage": "not_started"}
-            config = canary.Config(1, "hash", "session", "token", "postgresql:///tg_post_agent", 42, 20, 1, 8, 1024, "voice_only")
+            config = canary.Config(1, "hash", "session", "token", "postgresql:///tg_post_agent", 42, 0.01, 1, 8, 1024, "voice_only")
             client = FakeClient(responses)
             with patch.object(canary, "generate_tts", side_effect=lambda path: path.write_bytes(b"audio")), patch.object(canary, "convert_voice", side_effect=lambda _source, target, _seconds: target.write_bytes(b"ogg")), patch.object(canary, "validate_audio", return_value=None):
                 with self.assertRaises(BaseException) as raised:
@@ -159,14 +171,23 @@ class FakeConversation:
 
 
 class FakeClient:
-    def __init__(self, responses):
+    def __init__(self, responses, history_responses=()):
         self.responses = responses
+        self.history_responses = history_responses
 
     def conversation(self, *_args, **_kwargs):
         return FakeConversation(self.responses)
 
     async def send_file(self, *_args, **_kwargs):
-        return None
+        return FakeSentMessage()
+
+    async def iter_messages(self, *_args, **_kwargs):
+        for message in self.history_responses:
+            yield message
+
+
+class FakeSentMessage:
+    id = 100
 
 
 if __name__ == "__main__":
