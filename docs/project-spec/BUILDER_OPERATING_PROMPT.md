@@ -60,6 +60,12 @@ Before signaling `DONE` or reporting a feature ready, the builder must attach ev
 
 Do not signal `DONE` with an unresolved required gate. Paid provider canaries stay outside CI and require an explicit, bounded approval.
 
+### Audio And Resilience Dispatch Triggers
+
+- For an audio change, apply the Synthetic Audio Protocol: non-user fixtures only, Tier 1 propagation/cleanup checks, and one approved Tier 2 STT plus Telegram canary after the dedicated target exists.
+- Do not claim a TTS engine is available. Inspect approved VPS tooling when needed; external TTS is a separately approved bounded canary.
+- For state, queue, auth, storage, provider, or Telegram changes, select the applicable resilience matrix from `docs/project-spec/TEST_PLAN_MANIFEST.md`; run the full relevant matrix at a stage boundary.
+- Convert every reproducible owner UX/flow bug into Tier 1 and, if transport-facing, Tier 2 regression evidence before closure.
 ## Coordinator Review Checklist
 
 Before reporting a feature ready, the coordinator independently reads the builder report, verifies the relevant tests, commit, and deployment evidence, and confirms that no required Tier 1, Tier 2, credential, or owner gate remains unresolved.

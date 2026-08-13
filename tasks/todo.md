@@ -195,6 +195,9 @@ Phase 9 should add the draft revision/edit loop over the saved current draft. Do
 - [x] Add an opt-in Telethon `/start` transport harness with explicit test-target guard, duplicate-response check, and transcript-free diagnostic report.
 - [ ] Configure an already-authorized dedicated Telethon test account and target chat, then run the bounded Tier 2 transport smoke.
 
+- [x] Document non-user synthetic audio corpus, Tier 1 propagation/cleanup assertions, and bounded Tier 2 STT/Telegram canary rule.
+- [x] Document risk-based resilience matrix and trigger cadence; reproduced functional owner feedback returns to Tier 1/2.
+- [ ] Before an audio canary, inspect approved VPS tooling and record the TTS/fixture generation choice; do not assume a provider or engine.
 ## Next Gate: Phase 10
 
 Phase 10 must complete Tier 2 coordinator automated integration plus a dedicated-test-chat Telegram/Telethon smoke with synthetic fixtures before the mandatory 3/3 owner manual acceptance. Do not begin Phase 11 or add real formatting, publishing, or broader deployment work.

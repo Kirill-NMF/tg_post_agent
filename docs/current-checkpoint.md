@@ -39,6 +39,11 @@ Accepted owner attention policy: use `docs/dashboard/owner-acceptance-policy.md`
 
 Credential Gate: passed. The development bot runtime uses VPS-only secrets; no token or allowlist values are stored in git or logs.
 
+## Persistent Quality Protocols
+
+Two standing gates apply before any owner review. The Synthetic Audio Protocol uses only non-user fixtures and requires exact Tier 1 propagation/cleanup checks; an audio-related flow change also requires a bounded dedicated-target Tier 2 STT plus Telegram canary after harness setup. The actual TTS method is an implementation choice at execution time, not an assumed dependency.
+
+The Resilience Protocol uses the risk-based manifest for state-machine scenarios: in-flight reset, duplicates, stale callbacks, out-of-order input, retry/timeout/permanent failure, delivery failure, worker reclaim, authorization, and malformed/oversized media. Every change gets focused Tier 1 coverage; a user-flow slice gets its happy/resilience automation plus Tier 2; queue/auth/storage/provider/Telegram boundary changes and stage boundaries run the full relevant matrix. Reproducible owner flow defects return to Tier 1/2 before closure.
 ## Phase 10 Preflight
 
 Automated preflight is complete for voice corrections in planning and draft_editing only. The production path transcribes temporary edit audio, rejects stale state before applying it, and routes bounded saved edit text to real Gemini revise-plan or draft-revision jobs. Voice corrections in formatted_editing are deferred to Stage 3. Mandatory 3/3 real-Telegram owner acceptance is pending; Phase 10 is not closed.

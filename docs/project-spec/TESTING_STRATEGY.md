@@ -20,6 +20,27 @@ Tests use synthetic fixtures and mock all provider and Telegram network calls. T
 
 For prompt or model changes, add offline evaluator fixtures for clear semantic constraints. Examples include default output language, explicit language override, requested split count, no invented categories, selected-plan preservation, and edit-intent application. Provider calls do not run in CI.
 
+## Synthetic Audio Protocol
+
+Audio fixtures are non-user synthetic data only: generated just-in-time or small approved fixtures. Never commit, retain, or reuse a user recording. The required corpus covers Telegram voice OGG/Opus, ordinary audio, short Russian, mixed Russian/English, silence or near-silence, unsupported or corrupt media, duration and size boundaries, and cleanup after both success and failure.
+
+Tier 1 mocks verify exact transcript and edit-intent propagation, routing, bounds, error category, and cleanup. For any audio-related workflow change, Tier 2 requires one bounded real STT plus Telegram/Telethon audio canary in the dedicated target after the smoke harness is configured. It records only safe result/category evidence and deletes generated temporary audio. Paid or audio calls never run in CI.
+
+### TTS Implementation Choice Checkpoint
+
+Do not assume a TTS engine is available. When a synthetic speech fixture is needed, inspect approved VPS tooling at execution time and record the selected method. If no suitable local tool exists, coordinator/owner may explicitly approve one bounded external TTS canary; it remains runtime-only, outside CI, and is not a prerequisite for deterministic mocks.
+
+## Resilience And Adversarial Interaction Protocol
+
+Use a small risk-based state-machine suite, not indiscriminate fuzzing. The applicable matrix is documented in `docs/project-spec/TEST_PLAN_MANIFEST.md`: `/start` during work, duplicate input, stale/double callbacks, out-of-order input, retry/timeout/permanent failure, notification failure, worker reclaim, unauthorized access, and malformed or oversized media.
+
+Timing rules:
+
+- Every change adds focused Tier 1 regression coverage for its affected state/contract.
+- Completion of a user-flow slice runs relevant happy-path plus resilience automation and the applicable Tier 2 smoke.
+- A stage boundary, or a change to queue, auth, storage, provider, or Telegram boundary, runs the full relevant resilience matrix.
+- Every reproducible owner UX or flow bug becomes a regression before closure. Literary feedback stays Tier 3; a reproducible functional portion returns to Tier 1 or Tier 2.
+
 ## Tier 2: Coordinator Automated Integration And Telegram Smoke
 
 Before a feature is called ready for owner review, the coordinator runs automated integration and a real Telegram/Telethon smoke against a dedicated test chat.
