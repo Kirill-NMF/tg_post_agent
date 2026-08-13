@@ -31,6 +31,21 @@ describe("OpenRouter provider boundary", () => {
     expect(JSON.stringify(received)).toContain("SECRET TRANSCRIPT");
   });
 
+  it("turns an aborted request into one retryable timeout without logging prompt content", async () => {
+    const client = createOpenRouterInteractionClient({
+      apiKey: "test-key",
+      requestTimeoutMs: 1,
+      fetchImpl: async (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        })
+    });
+
+    await expect(
+      client.create({ model: "google/gemini-2.5-pro", input: "SECRET TRANSCRIPT", response_format: { type: "text", mime_type: "application/json", schema: { type: "object" } } })
+    ).rejects.toMatchObject({ code: "TIMEOUT", retryable: true });
+  });
+
   it("does not use a direct fallback after an OpenRouter HTTP 400 or log the transcript", async () => {
     let fallbackCalls = 0;
     const logs: Array<Record<string, unknown>> = [];

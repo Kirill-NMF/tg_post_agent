@@ -5,6 +5,26 @@ export class ProviderRequestError extends Error {
   }
 }
 
+export const defaultProviderRequestTimeoutMs = 60_000;
+
+export async function fetchWithProviderTimeout(
+  fetchImpl: typeof fetch,
+  input: Parameters<typeof fetch>[0],
+  init: RequestInit,
+  timeoutMs: number = defaultProviderRequestTimeoutMs
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchImpl(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new ProviderRequestError("TIMEOUT", true);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function providerHttpError(status: number): ProviderRequestError {
   return new ProviderRequestError(`HTTP_${status}`, status === 408 || status === 429 || status >= 500);
 }

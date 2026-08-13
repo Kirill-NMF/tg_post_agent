@@ -44,6 +44,11 @@ export function createRevisePlanJobHandler(deps: RevisePlanJobHandlerDeps): JobH
 
     if (!result.ok) {
       if (result.error.retryable) {
+        if (job.attempts >= job.maxAttempts) {
+          await notifyRecovery(deps, project, job.id, result.error.code);
+          throw new PermanentJobError(result.error.code, result.error.message);
+        }
+        if (job.attempts === 1) await notifyRetry(deps, project, job.id, result.error.code);
         throw new RetryableJobError(result.error.code, result.error.message);
       }
       await notifyRecovery(deps, project, job.id, result.error.code);
@@ -62,6 +67,19 @@ export function createRevisePlanJobHandler(deps: RevisePlanJobHandlerDeps): JobH
       notificationStatus
     };
   };
+}
+
+async function notifyRetry(deps: RevisePlanJobHandlerDeps, project: Project, jobId: string, errorCode: string): Promise<void> {
+  if (!deps.notifier) return;
+
+  try {
+    await deps.notifier.sendMessage(project.chatId, "Обновление плана временно недоступно. Попробую ещё раз автоматически.");
+  } catch {
+    (deps.logger ?? noopLogger).warn(
+      { event: "plan_revision_retry_notification_failed", jobId, projectId: project.id, errorCode },
+      "plan revision retry notification failed"
+    );
+  }
 }
 
 function parseEdit(payload: Record<string, unknown>): string {

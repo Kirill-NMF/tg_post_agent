@@ -43,7 +43,7 @@ function createTranscriptionAdapter(config: AppConfig, logger?: Logger) {
     if (!direct) throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY is required to create real transcription handlers.");
     return direct;
   }
-  return new FallbackTranscriptionAdapter({ primary: new OpenRouterTranscriptionAdapter({ apiKey: config.openRouterApiKey, model: config.openRouterTranscriptionModel }), primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "whisper" : undefined, logger });
+  return new FallbackTranscriptionAdapter({ primary: new OpenRouterTranscriptionAdapter({ apiKey: config.openRouterApiKey, model: config.openRouterTranscriptionModel, requestTimeoutMs: config.providerRequestTimeoutMs }), primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "whisper" : undefined, logger });
 }
 
 function createPlanningAdapter(config: AppConfig, logger?: Logger) {
@@ -53,7 +53,7 @@ function createPlanningAdapter(config: AppConfig, logger?: Logger) {
     if (!direct) throw new Error("OPENROUTER_API_KEY or GEMINI_API_KEY is required to create real planning handlers.");
     return direct;
   }
-  const primary = new GeminiPlanningAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey }), model: config.openRouterPlanningModel, logger, provider: "openrouter" });
+  const primary = new GeminiPlanningAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs }), model: config.openRouterPlanningModel, logger, provider: "openrouter" });
   return new FallbackPlanningAdapter({ primary, primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "gemini" : undefined, logger });
 }
 
@@ -64,6 +64,6 @@ function createDraftAdapter(config: AppConfig, logger?: Logger) {
     if (!direct) throw new Error("OPENROUTER_API_KEY or GEMINI_API_KEY is required to create real draft handlers.");
     return direct;
   }
-  const primary = new GeminiDraftAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey }), model: config.openRouterDraftModel, logger, provider: "openrouter" });
+  const primary = new GeminiDraftAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs }), model: config.openRouterDraftModel, logger, provider: "openrouter" });
   return new FallbackDraftAdapter({ primary, primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "gemini" : undefined, logger });
 }

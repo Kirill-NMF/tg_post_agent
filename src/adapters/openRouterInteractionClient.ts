@@ -1,4 +1,4 @@
-import { providerHttpError } from "./providerErrors.js";
+import { defaultProviderRequestTimeoutMs, fetchWithProviderTimeout, providerHttpError } from "./providerErrors.js";
 
 export type OpenRouterInteractionRequest = {
   model: string;
@@ -14,11 +14,11 @@ export type OpenRouterInteractionClient = {
   create(request: OpenRouterInteractionRequest): Promise<{ output_text?: unknown }>;
 };
 
-export function createOpenRouterInteractionClient(input: { apiKey: string; fetchImpl?: typeof fetch }): OpenRouterInteractionClient {
+export function createOpenRouterInteractionClient(input: { apiKey: string; fetchImpl?: typeof fetch; requestTimeoutMs?: number }): OpenRouterInteractionClient {
   const fetchImpl = input.fetchImpl ?? fetch;
   return {
     async create(request) {
-      const response = await fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetchWithProviderTimeout(fetchImpl, "https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           authorization: `Bearer ${input.apiKey}`,
@@ -35,7 +35,7 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
           ],
           response_format: { type: "json_object" }
         })
-      });
+      }, input.requestTimeoutMs ?? defaultProviderRequestTimeoutMs);
       if (!response.ok) throw providerHttpError(response.status);
       return { output_text: readOutputText((await response.json()) as unknown) };
     }

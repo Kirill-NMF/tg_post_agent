@@ -18,6 +18,7 @@ export type AppConfig = {
   geminiPlanningModel: string;
   geminiDraftModel: string;
   providerFallbacksEnabled: boolean;
+  providerRequestTimeoutMs: number;
   jobWorkerEnabled: boolean;
   jobWorkerIntervalMs: number;
   jobWorkerStaleMs: number;
@@ -52,6 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     geminiPlanningModel,
     geminiDraftModel: readOptional(env, "GEMINI_DRAFT_MODEL") ?? geminiPlanningModel,
     providerFallbacksEnabled: readOptionalBoolean(env, "PROVIDER_FALLBACKS_ENABLED") ?? true,
+    providerRequestTimeoutMs: readOptionalInteger(env, "PROVIDER_REQUEST_TIMEOUT_MS") ?? 60_000,
     jobWorkerEnabled: readOptionalBoolean(env, "JOB_WORKER_ENABLED") ?? false,
     jobWorkerIntervalMs: readOptionalInteger(env, "JOB_WORKER_INTERVAL_MS") ?? 1000,
     jobWorkerStaleMs: readOptionalInteger(env, "JOB_WORKER_STALE_MS") ?? 15 * 60 * 1000,

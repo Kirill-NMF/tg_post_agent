@@ -25,6 +25,7 @@ Copy `.env.example` to a runtime-only env file outside git and fill values there
 - `OPENROUTER_API_KEY`: primary gateway for transcription, planning, and draft work. `OPENROUTER_TRANSCRIPTION_MODEL` defaults to `openai/whisper-large-v3`; `OPENROUTER_PLANNING_MODEL` and `OPENROUTER_DRAFT_MODEL` default to `google/gemini-2.5-pro`.
 - `OPENAI_API_KEY` with `OPENAI_TRANSCRIPTION_MODEL` (default `whisper-1`) is an optional direct transcription fallback.
 - `GEMINI_API_KEY` with `GEMINI_PLANNING_MODEL` and `GEMINI_DRAFT_MODEL` is an optional direct planning/draft fallback.
+- `PROVIDER_REQUEST_TIMEOUT_MS`: per-request provider deadline, defaults to 60 seconds. A timed-out request follows the ordinary retry policy and ultimately sends a safe recovery message instead of leaving a job running indefinitely.
 - `JOB_WORKER_ENABLED`: defaults to `false`. When enabled, `DATABASE_URL` plus either `OPENROUTER_API_KEY`, or both compatible direct provider keys, is required.
 - `JOB_WORKER_INTERVAL_MS`, `JOB_WORKER_STALE_MS`, `JOB_WORKER_ID`: serial worker runtime controls.
 

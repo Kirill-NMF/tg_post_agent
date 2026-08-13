@@ -35,6 +35,32 @@ describe("REVISE_PLAN job handler", () => {
     expect(notifier.messages[0]).not.toContain("Stored source transcript");
     expect(notifier.messages[0]).not.toContain("HTTP_400");
   });
+
+  it("turns an exhausted retryable provider timeout into one safe terminal recovery", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedProject(projects);
+    const job = await jobs.enqueue({
+      type: "REVISE_PLAN",
+      projectId: project.id,
+      payload: { latestUserEdit: "Make it shorter" },
+      maxAttempts: 1
+    });
+    const worker = new JobWorker(jobs, {
+      REVISE_PLAN: createRevisePlanJobHandler({ projects, planning: retryablyFailingPlanner(), notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    const saved = await projects.findById(project.id);
+    const storedJob = await jobs.findById(job.id);
+    expect(saved?.selectedPlan?.title).toBe("Current plan");
+    expect(storedJob).toMatchObject({ status: "failed", errorCode: "PROVIDER_TIMEOUT" });
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]).toContain("Исходный план");
+    expect(notifier.messages[0]).not.toContain("Stored source transcript");
+  });
 });
 
 async function seedProject(projects: InMemoryProjectRepository): Promise<Project> {
@@ -68,6 +94,14 @@ function permanentlyFailingPlanner(): Pick<ModelAdapters, "revisePlan"> {
           retryable: false
         }
       };
+    }
+  };
+}
+
+function retryablyFailingPlanner(): Pick<ModelAdapters, "revisePlan"> {
+  return {
+    async revisePlan() {
+      return { ok: false, error: { code: "PROVIDER_TIMEOUT", message: "Provider request timed out.", retryable: true } };
     }
   };
 }

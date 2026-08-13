@@ -29,6 +29,7 @@ describe("env config", () => {
     expect(config.geminiPlanningModel).toBe("gemini-2.5-pro");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
     expect(config.providerFallbacksEnabled).toBe(true);
+    expect(config.providerRequestTimeoutMs).toBe(60_000);
     expect(config.jobWorkerEnabled).toBe(false);
     expect(config.jobWorkerIntervalMs).toBe(1000);
     expect(config.jobWorkerStaleMs).toBe(15 * 60 * 1000);
@@ -49,6 +50,7 @@ describe("env config", () => {
       JOB_WORKER_ID: "worker-a",
       SOURCE_AUDIO_JOB_MAX_ATTEMPTS: "1",
       PLAN_SPLIT_JOB_MAX_ATTEMPTS: "1",
+      PROVIDER_REQUEST_TIMEOUT_MS: "45000",
       PROVIDER_FALLBACKS_ENABLED: "false"
     });
 
@@ -59,6 +61,7 @@ describe("env config", () => {
     expect(config.sourceAudioJobMaxAttempts).toBe(1);
     expect(config.planSplitJobMaxAttempts).toBe(1);
     expect(config.providerFallbacksEnabled).toBe(false);
+    expect(config.providerRequestTimeoutMs).toBe(45_000);
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", JOB_WORKER_ENABLED: "yes" })).toThrow("true or false");
   });
 
