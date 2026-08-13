@@ -104,6 +104,18 @@ class CorrectionCanaryContractTests(unittest.TestCase):
         self.assertEqual(ledger["attemptedBillableOperations"], 2)
         self.assertEqual(checkpoint["lastStage"], "ack_timeout")
 
+    def test_lifecycle_snapshot_contains_only_status_and_notification_booleans(self) -> None:
+        original = canary.LIFECYCLE_PATH
+        with tempfile.TemporaryDirectory() as directory:
+            canary.LIFECYCLE_PATH = Path(directory) / "lifecycle.json"
+            canary.write_lifecycle(
+                {"edit": "succeeded", "revision": "running", "revisionStarted": True},
+                {"notificationObservation": "not_observed"},
+            )
+            payload = json.loads(canary.LIFECYCLE_PATH.read_text(encoding="utf-8"))
+            self.assertEqual(payload, {"editJob": "succeeded", "revisionJob": "running", "revisionStarted": True, "notificationObserved": False})
+        canary.LIFECYCLE_PATH = original
+
     def run_voice_with_responses(self, responses):
         original_ledger = canary.LEDGER_PATH
         original_checkpoint = canary.CHECKPOINT_PATH

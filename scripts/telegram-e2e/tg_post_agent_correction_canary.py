@@ -26,6 +26,7 @@ from tg_post_agent_smoke import (
 
 REPORT_PATH = Path("/tmp/tg-post-agent-correction-canary-report.json")
 CHECKPOINT_PATH = Path("/tmp/tg-post-agent-correction-canary-checkpoint.json")
+LIFECYCLE_PATH = Path("/tmp/tg-post-agent-correction-canary-lifecycle.json")
 LEDGER_PATH = Path("/tmp/tg-post-agent-billable-ledger-2026-08-14.json")
 FIXTURE_STATE_PATH = Path("/tmp/tg-post-agent-correction-canary-state.json")
 FIXTURE_SCRIPT = Path(__file__).with_name("correction_fixture.mjs")
@@ -226,6 +227,7 @@ async def await_voice_terminal(conversation, bot_id: int, config: Config, starte
     revision_billed = False
     while True:
         statuses = revision_job_status(config)
+        write_lifecycle(statuses, observations)
         edit_status = statuses["edit"]
         revision_status = statuses["revision"]
         if edit_status in {"succeeded", "failed", "cancelled"}:
@@ -387,6 +389,18 @@ def write_json(path: Path, value: Mapping[str, object]) -> None:
 
 def write_checkpoint(observations: Mapping[str, object]) -> None:
     write_json(CHECKPOINT_PATH, observations)
+
+
+def write_lifecycle(statuses: Mapping[str, object], observations: Mapping[str, object]) -> None:
+    write_json(
+        LIFECYCLE_PATH,
+        {
+            "editJob": statuses["edit"],
+            "revisionJob": statuses["revision"],
+            "revisionStarted": statuses["revisionStarted"],
+            "notificationObserved": observations["notificationObservation"] == "terminal",
+        },
+    )
 
 
 def required(env: Mapping[str, str], name: str) -> str:
