@@ -413,3 +413,9 @@ The canonical accepted draft remains the sole lexical source. Formatting accepts
 - Option 2: the same readability plus emoji insertions anchored to existing text.
 - Both options preserve the original lexical text exactly; invalid, ambiguous, deleting, reordering, or unsupported operations fail closed to the original draft.
 - Telegram Premium/custom emoji remains explicitly deferred and is a no-op in this phase.
+
+### Phase 12 public-flow clarification
+
+The public formatting flow presents one formatting action, then exactly `Telegram` (Option 1) and `Telegram + emoji` (Option 2). Premium/custom emoji remain deferred.
+
+A successfully formatted message exposes a correction action and final acceptance. A text or voice correction returns to the canonical draft-revision path, invalidates the formatted result and stale completion action, and requires a new formatting pass. Final acceptance sends the `.txt` artifact once; it does not duplicate the already delivered formatted body.

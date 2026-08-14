@@ -8,14 +8,14 @@ import { JobWorker } from "../src/services/jobWorker.js";
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("GENERATE_DRAFT job handler", () => {
-  it("persists the draft without exposing incomplete Stage 3 UI or leaking transcript", async () => {
+  it("persists the draft, exposes formatting entry, and does not leak transcript", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedDraftProject(projects);
     await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
     const worker = new JobWorker(jobs, {
-      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: fakeDraftingAdapter({ fullText: "Generated draft text" }), notifier })
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: fakeDraftingAdapter({ fullText: "Generated draft text" }), notifier, formattingEnabled: true })
     });
 
     const processed = await worker.processOne({ workerId: "worker-1" });
@@ -28,7 +28,7 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Generated draft text");
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual([]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open"]);
   });
 
   it("preserves saved draft and state when notification fails after persistence", async () => {

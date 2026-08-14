@@ -6,11 +6,11 @@ Date: 2026-08-13
 
 - Stage 1 core implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
 - Stage 2 core planning, draft, and revision implementation is built. The owner accepted the initial result only; remaining correction-path acceptance is not blanket-closed.
-- Stage 3 Phase 12 internal formatting adapter/job boundary is in progress; no user-facing Stage 3 path exists and it is not tested.
+- Stage 3 Phase 12 public flow is implemented with Tier 1 deterministic evidence; Telegram Tier 2 remains not tested.
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 12 now owns the internal Stage 3 adapter/job boundary, while its user-facing flow remains not tested.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 12 now owns the public Stage 3 flow; its Telegram transport evidence remains not tested.
 
 ## Branch And GitHub
 
@@ -20,7 +20,7 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Phase 12 remains internal-only. Stage 3 has no public Telegram flow and therefore no owner formatting review is ready yet. Before that review, the owner must choose a formatting model, configure OPENROUTER_FORMATTING_MODEL only through the VPS runtime environment, and reset or explicitly approve a bounded external-canary budget. The team then runs the dedicated-chat Tier 2 Option 1/Option 2 transport path; only after that is owner 3/3 literary/UX review applicable.
+Phase 12 has a public Stage 3 implementation but no Telegram Tier 2 evidence yet. Before owner review, configure the approved model through VPS runtime, controlled-deploy one poller/worker, and run the dedicated-chat Tier 2 Option 1/Option 2 terminal paths. Only after that is owner 3/3 literary/UX review applicable.
 
 The existing Stage 1/2 canary ledger is exhausted at 15/15. It records categories only and retains no transcript, audio, credential, or user content.
 
@@ -69,7 +69,7 @@ The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delive
 
 Before owner 3/3, the active changed-flow inventory records trigger, durable initial state, acknowledgement, job, exactly-one terminal delivery or safe recovery, terminal state, Tier 1 evidence, Tier 2 evidence, and the owner-only question. An acknowledgement alone is never evidence of completion.
 
-Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization user-facing flow is `not tested`; Phase 11 contains only an internal foundation. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
+Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization is implemented with Tier 1 terminal coverage but remains `not tested` in Telegram. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
 
 The remaining owner focus is literary, product, and UX judgement only after the applicable path-level technical inventory remains green. A future owner-found delivery or stuck-state defect returns the affected flow to Tier 1 and, when transport-facing, Tier 2 before it can close.
 
@@ -86,4 +86,10 @@ Only the initial Stage 2 owner result is accepted; this does not blanket-accept 
 
 Phase 11 preservation-first rendering is complete. Phase 12 adds an internal FORMAT_POST worker handler and OpenRouter decoration-plan adapter only: the model can return operations, never a replacement body, and the application applies those operations to the canonical draft. OPENROUTER_FORMATTING_MODEL is intentionally unset by default; there is no formatting fallback or default model. No Stage 3 Telegram button/callback is exposed, so Stage 3 transport/UI remains not tested.
 
-Remaining external gates: owner chooses a formatting model, configures it through the VPS-only runtime environment, resets or explicitly approves a bounded canary budget, runs the dedicated-chat Tier 2 Option 1/Option 2 transport test, then performs owner 3/3 literary/UX review. Premium emoji and formatted-edit voice corrections remain deferred.
+Remaining external gates: configure the owner-approved model through the VPS-only runtime environment, controlled-deploy one poller/worker, run the dedicated-chat Tier 2 Option 1/Option 2 transport test, then perform owner 3/3 literary/UX review. Premium emoji remain deferred; formatted text/voice corrections return to draft revision.
+
+## Phase 12 Public Flow Status
+
+The public Stage 3 flow is implemented behind the explicit OpenRouter formatting configuration: formatting action -> Telegram | Telegram + emoji -> FORMAT_POST -> formatted result -> correction action | final acceptance. Tier 1 deterministic coverage verifies durable enqueue ordering, stale/duplicate callback rejection, preservation renderer handoff, final buttons, recovery to `draft_editing`, text/voice correction routing, stale-final invalidation, and single `.txt` artifact delivery. It has not yet received Tier 2 Telegram/Telethon evidence.
+
+The approved initial model is `anthropic/claude-sonnet-4.6` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The owner-approved daily cap is 30; the planned Tier 2 scope remains exactly two single-attempt/no-fallback model calls, one per formatting option. No paid formatting call has been made by this implementation slice. Premium/custom emoji remain deferred.

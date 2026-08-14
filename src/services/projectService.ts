@@ -17,6 +17,7 @@ import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import { applyFormattingPlan } from "../domain/formatting.js";
 import { draftActionButtons } from "./draftPresentation.js";
+import { finalActionButtons, formatChoiceButtons } from "./formatPresentation.js";
 import { currentPlan } from "./planSplitJobHandler.js";
 import { alternativePlanButtons, planButtons, renderAlternativePlansMessage, renderPlanRecommendationMessage } from "./planningPresentation.js";
 
@@ -25,7 +26,8 @@ export class ProjectService {
     private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters,
     private readonly jobs?: JobRepository,
-    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3 }
+    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3 },
+    private readonly formattingEnabled = false
   ) {}
 
   async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
@@ -168,7 +170,7 @@ export class ProjectService {
 
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: draftActionButtons() }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled) }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
@@ -181,9 +183,16 @@ export class ProjectService {
     project.outputLanguage = resolveOutputLanguage(project.outputLanguage, latestUserEdit);
     project.messages.push(message("draft_edit", latestUserEdit));
     if (this.jobs) {
-      await this.enqueueDraftRevision(project, post, latestUserEdit);
+      project.state = "draft_generating";
       await this.projects.save(project);
-      return [{ kind: "message", text: "Принял правку, обновляю черновик." }];
+      try {
+        await this.enqueueDraftRevision(project, post, latestUserEdit);
+      } catch {
+        project.state = "draft_editing";
+        await this.projects.save(project);
+        return [{ kind: "message", text: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a\u0430. \u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d." }];
+      }
+      return [{ kind: "message", text: "\u041f\u0440\u0438\u043d\u044f\u043b \u043f\u0440\u0430\u0432\u043a\u0443, \u043e\u0431\u043d\u043e\u0432\u043b\u044f\u044e \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a." }];
     }
 
     const updated = await unwrap(
@@ -192,21 +201,23 @@ export class ProjectService {
     post.currentDraft = updated.updatedDraft.fullText;
     project.messages.push(message("draft", post.currentDraft));
     await this.projects.save(project);
-    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons() }];
+    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled) }];
   }
 
   async openFormatChoice(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
+    if (!this.formattingEnabled) return [{ kind: "message", text: "\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u043a\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e." }];
     if (project.state !== "draft_editing" || !currentPost(project)?.currentDraft) {
       return [{ kind: "message", text: "Оформление доступно после черновика." }];
     }
     project.state = "format_choice";
     await this.projects.save(project);
-    return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatButtons() }];
+    return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatChoiceButtons() }];
   }
 
   async formatCurrentPost(telegramUserId: TelegramUserId, formattingOption: FormattingOption): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
+    if (!this.formattingEnabled) return [{ kind: "message", text: "\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u043a\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e." }];
     const post = currentPost(project);
     if (project.state !== "format_choice" || !post?.currentDraft) {
       return [{ kind: "message", text: "Сначала откройте оформление из черновика." }];
@@ -235,41 +246,29 @@ export class ProjectService {
     post.formattingOption = formattingOption;
     project.state = "formatted_editing";
     await this.projects.save(project);
-    return [{ kind: "message", text: post.formattedText, buttons: finalButtons(project) }];
+    return [{ kind: "message", text: post.formattedText, buttons: finalActionButtons(project) }];
+  }
+
+  async openFormattedCorrection(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
+    const project = await this.requireActive(telegramUserId);
+    if (project.state !== "formatted_editing" || !currentPost(project)?.currentDraft) {
+      return [{ kind: "message", text: "\u041f\u0440\u0430\u0432\u043a\u0438 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u044f \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u043d\u0430 \u0442\u0435\u043a\u0443\u0449\u0435\u043c \u0448\u0430\u0433\u0435." }];
+    }
+    return [{ kind: "message", text: "\u041e\u0442\u043f\u0440\u0430\u0432\u044c\u0442\u0435 \u043f\u0440\u0430\u0432\u043a\u0443 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0438\u043b\u0438 \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u044b\u043c \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u043c. \u042f \u0432\u0435\u0440\u043d\u0443\u0441\u044c \u043a \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a\u0443 \u0438 \u043f\u043e\u0442\u043e\u043c \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0443 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u0437\u0430\u043d\u043e\u0432\u043e." }];
   }
 
   async reviseFormatting(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
-    if (project.state !== "formatted_editing" || !post?.formattedText || !post.currentDraft || !post.formattingOption) {
-      return [{ kind: "message", text: "Правки оформления доступны только после оформления поста." }];
+    if (project.state !== "formatted_editing" || !post?.currentDraft) {
+      return [{ kind: "message", text: "\u041f\u0440\u0430\u0432\u043a\u0438 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u044f \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u043e\u0441\u043b\u0435 \u0433\u043e\u0442\u043e\u0432\u043e\u0433\u043e \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u044f." }];
     }
 
-    project.messages.push(message("formatting_edit", latestUserEdit));
-    const revision = await unwrap(
-      this.models.reviseFormatting({
-        projectId: project.id,
-        draftText: post.currentDraft,
-        formattedText: post.formattedText,
-        latestUserEdit,
-        formattingOption: post.formattingOption
-      })
-    );
-
-    if (revision.action === "route_to_draft") {
-      project.state = "draft_editing";
-      await this.projects.save(project);
-      return this.reviseDraft(telegramUserId, revision.draftEditInstruction);
-    }
-
-    const rendered = applyFormattingPlan(post.currentDraft, revision.decorationPlan);
-    if (!rendered.ok) {
-      return [{ kind: "message", text: "\u041f\u0440\u0430\u0432\u043a\u0430 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u044f \u043d\u0435 \u043f\u0440\u043e\u0448\u043b\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443 \u0441\u043e\u0445\u0440\u0430\u043d\u043d\u043e\u0441\u0442\u0438. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439." }];
-    }
-
-    post.formattedText = rendered.text;
+    project.state = "draft_editing";
+    post.formattedText = undefined;
+    post.formattingOption = undefined;
     await this.projects.save(project);
-    return [{ kind: "message", text: post.formattedText, buttons: finalButtons(project) }];
+    return this.reviseDraft(telegramUserId, latestUserEdit);
   }
 
   async finalizeCurrentPost(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
@@ -284,10 +283,7 @@ export class ProjectService {
     project.messages.push(message("final", post.formattedText));
     await this.projects.save(project);
 
-    return [
-      { kind: "message", text: post.formattedText, buttons: nextPostButtons(project) },
-      { kind: "document", filename: `post-${post.index}.txt`, content: post.formattedText, caption: "Текстовый артефакт поста" }
-    ];
+    return [{ kind: "document", filename: "post-" + post.index + ".txt", content: post.formattedText, caption: "\u0422\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0439 \u0430\u0440\u0442\u0435\u0444\u0430\u043a\u0442 \u043f\u043e\u0441\u0442\u0430" }];
   }
 
   async startNextPost(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
@@ -317,27 +313,48 @@ export class ProjectService {
 
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: draftActionButtons() }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled) }];
   }
 
   async handleEditAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
     if (!["planning", "draft_editing", "formatted_editing"].includes(project.state)) {
-      return [{ kind: "message", text: "Voice-правка сейчас не ожидается." }];
+      return [{ kind: "message", text: "\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u044f \u043f\u0440\u0430\u0432\u043a\u0430 \u0441\u0435\u0439\u0447\u0430\u0441 \u043d\u0435 \u043e\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044f." }];
     }
     if (this.jobs) {
-      if (project.state === "formatted_editing") {
-        return [{ kind: "message", text: "Голосовые правки оформления появятся на этапе оформления. Напишите правку текстом." }];
-      }
       const stateAtEdit = project.state;
-      await this.jobs.enqueue({
-        type: "TRANSCRIBE_EDIT_AUDIO",
-        projectId: project.id,
-        dedupeKey: `project:${project.id}:edit-audio:${source.telegramFileId}`,
-        payload: { source: { kind: "edit_audio", telegramFileId: source.telegramFileId, originalFileName: source.fileName, mimeType: source.mimeType, durationSeconds: source.durationSeconds, sizeBytes: source.sizeBytes }, stateAtEdit },
-        maxAttempts: this.jobAttempts.editAudio ?? 3,
-      });
-      return [{ kind: "message", text: "Голосовая правка принята. Расшифровываю её и применю к текущему шагу." }];
+      const formattedPost = currentPost(project);
+      const previousFormatting = stateAtEdit === "formatted_editing"
+        ? { text: formattedPost?.formattedText, option: formattedPost?.formattingOption }
+        : undefined;
+      if (stateAtEdit === "formatted_editing") {
+        project.state = "draft_generating";
+        if (formattedPost) {
+          formattedPost.formattedText = undefined;
+          formattedPost.formattingOption = undefined;
+        }
+        await this.projects.save(project);
+      }
+      try {
+        await this.jobs.enqueue({
+          type: "TRANSCRIBE_EDIT_AUDIO",
+          projectId: project.id,
+          dedupeKey: "project:" + project.id + ":edit-audio:" + source.telegramFileId,
+          payload: { source: { kind: "edit_audio", telegramFileId: source.telegramFileId, originalFileName: source.fileName, mimeType: source.mimeType, durationSeconds: source.durationSeconds, sizeBytes: source.sizeBytes }, stateAtEdit },
+          maxAttempts: this.jobAttempts.editAudio ?? 3
+        });
+      } catch {
+        if (stateAtEdit === "formatted_editing") {
+          project.state = "formatted_editing";
+          if (formattedPost) {
+            formattedPost.formattedText = previousFormatting?.text;
+            formattedPost.formattingOption = previousFormatting?.option;
+          }
+          await this.projects.save(project);
+        }
+        return [{ kind: "message", text: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u0438\u043d\u044f\u0442\u044c \u0433\u043e\u043b\u043e\u0441\u043e\u0432\u0443\u044e \u043f\u0440\u0430\u0432\u043a\u0443. \u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d." }];
+      }
+      return [{ kind: "message", text: "\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u0430\u044f \u043f\u0440\u0430\u0432\u043a\u0430 \u043f\u0440\u0438\u043d\u044f\u0442\u0430. \u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u044b\u0432\u0430\u044e \u0435\u0451 \u0438 \u043f\u0440\u0438\u043c\u0435\u043d\u044e \u043a \u0442\u0435\u043a\u0443\u0449\u0435\u043c\u0443 \u0448\u0430\u0433\u0443." }];
     }
 
     const edit = await unwrap(
@@ -409,7 +426,6 @@ export class ProjectService {
 
   private async enqueueDraftRevision(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, latestUserEdit: string): Promise<void> {
     if (!this.jobs) throw new Error("Cannot enqueue draft revision without job repository.");
-    project.state = "draft_generating";
     await this.jobs.enqueue({
       type: "REVISE_DRAFT",
       projectId: project.id,
@@ -454,6 +470,3 @@ function recentEditMessages(project: Project): string[] {
 
 
 function rewriteButtons() { return [{ label: "Почистить", action: "rewrite:clean_up" }, { label: "Сделать пост", action: "rewrite:make_post" }]; }
-function formatButtons() { return [{ label: "Option 1", action: "format:option_1" }, { label: "Option 2", action: "format:option_2" }]; }
-function finalButtons(project: Project) { const buttons = [{ label: "Готово", action: "final:accept" }]; const post = currentPost(project); if (post && project.selectedPlan && post.index < project.selectedPlan.postCount) buttons.push({ label: "Делать следующий пост", action: "series:next" }); return buttons; }
-function nextPostButtons(project: Project) { const post = currentPost(project); return !post || !project.selectedPlan || post.index >= project.selectedPlan.postCount ? undefined : [{ label: "Делать следующий пост", action: "series:next" }]; }

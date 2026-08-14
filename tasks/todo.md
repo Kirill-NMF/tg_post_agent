@@ -261,7 +261,9 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Add a durable FORMAT_POST handler with success persistence, stale/duplicate rejection, notification-after-save handling, and safe recovery to draft_editing.
 - [x] Add an explicit optional OPENROUTER_FORMATTING_MODEL config boundary with no default and no automatic fallback.
 - [x] Add deterministic adapter, handler, service, config, and factory tests for valid, malformed, timeout, stale, duplicate, and notification-failure paths.
-- [x] Keep public Stage 3 buttons/callbacks disabled.
-- [ ] Owner selects and configures the OpenRouter formatting model through the VPS-only runtime environment.
-- [ ] Reset or explicitly approve a bounded external-canary budget; run dedicated-chat Tier 2 Option 1/Option 2 transport evidence.
+- [x] Expose the public formatting action, Telegram, and Telegram + emoji callbacks only when the explicit formatting model is configured.
+- [x] Owner selected anthropic/claude-sonnet-4.6 as the initial OpenRouter formatting model; VPS-only configuration/deploy remains pending.
+- [x] Owner approved daily canary cap 30 and exactly two Option 1/Option 2 calls; dedicated-chat Tier 2 transport evidence remains pending.
+- [x] Add Tier 1 public-flow coverage: options, durable enqueue, stale callbacks, terminal/recovery, final artifact, and text/voice correction back to draft revision.
+- [ ] Controlled deployment and exactly two Tier 2 Telegram/Telethon Option 1/Option 2 canaries.
 - [ ] Owner 3/3 review of Option 1/Option 2 literary/UX quality after Tier 1 and Tier 2 pass.

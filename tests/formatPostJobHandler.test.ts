@@ -5,7 +5,7 @@ import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { createFormatPostJobHandler } from "../src/services/formatPostJobHandler.js";
 import { JobWorker } from "../src/services/jobWorker.js";
-import type { TelegramNotifier } from "../src/telegram/telegramNotifier.js";
+import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("FORMAT_POST job handler", () => {
   it("persists a validated formatted result, then notifies exactly once", async () => {
@@ -28,7 +28,9 @@ describe("FORMAT_POST job handler", () => {
     expect(updated?.state).toBe("formatted_editing");
     expect(updated?.posts[0]?.formattedText).toBe("*Canonical* draft.");
     expect(updated?.messages.at(-1)).toMatchObject({ kind: "formatted_text", text: "*Canonical* draft." });
-    expect(notifier.messages).toEqual([{ chatId: "200", text: "*Canonical* draft." }]);
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]).toMatchObject({ chatId: "200", text: "*Canonical* draft." });
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:edit", "final:accept"]);
     expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
   });
 
@@ -76,7 +78,7 @@ describe("FORMAT_POST job handler", () => {
     expect(notifier.messages).toHaveLength(1);
   });
 
-  it("keeps saved result when delivery fails and rejects a stale duplicate without overwriting it", async () => {
+  it("restores the draft after delivery failure and rejects a stale duplicate", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const project = await seedFormattingProject(projects);
@@ -91,7 +93,8 @@ describe("FORMAT_POST job handler", () => {
     await worker.processOne({ workerId: "worker-1" });
 
     expect((await jobs.findById(duplicate.id))?.errorCode).toBe("FORMAT_POST_STALE");
-    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("*Canonical* draft.");
+    expect((await projects.findById(project.id))?.state).toBe("draft_editing");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBeUndefined();
   });
 });
 
@@ -135,10 +138,10 @@ function successAdapter(): Pick<ModelAdapters, "formatPost"> {
 }
 
 class CapturingNotifier implements TelegramNotifier {
-  readonly messages: Array<{ chatId: string; text: string }> = [];
+  readonly messages: Array<{ chatId: string; text: string; options?: TelegramSendMessageOptions }> = [];
   constructor(private readonly error?: Error) {}
-  async sendMessage(chatId: string, text: string): Promise<void> {
-    this.messages.push({ chatId, text });
+  async sendMessage(chatId: string, text: string, options?: TelegramSendMessageOptions): Promise<void> {
+    this.messages.push({ chatId, text, options });
     if (this.error) throw this.error;
   }
 }

@@ -8,14 +8,14 @@ import { createReviseDraftJobHandler } from "../src/services/reviseDraftJobHandl
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("REVISE_DRAFT job handler", () => {
-  it("persists the updated draft without exposing incomplete Stage 3 UI", async () => {
+  it("persists the updated draft and exposes formatting entry", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedDraftEditingProject(projects);
     await jobs.enqueue({ type: "REVISE_DRAFT", projectId: project.id, payload: { latestUserEdit: "Make intro sharper" } });
     const worker = new JobWorker(jobs, {
-      REVISE_DRAFT: createReviseDraftJobHandler({ projects, drafting: fakeRevisionAdapter({ fullText: "Updated draft text" }), notifier })
+      REVISE_DRAFT: createReviseDraftJobHandler({ projects, drafting: fakeRevisionAdapter({ fullText: "Updated draft text" }), notifier, formattingEnabled: true })
     });
 
     const processed = await worker.processOne({ workerId: "worker-1" });
@@ -27,7 +27,7 @@ describe("REVISE_DRAFT job handler", () => {
     expect(updated?.messages.at(-1)).toMatchObject({ kind: "draft", text: "Updated draft text" });
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Updated draft text");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual([]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open"]);
   });
 
   it("preserves saved revision and state when notification fails", async () => {

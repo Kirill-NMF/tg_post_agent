@@ -26,7 +26,7 @@ describeWithPostgres("PgProjectRepository", () => {
 
   it("persists and hydrates the current mock project flow", async () => {
     const repository = new PgProjectRepository(database.db);
-    const service = new ProjectService(repository, new MockModelAdapters());
+    const service = new ProjectService(repository, new MockModelAdapters(), undefined, undefined, true);
 
     await service.start("100", "200");
     await service.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });

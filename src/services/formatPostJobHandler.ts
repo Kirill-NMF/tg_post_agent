@@ -6,6 +6,7 @@ import { noopLogger, type Logger } from "../observability/logger.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWorker.js";
+import { formattedReplyMarkup } from "./formatPresentation.js";
 
 export type FormatPostJobHandlerDeps = {
   projects: ProjectRepository;
@@ -72,6 +73,12 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
     );
 
     const notificationStatus = await notifyFormatted(deps, project, post.formattedText, job.id);
+    if (notificationStatus === "failed") {
+      post.formattedText = undefined;
+      post.formattingOption = undefined;
+      project.state = "draft_editing";
+      await deps.projects.save(project);
+    }
     return {
       provider: result.meta.provider,
       modelLabel: result.meta.modelLabel,
@@ -94,13 +101,18 @@ function parseRequest(payload: Record<string, unknown>): { postIndex: 1 | 2 | 3;
 async function recoverFromFailure(deps: FormatPostJobHandlerDeps, project: Project, jobId: string, errorCode: string): Promise<void> {
   if (project.state !== "formatting") return;
   project.state = "draft_editing";
+  const post = project.posts.find((item) => item.index === project.currentPostIndex);
+  if (post) {
+    post.formattedText = undefined;
+    post.formattingOption = undefined;
+  }
   await deps.projects.save(project);
 
   if (!deps.notifier) return;
   try {
     await deps.notifier.sendMessage(
       project.chatId,
-      "\\u041d\\u0435 \\u0443\\u0434\\u0430\\u043b\\u043e\\u0441\\u044c \\u0431\\u0435\\u0437\\u043e\\u043f\\u0430\\u0441\\u043d\\u043e \\u043e\\u0444\\u043e\\u0440\\u043c\\u0438\\u0442\\u044c \\u0447\\u0435\\u0440\\u043d\\u043e\\u0432\\u0438\\u043a. \\u0427\\u0435\\u0440\\u043d\\u043e\\u0432\\u0438\\u043a \\u0441\\u043e\\u0445\\u0440\\u0430\\u043d\\u0451\\u043d; \\u043c\\u043e\\u0436\\u043d\\u043e \\u043f\\u0440\\u043e\\u0434\\u043e\\u043b\\u0436\\u0438\\u0442\\u044c \\u0440\\u0430\\u0431\\u043e\\u0442\\u0443 \\u0441 \\u0442\\u0435\\u043a\\u0443\\u0449\\u0438\\u043c \\u0442\\u0435\\u043a\\u0441\\u0442\\u043e\\u043c."
+      "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e \u043e\u0444\u043e\u0440\u043c\u0438\u0442\u044c \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d; \u043c\u043e\u0436\u043d\u043e \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0440\u0430\u0431\u043e\u0442\u0443 \u0441 \u0442\u0435\u043a\u0443\u0449\u0438\u043c \u0442\u0435\u043a\u0441\u0442\u043e\u043c."
     );
   } catch {
     (deps.logger ?? noopLogger).warn(
@@ -113,7 +125,7 @@ async function recoverFromFailure(deps: FormatPostJobHandlerDeps, project: Proje
 async function notifyFormatted(deps: FormatPostJobHandlerDeps, project: Project, text: string, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(project.chatId, text);
+    await deps.notifier.sendMessage(project.chatId, text, { reply_markup: formattedReplyMarkup(project) });
     return "sent";
   } catch {
     (deps.logger ?? noopLogger).warn(

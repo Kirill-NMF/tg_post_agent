@@ -50,7 +50,7 @@ describe("BotRouter", () => {
     await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "rewrite:make_post" });
 
     const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "format:open" }))[0]);
-    expect(response.text).toContain("\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f");
+    expect(response.text).toContain("\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u043a\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e");
   });
   it("routes rewrite callback to draft job enqueue path when jobs are configured", async () => {
     const repository = new InMemoryProjectRepository();

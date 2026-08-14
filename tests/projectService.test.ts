@@ -102,7 +102,7 @@ describe("ProjectService mock state machine", () => {
   it("enqueues internal formatting durably without exposing it in draft buttons", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
-    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, undefined, true);
     const project = await seedDraftEditingProject(repository);
     project.state = "format_choice";
     await repository.save(project);

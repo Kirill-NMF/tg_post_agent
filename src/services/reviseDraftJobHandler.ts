@@ -14,6 +14,7 @@ export type ReviseDraftJobHandlerDeps = {
   drafting: Pick<ModelAdapters, "reviseDraft">;
   notifier?: TelegramNotifier;
   logger?: Logger;
+  formattingEnabled?: boolean;
 };
 
 export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): JobHandler {
@@ -96,7 +97,7 @@ function parseLatestUserEdit(payload: Record<string, unknown>): string {
 async function notifyDraft(deps: ReviseDraftJobHandlerDeps, project: Project, draft: string, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup() });
+    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled) });
     return "sent";
   } catch {
     deps.logger?.warn({ event: "draft_revision_notification_failed", jobId, projectId: project.id }, "draft revision notification failed");

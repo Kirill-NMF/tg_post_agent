@@ -240,4 +240,10 @@ Voice edit audio remains gated in production job mode until the real edit-audio 
 
 FORMAT_POST now has an internal OpenRouter adapter and durable worker-handler boundary. The adapter requests a JSON decoration plan only, validates it as untrusted data, and applies it through the preservation renderer; it never accepts a provider replacement body as canonical text. Invalid, stale, exhausted retryable, or unexpected failures restore draft_editing and send one safe recovery notice without changing the canonical draft.
 
-OPENROUTER_FORMATTING_MODEL is deliberately unset by default and has no direct-provider or automatic fallback. The handler is registered only when both that explicit model and OPENROUTER_API_KEY are configured. Telegram buttons remain disabled until the later UI/Tier 2 slice.
+OPENROUTER_FORMATTING_MODEL has no direct-provider or automatic fallback. The handler is registered only when both that explicit model and OPENROUTER_API_KEY are configured. The public Telegram path is implemented but remains Tier 2 unverified until the bounded option canaries pass.
+
+### Phase 12 public-flow implementation
+
+When `OPENROUTER_FORMATTING_MODEL` and `OPENROUTER_API_KEY` are configured, generated and revised drafts expose formatting. The public choice labels are `Telegram` (Option 1) and `Telegram + emoji` (Option 2). FORMAT_POST is queued only after `formatting` has been persisted. Its successful notification contains a correction action and final acceptance; final acceptance sends the existing text artifact once, without re-sending the formatted body.
+
+Text or voice correction of a formatted result invalidates the stale formatted state and routes through draft revision. A provider, malformed-plan, or notification terminal path restores `draft_editing` rather than stranding the project. Premium/custom emoji remain deferred. Tier 2 transport evidence is still required before owner Option 1/Option 2 review.

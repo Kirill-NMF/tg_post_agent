@@ -26,6 +26,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
   const planning = createPlanningAdapter(input.config, input.logger);
   const draftAdapter = createDraftAdapter(input.config, input.logger);
   const formattingAdapter = createFormattingAdapter(input.config, input.logger);
+  const formattingEnabled = Boolean(formattingAdapter);
   const files = new TelegramFileClient({ botToken: input.config.botToken, apiBaseUrl: input.config.telegramApiBaseUrl, maxDownloadBytes: input.config.telegramMaxDownloadBytes });
   const processor = new FfmpegAudioProcessor();
   const storage = new TempAudioStorage({ baseDir: input.config.audioTempDir });
@@ -34,8 +35,8 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
     TRANSCRIBE_EDIT_AUDIO: createTranscribeEditAudioJobHandler({ projects: input.projects, jobs: input.jobs!, telegramFiles: files, audioProcessor: processor, transcription, storage, notifier: input.notifier, logger: input.logger, planRevisionJobMaxAttempts: input.config.planRevisionJobMaxAttempts }),
     PLAN_SPLIT: createPlanSplitJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     REVISE_PLAN: createRevisePlanJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
-    GENERATE_DRAFT: createGenerateDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger }),
-    REVISE_DRAFT: createReviseDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger }),
+    GENERATE_DRAFT: createGenerateDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger, formattingEnabled }),
+    REVISE_DRAFT: createReviseDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger, formattingEnabled }),
     ...(formattingAdapter ? { FORMAT_POST: createFormatPostJobHandler({ projects: input.projects, formatting: formattingAdapter, notifier: input.notifier, logger: input.logger }) } : {})
   };
 }

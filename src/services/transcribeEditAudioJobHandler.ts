@@ -13,7 +13,7 @@ import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWork
 const maxEditDurationSeconds = 60 * 60;
 const maxEditChars = 2000;
 
-type Payload = { source: AudioSourceMetadata; stateAtEdit: "planning" | "draft_editing" };
+type Payload = { source: AudioSourceMetadata; stateAtEdit: "planning" | "draft_editing" | "formatted_editing" };
 
 export function createTranscribeEditAudioJobHandler(deps: {
   projects: ProjectRepository;
@@ -33,7 +33,8 @@ export function createTranscribeEditAudioJobHandler(deps: {
 
     const payload = parse(job.payload);
     const project = await deps.projects.findById(job.projectId);
-    if (!project?.isActive || project.state !== payload.stateAtEdit) {
+    const expectedState = payload.stateAtEdit === "formatted_editing" ? "draft_generating" : payload.stateAtEdit;
+    if (!project?.isActive || project.state !== expectedState) {
       throw new PermanentJobError("EDIT_AUDIO_STALE", "Project state changed before the voice edit could be applied.");
     }
 
@@ -58,7 +59,7 @@ export function createTranscribeEditAudioJobHandler(deps: {
       if (!latestUserEdit || latestUserEdit.length > maxEditChars) {
         throw new PermanentJobError("EDIT_TRANSCRIPT_INVALID", "Voice edit transcript is invalid.");
       }
-      if (!project.isActive || project.state !== payload.stateAtEdit) {
+      if (!project.isActive || project.state !== expectedState) {
         throw new PermanentJobError("EDIT_AUDIO_STALE", "Project state changed before the voice edit could be applied.");
       }
 
@@ -100,6 +101,11 @@ export function createTranscribeEditAudioJobHandler(deps: {
       const failure = error instanceof PermanentJobError || error instanceof RetryableJobError
         ? error
         : new RetryableJobError("EDIT_AUDIO_TRANSCRIPTION_FAILED", "Voice edit transcription failed.");
+      const willRetry = failure instanceof RetryableJobError && job.attempts < job.maxAttempts;
+      if (payload.stateAtEdit === "formatted_editing" && !willRetry && project.isActive && project.state === "draft_generating") {
+        project.state = "draft_editing";
+        await deps.projects.save(project);
+      }
       await notifyEditAudioFailure(deps, project, job, payload.stateAtEdit, failure);
       throw failure;
     } finally {
@@ -141,7 +147,7 @@ function parse(payload: Record<string, unknown>): Payload {
   if (item.kind !== "edit_audio" || typeof item.telegramFileId !== "string" || !item.telegramFileId.trim()) {
     throw new PermanentJobError("EDIT_AUDIO_PAYLOAD_INVALID", "Edit-audio source is invalid.");
   }
-  if (payload.stateAtEdit !== "planning" && payload.stateAtEdit !== "draft_editing") {
+  if (payload.stateAtEdit !== "planning" && payload.stateAtEdit !== "draft_editing" && payload.stateAtEdit !== "formatted_editing") {
     throw new PermanentJobError("EDIT_AUDIO_STATE_INVALID", "Edit-audio state is not supported.");
   }
   return {

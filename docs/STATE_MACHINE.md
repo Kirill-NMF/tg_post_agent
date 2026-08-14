@@ -238,3 +238,9 @@ The semantic-vs-formatting distinction can start as a conservative rule in later
 - Stage 3 formatting never intentionally changes wording or meaning.
 - New voice/text messages during an active project are interpreted according to current state, not as new source content, except `/start`.
 - Source audio and edit audio are deleted from temp storage after their text output is saved or the job is abandoned.
+
+## Phase 12 public formatting clarification
+
+When the explicit formatting model is configured, `draft_editing -> format_choice -> formatting -> formatted_editing` is publicly reachable. `formatted_editing` exposes a correction entry point plus final acceptance. Text or voice correction immediately invalidates the formatted result, moves the project into the existing draft-revision busy path, and ends in `draft_editing`; a stale final-accept callback cannot finalize it. Final acceptance sends only the `.txt` artifact and moves the project to `done`.
+
+A FORMAT_POST malformed, terminal provider, or notification failure restores `draft_editing` without accepting the formatting. Telegram Premium/custom emoji remain deferred.

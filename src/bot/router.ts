@@ -58,9 +58,10 @@ export class BotRouter {
     if (event.action === "plan:show_alternatives") return this.projects.showPlanAlternatives(event.telegramUserId);
     if (group === "plan" && isPlanOption(value)) return this.projects.choosePlan(event.telegramUserId, value);
     if (group === "rewrite" && isRewriteMode(value)) return this.projects.chooseRewriteMode(event.telegramUserId, value);
-    if (event.action === "format:open" || group === "format" || event.action === "final:accept") {
-      return [{ kind: "message", text: "\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u043f\u043e\u0441\u043b\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u044f \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0433\u043e \u044d\u0442\u0430\u043f\u0430 Stage 3." }];
-    }
+    if (event.action === "format:open") return this.projects.openFormatChoice(event.telegramUserId);
+    if (event.action === "format:edit") return this.projects.openFormattedCorrection(event.telegramUserId);
+    if (group === "format" && (value === "option_1" || value === "option_2")) return this.projects.formatCurrentPost(event.telegramUserId, value);
+    if (event.action === "final:accept") return this.projects.finalizeCurrentPost(event.telegramUserId);
     if (event.action === "series:next") return this.projects.startNextPost(event.telegramUserId);
     return [{ kind: "message", text: "Неизвестное действие. Продолжите текущий шаг или отправьте /start." }];
   }

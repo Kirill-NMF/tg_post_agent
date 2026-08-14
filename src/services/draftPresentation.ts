@@ -1,12 +1,11 @@
 import type { BotButton } from "../domain/types.js";
 
-export function draftActionButtons(): BotButton[] {
-  // Stage 3 has no real formatter path yet, so drafts intentionally expose no formatting callback.
-  return [];
+export function draftActionButtons(formattingEnabled = false): BotButton[] {
+  return formattingEnabled ? [{ label: "\u041e\u0444\u043e\u0440\u043c\u0438\u0442\u044c", action: "format:open" }] : [];
 }
 
-export function draftReplyMarkup() {
+export function draftReplyMarkup(formattingEnabled = false) {
   return {
-    inline_keyboard: draftActionButtons().map((button) => [{ text: button.label, callback_data: button.action }])
+    inline_keyboard: draftActionButtons(formattingEnabled).map((button) => [{ text: button.label, callback_data: button.action }])
   };
 }
