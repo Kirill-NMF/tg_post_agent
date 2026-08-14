@@ -250,6 +250,18 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Define Option 1 as readability/Markdown without expressive emoji and Option 2 as readability plus anchored emoji.
 - [x] Add Tier 1 validation and lexical-preservation tests for valid, invalid, deleting, reordering, ambiguous, and fallback plans.
 - [x] Defer Telegram Premium/custom emoji as a Phase 11 no-op.
-- [ ] Add public Stage 3 buttons, jobs, or real formatter providers (Phase 12+ only after their contracts and tests).
+- [x] Add internal Stage 3 job/provider boundary while keeping public buttons/callbacks disabled.
 - [ ] Run applicable Tier 2 Telegram transport evidence once Stage 3 has a user-facing flow.
 - [ ] Owner literary/UX acceptance after Tier 1/Tier 2 Stage 3 evidence.
+
+
+## Phase 12. Real Formatting Adapter
+
+- [x] Add an internal OpenRouter formatting adapter that requests a decoration plan only and validates untrusted JSON through the preservation renderer.
+- [x] Add a durable FORMAT_POST handler with success persistence, stale/duplicate rejection, notification-after-save handling, and safe recovery to draft_editing.
+- [x] Add an explicit optional OPENROUTER_FORMATTING_MODEL config boundary with no default and no automatic fallback.
+- [x] Add deterministic adapter, handler, service, config, and factory tests for valid, malformed, timeout, stale, duplicate, and notification-failure paths.
+- [x] Keep public Stage 3 buttons/callbacks disabled.
+- [ ] Owner selects and configures the OpenRouter formatting model through the VPS-only runtime environment.
+- [ ] Reset or explicitly approve a bounded external-canary budget; run dedicated-chat Tier 2 Option 1/Option 2 transport evidence.
+- [ ] Owner 3/3 review of Option 1/Option 2 literary/UX quality after Tier 1 and Tier 2 pass.

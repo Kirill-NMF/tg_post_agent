@@ -23,6 +23,7 @@ Copy `.env.example` to a runtime-only env file outside git and fill values there
 - `TELEGRAM_API_BASE_URL`: defaults to the cloud Bot API.
 - `TELEGRAM_MAX_DOWNLOAD_BYTES`: defaults to 20 MB, matching the cloud Bot API `getFile` download limit. A future local Bot API server can raise this operational limit.
 - `OPENROUTER_API_KEY`: primary gateway for transcription, planning, and draft work. `OPENROUTER_TRANSCRIPTION_MODEL` defaults to `openai/whisper-large-v3`; `OPENROUTER_PLANNING_MODEL` and `OPENROUTER_DRAFT_MODEL` default to `google/gemini-2.5-pro`.
+- OPENROUTER_FORMATTING_MODEL is intentionally unset by default. Formatting stays disabled until the owner explicitly chooses a model; no formatting fallback is configured.
 - `OPENAI_API_KEY` with `OPENAI_TRANSCRIPTION_MODEL` (default `whisper-1`) is an optional direct transcription fallback.
 - `GEMINI_API_KEY` with `GEMINI_PLANNING_MODEL` and `GEMINI_DRAFT_MODEL` is an optional direct planning/draft fallback.
 - `PROVIDER_REQUEST_TIMEOUT_MS`: per-request provider deadline, defaults to 60 seconds. A timed-out request follows the ordinary retry policy and ultimately sends a safe recovery message instead of leaving a job running indefinitely.

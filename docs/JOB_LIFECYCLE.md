@@ -132,7 +132,7 @@ Recovery must not advance project state based only on assumptions. If the worker
 | `REVISE_PLAN` | Replace `plan_options_json`, state `planning`. | Keep previous plan options; state `planning`. |
 | `GENERATE_DRAFT` | Save `project_posts.current_draft`, state `draft_editing`. | Keep selected plan; state `rewrite_mode` or `draft_editing` depending on existing draft. |
 | `REVISE_DRAFT` | Replace full `current_draft`, state `draft_editing`. | Keep previous draft; state `draft_editing`. |
-| `FORMAT_POST` | Save `formatted_text`, state `formatted_editing`. | Keep draft; state `format_choice`. |
+| `FORMAT_POST` | Save `formatted_text`, state `formatted_editing`. | Keep canonical draft; restore `draft_editing` and send one safe recovery notice. |
 | `REVISE_FORMATTING` | Update `formatted_text` or enqueue draft revision; state accordingly. | Keep previous formatted text; state `formatted_editing`. |
 | `GENERATE_TXT_ARTIFACT` | Save artifact metadata, keep post/project `done` flow. | Final text remains saved; artifact can be retried. |
 | `CLEANUP_TEMP_FILES` | Mark cleanup succeeded. | Retry if safe; stale files remain discoverable by periodic cleanup. |
@@ -234,3 +234,10 @@ When a user chooses `Почистить` or `Сделать пост`, the produ
 `REVISE_DRAFT` is now wired through the worker handler factory with the same Gemini draft adapter/model as generation. Text draft edits enqueue a durable revision job when a job repository is configured; the handler validates a bounded edit instruction, replaces the full `current_draft` only after valid model output, keeps the project in `draft_editing`, and sends the updated draft with the `Оформить` button after persistence.
 
 Voice edit audio remains gated in production job mode until the real edit-audio transcription slice is approved. The no-job mock path still accepts mock voice edits for local skeleton tests.
+
+
+## Phase 12 Implementation Note
+
+FORMAT_POST now has an internal OpenRouter adapter and durable worker-handler boundary. The adapter requests a JSON decoration plan only, validates it as untrusted data, and applies it through the preservation renderer; it never accepts a provider replacement body as canonical text. Invalid, stale, exhausted retryable, or unexpected failures restore draft_editing and send one safe recovery notice without changing the canonical draft.
+
+OPENROUTER_FORMATTING_MODEL is deliberately unset by default and has no direct-provider or automatic fallback. The handler is registered only when both that explicit model and OPENROUTER_API_KEY are configured. Telegram buttons remain disabled until the later UI/Tier 2 slice.

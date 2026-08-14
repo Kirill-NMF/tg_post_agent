@@ -24,7 +24,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | --- | --- | --- | --- | --- |
 | Stage 1: Transcription | core implementation built; real acceptance pending | Audio intake, temporary processing, transcription, and persisted transcript are built. | Tier 2 intake-contract repair | Re-run guarded transport validation after the coordinator repair. |
 | Stage 2: Plan/draft/revision | core implementation built; real acceptance pending | Planning, draft generation, text and edit-audio correction paths are built. | Tier 2 intake-contract repair | Validate delivery and corrections after the coordinator repair. |
-| Stage 3: Formatting | Phase 11 foundation in progress; user-facing flow not tested | Preservation-first decoration-plan validation/rendering is built; no Telegram UI, job, or provider is wired. | none yet | not tested until a complete Stage 3 path exists. |
+| Stage 3: Formatting | Phase 12 internal boundary in progress; user-facing flow not tested | Preservation-first rendering plus an internal FORMAT_POST adapter/job boundary are built. No Telegram UI is exposed; the formatting model is intentionally unset. | Choose/configure model, approve budget, then Tier 2 transport | not tested until a complete Stage 3 path exists. |
 | Packaging/deploy | later | Runtime operations continue only through controlled authorized work. | as scoped | Controlled runtime checks only. |
 
 ## Engineering Phase Roadmap
@@ -42,9 +42,9 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 7: Gemini Planning | Stage 2 | done | 2/3 | adapter validation, planning job tests | Review plan options when real bot flow is available. |
 | Phase 8: Gemini Draft Generation | Stage 2 | done | 2/3 | adapter/job/service tests | Review draft quality later. |
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
-| Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | source-audio Tier 2 passed; correction Tier 2 pending | 3/3 after Tier 2 | Canonical /start and one bounded synthetic audio to planning response passed; run dedicated text/voice correction regressions | Owner quality acceptance only after Tier 2. |
-| Phase 11: Formatting Foundation | Stage 3 | in progress; foundation-only | 3/3 after technical path | deterministic decoration-plan validation and lexical-preservation tests; no public UI | Owner reviews Option 1/Option 2 only after a technically verified user-facing flow. |
-| Phase 12: Real Formatting Adapter | Stage 3 | later | 3/3 | provider validation, preservation check | Check emoji density and no word rewrites. |
+| Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | Tier 2 technical paths complete; owner 3/3 pending | 3/3 | dedicated transport, source-audio, planning correction, and draft-delivery evidence recorded | Owner evaluates literary/product/UX only. |
+| Phase 11: Formatting Foundation | Stage 3 | done | 2/3 | deterministic decoration-plan validation and lexical-preservation tests | Foundation only; no public UI. |
+| Phase 12: Real Formatting Adapter | Stage 3 | in progress; internal only | 3/3 after Tier 2 | OpenRouter decoration-plan validation, durable FORMAT_POST recovery, no public UI | Choose/configure model, approve canary budget, run Tier 2 Option 1/Option 2 transport, then review no-rewrite/emoji quality. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
 | Phase 14: Telethon E2E Harness | all | later | 3/3 | Telethon real account smoke | Validate full Telegram click-through. |
 | Phase 15: VPS Deployment/Operations | all | later | 3/3 | systemd/logs/env/smoke | Approve production-like bot run. |
@@ -61,9 +61,9 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 ## Current Gate
 
-Phase 10 has real Tier 2 source-audio transport evidence: canonical identity, one synthetic Russian OGG/Opus upload, one real Stage 1 transcription, and one real Stage 2 planning response. The category-only report confirms local fixture and dedicated-test-project cleanup; the normal single worker runtime was restored afterward.
+Phase 10 Tier 2 technical evidence is recorded for the listed Stage 1/2 paths. Phase 12 is now the active engineering gate: the Stage 3 provider/job boundary is internal only, and its user-facing flow remains not tested.
 
-The remaining Tier 2 subgate is the dedicated-chat text/voice correction regression set. The source-audio canary deliberately did not test correction behavior and does not substitute for it. Only after that evidence passes may the owner run 3/3 literary, UX, and quality acceptance. Phase 11 has started the internal Stage 3 foundation; its user-facing flow remains not tested.
+Before any formatting owner review: choose and configure the explicit OpenRouter formatting model, reset or explicitly approve the bounded canary budget, expose and test the Stage 3 transport path in the dedicated chat, then complete owner 3/3 Option 1/Option 2 quality review.
 
 ## Provider Configuration Update
 

@@ -117,6 +117,7 @@ export type ProjectMessageKind =
   | "draft"
   | "draft_edit"
   | "formatting_edit"
+  | "formatted_text"
   | "final";
 
 export type ProjectMessage = {

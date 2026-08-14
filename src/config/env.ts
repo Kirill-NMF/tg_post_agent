@@ -12,6 +12,7 @@ export type AppConfig = {
   openRouterTranscriptionModel: string;
   openRouterPlanningModel: string;
   openRouterDraftModel: string;
+  openRouterFormattingModel?: string;
   openaiApiKey?: string;
   openaiTranscriptionModel: string;
   geminiApiKey?: string;
@@ -47,6 +48,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     openRouterTranscriptionModel: readOptional(env, "OPENROUTER_TRANSCRIPTION_MODEL") ?? "openai/whisper-large-v3",
     openRouterPlanningModel,
     openRouterDraftModel: readOptional(env, "OPENROUTER_DRAFT_MODEL") ?? openRouterPlanningModel,
+    openRouterFormattingModel: readOptional(env, "OPENROUTER_FORMATTING_MODEL"),
     openaiApiKey: readOptional(env, "OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional(env, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
     geminiApiKey: readOptional(env, "GEMINI_API_KEY"),

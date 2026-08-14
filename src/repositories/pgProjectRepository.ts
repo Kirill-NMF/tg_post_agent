@@ -318,6 +318,6 @@ function toPostIndex(value: number): 1 | 2 | 3 {
 
 function roleForMessage(kind: ProjectMessageKind): "user" | "bot" | "system" | "model" {
   if (kind === "planning_edit" || kind === "draft_edit" || kind === "formatting_edit" || kind === "command" || kind === "source_audio") return "user";
-  if (kind === "plan_options" || kind === "draft") return "model";
+  if (kind === "plan_options" || kind === "draft" || kind === "formatted_text") return "model";
   return "bot";
 }

@@ -33,5 +33,27 @@ describe("audio pipeline factory", () => {
     expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("PLAN_SPLIT");
     expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("GENERATE_DRAFT");
     expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("REVISE_DRAFT");
+    expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).not.toHaveProperty("FORMAT_POST");
+  });
+
+  it("adds FORMAT_POST only for an explicit OpenRouter formatting model", () => {
+    const config = loadConfig({
+      BOT_TOKEN: "token",
+      ALLOWED_TELEGRAM_IDS: "123",
+      OPENROUTER_API_KEY: "test-key",
+      OPENROUTER_FORMATTING_MODEL: "owner-selected-model"
+    });
+    expect(createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toHaveProperty("FORMAT_POST");
+  });
+
+  it("refuses a formatting model without the OpenRouter credential", () => {
+    const config = loadConfig({
+      BOT_TOKEN: "token",
+      ALLOWED_TELEGRAM_IDS: "123",
+      OPENAI_API_KEY: "test-openai-key",
+      GEMINI_API_KEY: "test-gemini-key",
+      OPENROUTER_FORMATTING_MODEL: "owner-selected-model"
+    });
+    expect(() => createAudioPipelineHandlers({ config, projects: new InMemoryProjectRepository() })).toThrow("OPENROUTER_API_KEY");
   });
 });

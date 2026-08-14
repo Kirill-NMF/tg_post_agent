@@ -45,7 +45,7 @@ describeWithPostgres("PgProjectRepository", () => {
     expect(activeProject?.planOptions).toHaveLength(1);
     expect(activeProject?.outputLanguage).toBe("en");
     expect(activeProject?.posts).toHaveLength(1);
-    expect(activeProject?.posts[0]?.formattedText).toMatch(/^✨ Mock draft 1/);
+    expect(activeProject?.posts[0]?.formattedText).toMatch(/^✨Mock draft 1/);
     expect(activeProject?.posts[0]?.finalText).toBe(activeProject?.posts[0]?.formattedText);
     expect(activeProject?.messages.map((message) => message.kind)).toContain("final");
 

@@ -6,11 +6,11 @@ Date: 2026-08-13
 
 - Stage 1 core implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
 - Stage 2 core planning, draft, and revision implementation is built. The owner accepted the initial result only; remaining correction-path acceptance is not blanket-closed.
-- Stage 3 Phase 11 formatting foundation is in progress; no user-facing Stage 3 path exists and it is not tested.
+- Stage 3 Phase 12 internal formatting adapter/job boundary is in progress; no user-facing Stage 3 path exists and it is not tested.
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 11 now owns the Stage 3 formatting foundation, whose user-facing flow remains not tested.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 12 now owns the internal Stage 3 adapter/job boundary, while its user-facing flow remains not tested.
 
 ## Branch And GitHub
 
@@ -20,9 +20,9 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Tier 2 /start transport, source-audio-to-planning, text planning correction, and voice planning correction are complete. The next gate is owner 3/3 acceptance from a clean `/start`; it evaluates literary style, UX, and product quality only, not technical delivery or instruction compliance. The owner-approved one-day synthetic-canary exception raised the category-only daily cap to 15; 14 actual attempts were recorded without retaining secret values or content.
+Phase 12 remains internal-only. Stage 3 has no public Telegram flow and therefore no owner formatting review is ready yet. Before that review, the owner must choose a formatting model, configure OPENROUTER_FORMATTING_MODEL only through the VPS runtime environment, and reset or explicitly approve a bounded external-canary budget. The team then runs the dedicated-chat Tier 2 Option 1/Option 2 transport path; only after that is owner 3/3 literary/UX review applicable.
 
-The one-shot canary used approved external synthetic Russian TTS because the VPS has no local RU TTS engine. It was limited to one TTS request, one upload, one Stage 1 attempt, and one Stage 2 attempt; no transcript, audio, credential, or user content was retained. Tier 2 correction evidence is now complete; owner 3/3 is the remaining gate.
+The existing Stage 1/2 canary ledger is exhausted at 15/15. It records categories only and retains no transcript, audio, credential, or user content.
 
 ## Owner Focus
 
@@ -80,3 +80,10 @@ The remaining owner focus is literary, product, and UX judgement only after the 
 ## Phase 11 Formatting Foundation
 
 Only the initial Stage 2 owner result is accepted; this does not blanket-accept every Stage 2 correction path. Phase 11 is in progress. The Stage 3 foundation provides deterministic, preservation-first decoration-plan validation and rendering only. No Stage 3 Telegram button, job, provider adapter, or user-facing flow exists yet, so all Stage 3 transport/UI paths are not tested. Owner evaluation for formatting is deferred until a complete, technically verified Stage 3 path exists.
+
+
+## Phase 12 Formatting Adapter Boundary
+
+Phase 11 preservation-first rendering is complete. Phase 12 adds an internal FORMAT_POST worker handler and OpenRouter decoration-plan adapter only: the model can return operations, never a replacement body, and the application applies those operations to the canonical draft. OPENROUTER_FORMATTING_MODEL is intentionally unset by default; there is no formatting fallback or default model. No Stage 3 Telegram button/callback is exposed, so Stage 3 transport/UI remains not tested.
+
+Remaining external gates: owner chooses a formatting model, configures it through the VPS-only runtime environment, resets or explicitly approves a bounded canary budget, runs the dedicated-chat Tier 2 Option 1/Option 2 transport test, then performs owner 3/3 literary/UX review. Premium emoji and formatted-edit voice corrections remain deferred.

@@ -1,0 +1,144 @@
+import { describe, expect, it } from "vitest";
+import type { ModelAdapters } from "../src/domain/modelContracts.js";
+import type { Project } from "../src/domain/types.js";
+import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository.js";
+import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
+import { createFormatPostJobHandler } from "../src/services/formatPostJobHandler.js";
+import { JobWorker } from "../src/services/jobWorker.js";
+import type { TelegramNotifier } from "../src/telegram/telegramNotifier.js";
+
+describe("FORMAT_POST job handler", () => {
+  it("persists a validated formatted result, then notifies exactly once", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    const job = await jobs.enqueue({
+      type: "FORMAT_POST",
+      projectId: project.id,
+      postId: "post-1",
+      payload: { postIndex: 1, formattingOption: "option_1" }
+    });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({ projects, formatting: successAdapter(), notifier })
+    });
+
+    await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
+    const updated = await projects.findById(project.id);
+    expect(updated?.state).toBe("formatted_editing");
+    expect(updated?.posts[0]?.formattedText).toBe("*Canonical* draft.");
+    expect(updated?.messages.at(-1)).toMatchObject({ kind: "formatted_text", text: "*Canonical* draft." });
+    expect(notifier.messages).toEqual([{ chatId: "200", text: "*Canonical* draft." }]);
+    expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
+  });
+
+  it("restores draft_editing and sends one recovery after permanent malformed output", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", message: "invalid", retryable: false } }; } },
+        notifier
+      })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect((await jobs.findById(job.id))?.status).toBe("failed");
+    expect((await projects.findById(project.id))?.state).toBe("draft_editing");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBeUndefined();
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]?.text).not.toContain("Canonical draft");
+  });
+
+  it("turns an exhausted retryable timeout into one safe recovery", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" }, maxAttempts: 1 });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_PROVIDER_TIMEOUT", message: "timeout", retryable: true } }; } },
+        notifier
+      })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect((await jobs.findById(job.id))?.status).toBe("failed");
+    expect((await projects.findById(project.id))?.state).toBe("draft_editing");
+    expect(notifier.messages).toHaveLength(1);
+  });
+
+  it("keeps saved result when delivery fails and rejects a stale duplicate without overwriting it", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const project = await seedFormattingProject(projects);
+    const first = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({ projects, formatting: successAdapter(), notifier: new CapturingNotifier(new Error("delivery failed")) })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+    expect((await jobs.findById(first.id))?.result).toMatchObject({ notificationStatus: "failed" });
+    const duplicate = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" } });
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect((await jobs.findById(duplicate.id))?.errorCode).toBe("FORMAT_POST_STALE");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("*Canonical* draft.");
+  });
+});
+
+async function seedFormattingProject(projects: InMemoryProjectRepository): Promise<Project> {
+  const project: Project = {
+    id: "project-1",
+    telegramUserId: "100",
+    chatId: "200",
+    state: "formatting",
+    isActive: true,
+    posts: [{
+      id: "post-1",
+      index: 1,
+      planSlice: { index: 1, topic: "topic", angle: "angle", includes: ["point"] },
+      currentDraft: "Canonical draft."
+    }],
+    currentPostIndex: 1,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  await projects.save(project);
+  return project;
+}
+
+function successAdapter(): Pick<ModelAdapters, "formatPost"> {
+  return {
+    async formatPost() {
+      return {
+        ok: true,
+        value: {
+          decorationPlan: {
+            option: "option_1",
+            operations: [{ kind: "markdown_span", anchor: { text: "Canonical", occurrence: 0 }, style: "bold" }]
+          }
+        },
+        meta: { provider: "openrouter", modelLabel: "owner-selected-format-model" }
+      };
+    }
+  };
+}
+
+class CapturingNotifier implements TelegramNotifier {
+  readonly messages: Array<{ chatId: string; text: string }> = [];
+  constructor(private readonly error?: Error) {}
+  async sendMessage(chatId: string, text: string): Promise<void> {
+    this.messages.push({ chatId, text });
+    if (this.error) throw this.error;
+  }
+}

@@ -2,6 +2,6 @@
 
 Canonical plan: docs/project-spec/DEVELOPMENT_PLAN.md.
 
-Current stage: Phase 11 Formatting Foundation is in progress. The owner accepted the initial Stage 2 result only; that is not blanket acceptance of every Stage 2 correction path. Phase 11 has no public Stage 3 flow yet.
+Current stage: Phase 12 Real Formatting Adapter is in progress. The owner accepted the initial Stage 2 result only; that is not blanket acceptance of every Stage 2 correction path. Stage 3 has an internal provider/job boundary but no public Telegram flow.
 
-Next gate: complete the provider/job/UI Stage 3 slice with Tier 1 terminal-path tests and applicable Tier 2 Telegram evidence before any formatting owner review. Option 1/Option 2 literary/UX acceptance stays deferred. Telegram Premium/custom emoji and formatted-edit voice corrections remain out of scope.
+Next gate: owner chooses an OpenRouter formatting model and configures it only through the VPS runtime environment; reset or explicitly approve a bounded canary budget; then complete the Stage 3 UI/Tier 2 transport slice before any Option 1/Option 2 owner review. Telegram Premium/custom emoji and formatted-edit voice corrections remain out of scope.

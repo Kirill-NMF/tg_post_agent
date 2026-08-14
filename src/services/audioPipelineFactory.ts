@@ -13,6 +13,8 @@ import type { ProjectRepository } from "../repositories/projectRepository.js";
 import { TelegramFileClient } from "../telegram/telegramFileClient.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { createGenerateDraftJobHandler } from "./generateDraftJobHandler.js";
+import { OpenRouterFormattingAdapter } from "../adapters/openRouterFormattingAdapter.js";
+import { createFormatPostJobHandler } from "./formatPostJobHandler.js";
 import { createPlanSplitJobHandler } from "./planSplitJobHandler.js";
 import { createReviseDraftJobHandler } from "./reviseDraftJobHandler.js";
 import { createRevisePlanJobHandler } from "./revisePlanJobHandler.js";
@@ -23,6 +25,7 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
   const transcription = createTranscriptionAdapter(input.config, input.logger);
   const planning = createPlanningAdapter(input.config, input.logger);
   const draftAdapter = createDraftAdapter(input.config, input.logger);
+  const formattingAdapter = createFormattingAdapter(input.config, input.logger);
   const files = new TelegramFileClient({ botToken: input.config.botToken, apiBaseUrl: input.config.telegramApiBaseUrl, maxDownloadBytes: input.config.telegramMaxDownloadBytes });
   const processor = new FfmpegAudioProcessor();
   const storage = new TempAudioStorage({ baseDir: input.config.audioTempDir });
@@ -32,7 +35,8 @@ export function createAudioPipelineHandlers(input: { config: AppConfig; projects
     PLAN_SPLIT: createPlanSplitJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     REVISE_PLAN: createRevisePlanJobHandler({ projects: input.projects, planning, notifier: input.notifier, logger: input.logger }),
     GENERATE_DRAFT: createGenerateDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger }),
-    REVISE_DRAFT: createReviseDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger })
+    REVISE_DRAFT: createReviseDraftJobHandler({ projects: input.projects, drafting: draftAdapter, notifier: input.notifier, logger: input.logger }),
+    ...(formattingAdapter ? { FORMAT_POST: createFormatPostJobHandler({ projects: input.projects, formatting: formattingAdapter, notifier: input.notifier, logger: input.logger }) } : {})
   };
 }
 
@@ -66,4 +70,16 @@ function createDraftAdapter(config: AppConfig, logger?: Logger) {
   }
   const primary = new GeminiDraftAdapter({ client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs }), model: config.openRouterDraftModel, logger, provider: "openrouter" });
   return new FallbackDraftAdapter({ primary, primaryProvider: "openrouter", fallback: config.providerFallbacksEnabled ? direct : undefined, fallbackProvider: config.providerFallbacksEnabled && direct ? "gemini" : undefined, logger });
+}
+
+function createFormattingAdapter(config: AppConfig, logger?: Logger) {
+  if (!config.openRouterFormattingModel) return undefined;
+  if (!config.openRouterApiKey) {
+    throw new Error("OPENROUTER_API_KEY is required when OPENROUTER_FORMATTING_MODEL is configured.");
+  }
+  return new OpenRouterFormattingAdapter({
+    client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs }),
+    model: config.openRouterFormattingModel,
+    logger
+  });
 }

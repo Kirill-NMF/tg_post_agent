@@ -212,6 +212,19 @@ export class ProjectService {
       return [{ kind: "message", text: "Сначала откройте оформление из черновика." }];
     }
 
+    if (this.jobs) {
+      project.state = "formatting";
+      await this.projects.save(project);
+      try {
+        await this.enqueueFormatting(project, post, formattingOption);
+      } catch {
+        project.state = "format_choice";
+        await this.projects.save(project);
+        return [{ kind: "message", text: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d." }];
+      }
+      return [{ kind: "message", text: "\u041e\u0444\u043e\u0440\u043c\u043b\u044f\u044e \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a; \u043f\u0440\u0438\u0448\u043b\u044e \u0433\u043e\u0442\u043e\u0432\u044b\u0439 \u0442\u0435\u043a\u0441\u0442." }];
+    }
+
     const formatted = await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }));
     const rendered = applyFormattingPlan(post.currentDraft, formatted.decorationPlan);
     if (!rendered.ok) {
@@ -380,6 +393,17 @@ export class ProjectService {
       postId: post.id,
       dedupeKey: `project:${project.id}:post:${project.currentPostIndex}:draft:${project.rewriteMode}`,
       payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode }
+    });
+  }
+
+  private async enqueueFormatting(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, formattingOption: FormattingOption): Promise<void> {
+    if (!this.jobs) throw new Error("Cannot enqueue formatting without job repository.");
+    await this.jobs.enqueue({
+      type: "FORMAT_POST",
+      projectId: project.id,
+      postId: post.id,
+      dedupeKey: "project:" + project.id + ":post:" + post.index + ":format:" + formattingOption,
+      payload: { postIndex: post.index, formattingOption }
     });
   }
 

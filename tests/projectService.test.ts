@@ -99,6 +99,26 @@ describe("ProjectService mock state machine", () => {
     });
   });
 
+  it("enqueues internal formatting durably without exposing it in draft buttons", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const project = await seedDraftEditingProject(repository);
+    project.state = "format_choice";
+    await repository.save(project);
+
+    const response = await projects.formatCurrentPost("100", "option_1");
+
+    expect(message(response[0]).text).toContain("\u041e\u0444\u043e\u0440\u043c\u043b\u044f\u044e");
+    expect((await repository.findById(project.id))?.state).toBe("formatting");
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({
+      type: "FORMAT_POST",
+      projectId: project.id,
+      postId: "post-1",
+      payload: { postIndex: 1, formattingOption: "option_1" }
+    });
+  });
+
   it("keeps the no-job mock path revising drafts synchronously", async () => {
     const repository = new InMemoryProjectRepository();
     const projects = new ProjectService(repository, new MockModelAdapters());

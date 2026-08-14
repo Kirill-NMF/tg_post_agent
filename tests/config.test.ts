@@ -25,6 +25,7 @@ describe("env config", () => {
     expect(config.openRouterTranscriptionModel).toBe("openai/whisper-large-v3");
     expect(config.openRouterPlanningModel).toBe("google/gemini-2.5-pro");
     expect(config.openRouterDraftModel).toBe("google/gemini-2.5-pro");
+    expect(config.openRouterFormattingModel).toBeUndefined();
     expect(config.openaiTranscriptionModel).toBe("whisper-1");
     expect(config.geminiPlanningModel).toBe("gemini-2.5-pro");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
@@ -78,6 +79,11 @@ describe("env config", () => {
     expect(config.geminiPlanningModel).toBe("gemini-2.5-flash");
     expect(config.geminiDraftModel).toBe("gemini-2.5-pro");
   });
+
+  it("keeps the formatting model explicitly unset unless the owner configures it", () => {
+    const config = loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", OPENROUTER_FORMATTING_MODEL: "provider/model" });
+    expect(config.openRouterFormattingModel).toBe("provider/model");
+  });
 });
 
 describe("OpenRouter config priority", () => {
@@ -95,5 +101,6 @@ describe("OpenRouter config priority", () => {
     expect(config.openRouterDraftModel).toBe("google/gemini-2.5-pro");
     expect(config.openaiApiKey).toBe("openai-key");
     expect(config.geminiApiKey).toBe("gemini-key");
+    expect(config.openRouterFormattingModel).toBeUndefined();
   });
 });
