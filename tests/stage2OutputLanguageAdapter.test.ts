@@ -22,6 +22,28 @@ describe("Stage 2 output language prompts", () => {
     await expect(defaultRussian.planSplit({ projectId: "p", transcript: "source", planningHistory: [] })).resolves.toMatchObject({ ok: false, error: { code: "GEMINI_PLAN_OUTPUT_LANGUAGE_INVALID", retryable: false } });
   });
 
+  it("keeps clean_up lexical-preservation only and make_post rewrite framing", async () => {
+    const cleanClient = new DraftClient(russianDraftOutput());
+    const cleanAdapter = new GeminiDraftAdapter({ client: cleanClient, model: "google/gemini-2.5-pro" });
+    await expect(cleanAdapter.generateDraft({ ...draftInput(), rewriteMode: "clean_up" })).resolves.toMatchObject({ ok: true });
+
+    const cleanPrompt = cleanClient.requests[0]?.input ?? "";
+    expect(cleanPrompt).toContain("\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0439 \u0432\u0441\u0435 \u0441\u043b\u043e\u0432\u0430 \u0438 \u0432\u0435\u0441\u044c \u0441\u043c\u044b\u0441\u043b \u0438\u0441\u0445\u043e\u0434\u043d\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442\u0430 \u0441\u043b\u043e\u0432\u043e \u0432 \u0441\u043b\u043e\u0432\u043e. \u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u0441\u043e\u043a\u0440\u0430\u0449\u0430\u0439, \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u0441\u044b\u0432\u0430\u0439 \u0438 \u043d\u0435 \u043e\u0431\u043e\u0431\u0449\u0430\u0439.");
+    expect(cleanPrompt).toContain("\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043e \u0442\u043e\u043b\u044c\u043a\u043e: \u0440\u0430\u0441\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u043f\u0443\u043d\u043a\u0442\u0443\u0430\u0446\u0438\u044e");
+    expect(cleanPrompt).not.toContain("Telegram post");
+    expect(cleanPrompt).not.toContain("Plan title:");
+    expect(cleanPrompt).not.toContain("Plan slice");
+    expect(cleanPrompt).not.toContain("Post index:");
+
+    const postClient = new DraftClient(russianDraftOutput());
+    const postAdapter = new GeminiDraftAdapter({ client: postClient, model: "google/gemini-2.5-pro" });
+    await expect(postAdapter.generateDraft(draftInput())).resolves.toMatchObject({ ok: true });
+
+    const postPrompt = postClient.requests[0]?.input ?? "";
+    expect(postPrompt).toContain("\u042f\u0417\u042b\u041a \u0418\u0422\u041e\u0413\u041e\u0412\u041e\u0413\u041e \u0422\u0415\u041a\u0421\u0422\u0410: \u0440\u0443\u0441\u0441\u043a\u0438\u0439 (ru)");
+    expect(postPrompt).toContain("Turn the selected transcript material into a polished Telegram post");
+    expect(postPrompt).toContain("Plan title:");
+  });
   it("makes Russian the default for draft generation and revision while permitting an explicit override", async () => {
     const client = new DraftClient(russianDraftOutput());
     const adapter = new GeminiDraftAdapter({ client, model: "google/gemini-2.5-pro" });

@@ -131,47 +131,33 @@ export function createGeminiDraftClient(apiKey: string): GeminiDraftClient {
 }
 
 function buildDraftPrompt(params: Parameters<ModelAdapters["generateDraft"]>[0] & { slice: PlanPostSlice }): string {
-  if (params.rewriteMode === "make_post") {
-    const compactContext = params.compactContext?.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+  if (params.rewriteMode === "clean_up") {
     return [
-      "Generate one complete Russian Telegram post draft for the selected plan slice.",
-      "Return only JSON that matches the schema.",
-      "The output must be a full replacement draft, not a patch or instructions.",
-      "Do not format as Option 1 or Option 2; formatting is a later stage.",
-      "Turn the selected transcript material into a polished Telegram post while preserving facts, intent, and voice.",
-      `Post index: ${params.postIndex} of ${params.selectedPlan.postCount}`,
-      `Plan title: ${params.selectedPlan.title}`,
-      `Plan slice topic: ${params.slice.topic}`,
-      `Plan slice angle: ${params.slice.angle}`,
-      `Plan slice includes: ${params.slice.includes.join("; ")}`,
-      `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
-      `Compact edit context:\n${compactContext}`,
-      `Transcript:\n${params.transcript}`
+      outputLanguageInstruction(params.outputLanguage),
+      "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u043f\u043e \u0441\u0445\u0435\u043c\u0435. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0437\u0430\u043c\u0435\u043d\u044f\u0442\u044c \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a.",
+      "\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0439 \u0432\u0441\u0435 \u0441\u043b\u043e\u0432\u0430 \u0438 \u0432\u0435\u0441\u044c \u0441\u043c\u044b\u0441\u043b \u0438\u0441\u0445\u043e\u0434\u043d\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442\u0430 \u0441\u043b\u043e\u0432\u043e \u0432 \u0441\u043b\u043e\u0432\u043e. \u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u0441\u043e\u043a\u0440\u0430\u0449\u0430\u0439, \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u0441\u044b\u0432\u0430\u0439 \u0438 \u043d\u0435 \u043e\u0431\u043e\u0431\u0449\u0430\u0439.",
+      "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u043e \u0442\u043e\u043b\u044c\u043a\u043e: \u0440\u0430\u0441\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u043f\u0443\u043d\u043a\u0442\u0443\u0430\u0446\u0438\u044e \u0438 \u0437\u0430\u0433\u043b\u0430\u0432\u043d\u044b\u0435 \u0431\u0443\u043a\u0432\u044b, \u0438\u0441\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0442\u043e\u043b\u044c\u043a\u043e \u0431\u0435\u0437\u043e\u0448\u0438\u0431\u043e\u0447\u043d\u043e \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u0435\u043c\u044b\u0435 ASR-\u043e\u0448\u0438\u0431\u043a\u0438 \u0438 \u0440\u0430\u0437\u0434\u0435\u043b\u0438\u0442\u044c \u0442\u0435\u043a\u0441\u0442 \u043d\u0430 \u0447\u0438\u0442\u0430\u0435\u043c\u044b\u0435 \u0430\u0431\u0437\u0430\u0446\u044b.",
+      "\u041d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0439 \u0437\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a, CTA, \u0445\u044d\u0448\u0442\u0435\u0433\u0438, \u0441\u043f\u0438\u0441\u043a\u0438, \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0441\u043a\u0438\u0435 \u043c\u0435\u0442\u043a\u0438 \u0438\u043b\u0438 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0443 Telegram-\u043f\u043e\u0441\u0442\u0430. \u041d\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 \u043f\u043b\u0430\u043d, \u0435\u0433\u043e \u0437\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u0438\u043b\u0438 \u0435\u0433\u043e \u043c\u0435\u0442\u0430\u0434\u0430\u043d\u043d\u044b\u0435.",
+      `\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430:\n${params.transcript}`
     ].join("\n\n");
   }
 
-  const modeInstruction =
-    params.rewriteMode === "clean_up"
-      ? "\u0410\u043a\u043a\u0443\u0440\u0430\u0442\u043d\u043e \u043e\u0442\u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u0443\u0439 \u0440\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0443, \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0432 \u0441\u043c\u044b\u0441\u043b \u0438 \u0433\u043e\u043b\u043e\u0441 \u0430\u0432\u0442\u043e\u0440\u0430."
-      : "\u041f\u0440\u0435\u0432\u0440\u0430\u0442\u0438 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0432 \u0446\u0435\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u0441\u0442 Telegram, \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0432 \u0444\u0430\u043a\u0442\u044b, \u043d\u0430\u043c\u0435\u0440\u0435\u043d\u0438\u0435 \u0438 \u0433\u043e\u043b\u043e\u0441 \u0430\u0432\u0442\u043e\u0440\u0430.";
-  const compactContext = params.compactContext?.length
-    ? params.compactContext.map((item) => `- ${item}`).join("\n")
-    : "\u041f\u0440\u0435\u0434\u044b\u0434\u0443\u0449\u0438\u0445 \u043f\u0440\u0430\u0432\u043e\u043a \u043d\u0435\u0442.";
-
+  const compactContext = params.compactContext?.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
   return [
     outputLanguageInstruction(params.outputLanguage),
-    "\u0421\u043e\u0437\u0434\u0430\u0439 \u043e\u0434\u0438\u043d \u043f\u043e\u043b\u043d\u044b\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u043f\u043e\u0441\u0442\u0430 Telegram \u0434\u043b\u044f \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u043e\u0433\u043e \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430 \u043f\u043b\u0430\u043d\u0430.",
-    "\u0412\u0435\u0440\u043d\u0438 \u0442\u043e\u043b\u044c\u043a\u043e JSON \u043f\u043e \u0441\u0445\u0435\u043c\u0435. \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0437\u0430\u043c\u0435\u043d\u044f\u0442\u044c \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a, \u0430 \u043d\u0435 \u0431\u044b\u0442\u044c \u043f\u0430\u0442\u0447\u0435\u043c \u0438\u043b\u0438 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u0435\u0439.",
-    "\u041d\u0435 \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u0439 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 Option 1/Option 2: \u044d\u0442\u043e \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 \u044d\u0442\u0430\u043f.",
-    modeInstruction,
-    `\u041d\u043e\u043c\u0435\u0440 \u043f\u043e\u0441\u0442\u0430: ${params.postIndex} \u0438\u0437 ${params.selectedPlan.postCount}`,
-    `\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u043f\u043b\u0430\u043d\u0430: ${params.selectedPlan.title}`,
-    `\u0422\u0435\u043c\u0430 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430: ${params.slice.topic}`,
-    `\u0420\u0430\u043a\u0443\u0440\u0441 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430: ${params.slice.angle}`,
-    `\u0412\u043a\u043b\u044e\u0447\u0438: ${params.slice.includes.join("; ")}`,
-    `\u041d\u0435 \u0432\u043a\u043b\u044e\u0447\u0430\u0439: ${(params.slice.excludes ?? []).join("; ") || "\u043d\u0435\u0442"}`,
-    `\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043f\u0440\u0430\u0432\u043e\u043a:\n${compactContext}`,
-    `\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430:\n${params.transcript}`
+    "Generate one complete Russian Telegram post draft for the selected plan slice.",
+    "Return only JSON that matches the schema.",
+    "The output must be a full replacement draft, not a patch or instructions.",
+    "Do not format as Option 1 or Option 2; formatting is a later stage.",
+    "Turn the selected transcript material into a polished Telegram post while preserving facts, intent, and voice.",
+    `Post index: ${params.postIndex} of ${params.selectedPlan.postCount}`,
+    `Plan title: ${params.selectedPlan.title}`,
+    `Plan slice topic: ${params.slice.topic}`,
+    `Plan slice angle: ${params.slice.angle}`,
+    `Plan slice includes: ${params.slice.includes.join("; ")}`,
+    `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
+    `Compact edit context:\n${compactContext}`,
+    `Transcript:\n${params.transcript}`
   ].join("\n\n");
 }
 

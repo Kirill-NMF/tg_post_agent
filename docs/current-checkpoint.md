@@ -72,3 +72,7 @@ Before owner 3/3, the active changed-flow inventory records trigger, durable ini
 Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization is `not tested` because it has not started. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
 
 The remaining owner focus is literary, product, and UX judgement only after the applicable path-level technical inventory remains green. A future owner-found delivery or stuck-state defect returns the affected flow to Tier 1 and, when transport-facing, Tier 2 before it can close.
+
+## Clean Mode Contract
+
+`clean_up` now has an explicit lexical-preservation prompt contract and deterministic prompt tests; `make_post` remains the only rewrite/post-structuring mode. These tests verify instructions, not LLM output fidelity. Owner literary evaluation of Clean output remains pending; no runtime/deployment change was made by this contract update.

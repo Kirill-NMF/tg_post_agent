@@ -380,8 +380,8 @@ DraftText = {
 
 - `full_text` is non-empty and within Telegram/display/storage limits.
 - Output is for exactly `post_index` and does not include all series posts unless requested by the plan slice.
-- `clean_up` preserves source voice closely: no article-style expansion.
-- `make_post` creates a readable Telegram post without adding unsupported claims.
+- `clean_up` preserves every lexical unit, phrase, order, example, number, name, and meaning; it permits only punctuation/capitalization, unmistakable ASR correction, and paragraph splitting. It must not use plan metadata or add post framing.
+- `make_post` creates a readable Telegram post without adding unsupported claims and may restructure/rewrite within that boundary.
 - If `title`, `body`, or `cta` are present, they must be consistent with `full_text`.
 - Output is full draft text, not a diff.
 
