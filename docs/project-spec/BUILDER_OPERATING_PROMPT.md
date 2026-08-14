@@ -90,3 +90,9 @@ Pause and ask before:
 - introducing Redis, S3, frontend, mini app, or web auth into MVP;
 - force-pushing, deleting refs, resetting hard, or merging to main;
 - storing Telegram account sessions in git or logs.
+
+## Terminal Transition Dispatch Gate
+
+For every changed user-reachable button or message transition, maintain the Terminal Transition Inventory in `TESTING_STRATEGY.md`: trigger, initial state, acknowledgement, job, exactly-one terminal delivery or safe recovery, terminal state, Tier 1, Tier 2, and owner-only question. An acknowledgement never counts as completion.
+
+Do not hand work to owner review if any applicable path is untested, failed, acknowledgement-only, duplicate-prone, or can strand a busy project/job. Every reproducible owner-found delivery, stuck-state, or transition defect becomes a Tier 1 test and, when transport-facing, Tier 2 evidence before closure.

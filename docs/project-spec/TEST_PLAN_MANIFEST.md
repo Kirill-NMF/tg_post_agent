@@ -17,3 +17,7 @@ A reproduced owner UX/flow issue is first classified. Its reproducible functiona
 ## Canary Boundary
 
 A real STT/audio canary is bounded to one dedicated target, one synthetic fixture, one approved provider path, and safe result/category evidence. It deletes its generated temp fixture and cannot run in CI. Provider or prompt canaries require explicit coordinator or owner approval.
+
+## Terminal Delivery Inventory
+
+For each changed button or message transition, record trigger, initial state, acknowledgement, async job, expected single terminal delivery, terminal state, recovery, Tier 1 test, Tier 2 scenario, and owner-only quality question. Acknowledgement-only coverage is incomplete. The inventory includes neighboring transitions and marks every historical path that lacks evidence as `not tested`.

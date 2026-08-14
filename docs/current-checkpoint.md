@@ -64,3 +64,11 @@ OpenRouter is the primary Stage 1/2 gateway when `OPENROUTER_API_KEY` is configu
 ## P0 Draft Smoke
 
 The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delivery and draft_editing; the marker-scoped fixture and jobs were removed. Tier 2 technical draft-delivery evidence is restored. The category-only daily canary ledger is exhausted at 15/15. Owner 3/3 literary/product/UX acceptance remains pending.
+
+## Terminal Transition Evidence
+
+Before owner 3/3, the active changed-flow inventory records trigger, durable initial state, acknowledgement, job, exactly-one terminal delivery or safe recovery, terminal state, Tier 1 evidence, Tier 2 evidence, and the owner-only question. An acknowledgement alone is never evidence of completion.
+
+Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization is `not tested` because it has not started. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
+
+The remaining owner focus is literary, product, and UX judgement only after the applicable path-level technical inventory remains green. A future owner-found delivery or stuck-state defect returns the affected flow to Tier 1 and, when transport-facing, Tier 2 before it can close.

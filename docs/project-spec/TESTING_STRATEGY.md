@@ -73,3 +73,34 @@ The planning-correction workflow suite covers:
 - equivalent text planning correction success and permanent recovery.
 
 The suite uses in-memory repositories, the real job worker and handlers, a fake notifier, and synthetic audio/provider boundaries. It never sends Telegram messages or calls providers.
+
+## Terminal Transition Verification Protocol
+
+Before owner review, maintain a path inventory for every changed user-reachable button and message-driven transition. An acknowledgement is progress only: it is never terminal-path evidence.
+
+| Field | Record |
+| --- | --- |
+| Trigger | Button callback, command, text, or audio input |
+| Initial state | Durable project state before the trigger |
+| Acknowledgement | Expected immediate user-visible response, if any |
+| Async job | Job type and single-flight/dedupe expectation, if applicable |
+| Terminal delivery | Exactly one expected result or defined safe recovery |
+| Terminal state | Durable project/job state after success or recovery |
+| Recovery path | Timeout, permanent-provider failure, delivery failure, and restart/reclaim behavior |
+| Tier 1 | Deterministic contract/workflow test name |
+| Tier 2 | Dedicated-chat Telethon scenario when Telegram transport is involved |
+| Owner-only evaluation | Literary, product, or UX question only |
+
+Coverage includes every changed trigger and its neighboring state transitions. Callback paths additionally cover single-flight, stale or double taps, no duplicate terminal output, and a busy project that cannot be stranded. Async paths cover timeout, permanent-provider recovery, and worker restart/reclaim where relevant.
+
+### Pre-Owner Handoff Checklist
+
+Block owner handoff when any applicable item is missing, failed, or acknowledgement-only:
+
+- [ ] The path inventory names every changed button/message trigger and neighboring transition.
+- [ ] Tier 1 proves durable state, job hand-off, exactly-one terminal result or recovery, and no stranded busy project/job.
+- [ ] Tier 2 proves the transport-facing path with the real Telegram button/message contract where applicable.
+- [ ] Recovery, stale callback, duplicate delivery, and reclaim cases are covered according to the risk matrix.
+- [ ] Dashboard evidence is path-specific and labels unrun paths `not tested`, not passed.
+
+Every owner-found delivery, stuck-state, or state-transition defect first becomes a reproducible Tier 1 test and, when transport-facing, Tier 2 evidence before closure.

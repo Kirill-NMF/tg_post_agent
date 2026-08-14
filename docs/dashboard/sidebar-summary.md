@@ -28,3 +28,10 @@ Credential Gate is passed. Phase 10 requires manual acceptance after preflight; 
 ## Short Answer
 
 Do not spend heavy owner testing time on backend/job phases. Save it for real voice correction, formatting quality, and final Telegram click-through.
+
+## Verification Status
+
+- Technical handoff requires a path-level terminal-transition inventory: acknowledgement, job, exactly-one result or recovery, durable terminal state, Tier 1, and applicable Tier 2.
+- Recorded Stage 1/2 paths have evidence; Stage 3 buttons are `not tested` because Stage 3 has not started.
+- Owner 3/3 is only for literary/product/UX judgement after the applicable technical path inventory is complete.
+- Any owner-found delivery/stuck/state defect becomes a reproducible Tier 1 test and applicable Tier 2 regression before closure.

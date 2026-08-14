@@ -75,3 +75,19 @@ Phase 10 owner 3/3 is blocked pending a fresh Tier 2 validation of the repaired 
 ## P0 Draft Delivery
 
 Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. The daily bounded canary budget is exhausted (15/15); next gate is owner 3/3 acceptance.
+
+## Terminal-Path Evidence Register
+
+| Active flow | Last verified terminal path | Technical status | Remaining owner focus |
+| --- | --- | --- | --- |
+| `/start` intake | intake prompt delivered once | evidence recorded | literary/UX only |
+| source audio to planning | plan result/recovery delivery | evidence recorded | plan quality only |
+| planning text/voice correction | revised-plan result/recovery delivery | evidence recorded | correction quality only |
+| rewrite mode to draft | draft result/recovery delivery | evidence recorded | draft quality only |
+| Stage 3 formatting/finalization | none | not tested; Stage 3 not started | none |
+
+This is a path-level register, not a blanket historical pass. Any changed or newly discovered neighboring transition must be added with `not tested`, `failed`, or concrete evidence before owner handoff.
+
+## Pre-Owner Block
+
+No owner literary/UX handoff is permitted when a listed changed path lacks Tier 1 plus applicable Tier 2 terminal-delivery evidence, is acknowledgement-only, or has no defined recovery from timeout/permanent failure. The inventory must also cover callback single-flight/stale taps, duplicate terminal output, and restart/reclaim when relevant.
