@@ -10,9 +10,17 @@ class T(unittest.TestCase):
   self.assertEqual(x.classify_terminal(False,False),"recovery")
   self.assertEqual(x.classify_terminal(True,True),"final")
   with self.assertRaises(x.CanaryError):x.classify_terminal(False,True)
+ def test_model_fingerprint_allows_new_model_once_and_refuses_same_model_duplicate(self):
+  old_ledger, old_env=x.LEDGER,dict(x.os.environ)
+  with tempfile.TemporaryDirectory()as d:
+   x.LEDGER=Path(d)/"l";x.os.environ["OPENROUTER_FORMATTING_MODEL"]="old";x.reserve("option_1")
+   x.os.environ["OPENROUTER_FORMATTING_MODEL"]="new";x.reserve("option_1")
+   with self.assertRaises(x.CanaryError):x.reserve("option_1")
+   v=json.loads(x.LEDGER.read_text());self.assertEqual(v["attemptedBillableOperations"],17)
+  x.LEDGER=old_ledger;x.os.environ.clear();x.os.environ.update(old_env)
  def test_ledger_is_category_only(self):
   old=x.LEDGER
   with tempfile.TemporaryDirectory()as d:
-   x.LEDGER=Path(d)/"l";x.reserve("option_1");v=json.loads(x.LEDGER.read_text());self.assertEqual(v["attemptedBillableOperations"],16);self.assertNotIn("Synthetic",json.dumps(v))
+   x.LEDGER=Path(d)/"l";x.os.environ["OPENROUTER_FORMATTING_MODEL"]="test-model";x.reserve("option_1");v=json.loads(x.LEDGER.read_text());self.assertEqual(v["attemptedBillableOperations"],16);self.assertNotIn("Synthetic",json.dumps(v))
   x.LEDGER=old
 if __name__=="__main__":unittest.main()

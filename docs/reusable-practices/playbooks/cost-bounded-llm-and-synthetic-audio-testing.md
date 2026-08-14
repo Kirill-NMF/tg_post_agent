@@ -24,3 +24,7 @@ Record synthetic provenance, deterministic checks, canary approval/scope/outcome
 ## Anti-Patterns
 
 Committing user recordings; running paid calls per pull request; logging transcripts/prompts; unbounded retries or option trees; assuming an unverified TTS engine exists.
+
+## Formatting canary accounting
+
+A paid formatting canary ledger key must include a stable non-secret fingerprint of the configured formatting model. Historical attempts for a previous model remain immutable but do not block the first bounded attempt for a newly selected model. Each option/model fingerprint is single-attempt with no fallback. A single bot recovery notification is a terminal result; stale callback controls are not a new final result.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import asyncio,json,os,subprocess,sys
+import asyncio,hashlib,json,os,subprocess,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 from tg_post_agent_smoke import *
@@ -19,13 +19,15 @@ def write(p,x):
  f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
  with os.fdopen(f,"w")as o:json.dump(x,o,separators=(",",":"),sort_keys=True);o.write("\n")
  os.chmod(p,0o600)
+def model_fingerprint():
+ return hashlib.sha256(need("OPENROUTER_FORMATTING_MODEL").encode()).hexdigest()[:12]
 def reserve(o):
  x=json.loads(LEDGER.read_text()) if LEDGER.exists() else {"dailyBudget":30,"attemptedBillableOperations":15,"remainingBudget":15,"entries":[]}
  if x["dailyBudget"]!=30 or x["attemptedBillableOperations"]>=30:raise CanaryError("budget_exhausted")
- attempt = sum(1 for i in x["entries"] if i["category"].startswith("format_"+o))
- category = "format_"+o if attempt == 0 else "format_"+o+"_retry_"+str(attempt)
- if attempt >= 4 or any(i["category"] == category for i in x["entries"]): raise CanaryError("duplicate_option")
+ category="format_"+o+":m_"+model_fingerprint()
+ if any(i["category"] == category for i in x["entries"]):raise CanaryError("duplicate_option")
  x["attemptedBillableOperations"]+=1;x["remainingBudget"]=30-x["attemptedBillableOperations"];x["entries"].append({"category":category,"billable":True,"outcome":"attempted"});write(LEDGER,x)
+
 def fixture(a,account):
  p=subprocess.run(["node",str(Path(__file__).with_name("formatting_fixture.mjs")),a],env={**os.environ,"TG_POST_AGENT_FORMATTING_CANARY_ACCOUNT_ID":str(account)},capture_output=True)
  if p.returncode:raise CanaryError(a)
