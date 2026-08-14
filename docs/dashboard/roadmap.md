@@ -68,3 +68,6 @@ The remaining Tier 2 subgate is the dedicated-chat text/voice correction regress
 ## Provider Configuration Update
 
 OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production credentials and one controlled worker-enabled restart are in place; the Phase 10 owner acceptance gate remains mandatory.
+# P0 Draft-Generation Regression
+
+Phase 10 owner 3/3 is blocked pending a fresh Tier 2 validation of the repaired rewrite-mode to draft-delivery path. The P0 deployment persists busy state before `GENERATE_DRAFT` enqueueing, compensates a failed enqueue, and delivers safe terminal recovery instead of leaving `draft_generating` silent.
