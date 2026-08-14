@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OpenRouterFormattingAdapter, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
-import { ProviderRequestError } from "../src/adapters/providerErrors.js";
+import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
 describe("OpenRouterFormattingAdapter", () => {
@@ -32,6 +32,30 @@ describe("OpenRouterFormattingAdapter", () => {
 
     await expect(adapter.formatPost({ projectId: "project-1", draftText: "Alpha text.", formattingOption: "option_2" }))
       .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
+  });
+
+  it("categorizes unknown provider errors without logging draft or raw output", async () => {
+    const logger = new CapturingLogger();
+    const adapter = new OpenRouterFormattingAdapter({
+      client: { async create() { throw new Error("provider body must not be logged"); } },
+      model: "owner-selected-format-model",
+      logger
+    });
+
+    await expect(adapter.formatPost({ projectId: "project-1", draftText: "SECRET DRAFT", formattingOption: "option_1" }))
+      .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
+    expect(logger.entries.at(-1)?.fields).toMatchObject({ event: "formatting_request_failed", errorCode: "PROVIDER_REQUEST_FAILED", errorName: "Error" });
+    expect(JSON.stringify(logger.entries)).not.toContain("SECRET DRAFT");
+    expect(JSON.stringify(logger.entries)).not.toContain("provider body");
+  });
+
+  it("carries only typed response metadata to the formatting failure log", async () => {
+    const logger = new CapturingLogger();
+    const metadata = { endpoint: "openrouter_chat_completions" as const, statusClass: "2xx" as const, contentType: "html" as const, byteLength: 37 };
+    const adapter = new OpenRouterFormattingAdapter({ client: { async create() { throw new ProviderResponseError("RESPONSE_NON_JSON", metadata); } }, model: "owner-selected-format-model", logger });
+    await adapter.formatPost({ projectId: "project-1", draftText: "SECRET DRAFT", formattingOption: "option_1" });
+    expect(logger.entries.at(-1)?.fields).toMatchObject({ errorCode: "RESPONSE_NON_JSON", errorName: "ProviderResponseError", responseEndpoint: metadata.endpoint, responseStatusClass: metadata.statusClass, responseContentType: metadata.contentType, responseByteLength: metadata.byteLength });
+    expect(JSON.stringify(logger.entries)).not.toContain("SECRET DRAFT");
   });
 
   it("keeps provider timeout retryable without logging draft or raw output", async () => {

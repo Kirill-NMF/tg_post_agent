@@ -19,7 +19,7 @@ describe("OpenRouter provider boundary", () => {
       apiKey: "test-key",
       fetchImpl: async (_url, init) => {
         received = JSON.parse(String(init?.body)) as Record<string, unknown>;
-        return new Response(JSON.stringify({ choices: [{ message: { content: "{\\\"ok\\\":true}" } }] }), { status: 200 });
+        return new Response(JSON.stringify({ choices: [{ message: { content: "{\\\"ok\\\":true}" } }] }), { status: 200, headers: { "content-type": "application/json" } });
       }
     });
     await expect(client.create({ model: "google/gemini-2.5-pro", input: "SECRET TRANSCRIPT", response_format: { type: "text", mime_type: "application/json", schema: { type: "object" } } })).resolves.toEqual({ output_text: "{\\\"ok\\\":true}" });
@@ -29,6 +29,16 @@ describe("OpenRouter provider boundary", () => {
       content: expect.stringContaining("\"type\":\"object\"")
     });
     expect(JSON.stringify(received)).toContain("SECRET TRANSCRIPT");
+  });
+
+  it.each([
+    ["text/html", "<html>gateway</html>", "RESPONSE_NON_JSON", "html"],
+    ["text/plain", "upstream text", "RESPONSE_NON_JSON", "text"],
+    ["application/json", "{bad", "RESPONSE_JSON_INVALID", "json"]
+  ])("maps malformed upstream response metadata without exposing its body", async (contentType, body, code, category) => {
+    const client = createOpenRouterInteractionClient({ apiKey: "test-key", fetchImpl: async () => new Response(body, { status: 200, headers: { "content-type": contentType } }) });
+    await expect(client.create({ model: "model", input: "SECRET TRANSCRIPT", response_format: { type: "text", mime_type: "application/json", schema: {} } }))
+      .rejects.toMatchObject({ code, metadata: { endpoint: "openrouter_chat_completions", statusClass: "2xx", contentType: category, byteLength: body.length } });
   });
 
   it("turns an aborted request into one retryable timeout without logging prompt content", async () => {

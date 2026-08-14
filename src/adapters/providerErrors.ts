@@ -5,6 +5,17 @@ export class ProviderRequestError extends Error {
   }
 }
 
+
+export class ProviderResponseError extends ProviderRequestError {
+  constructor(
+    code: "RESPONSE_NON_JSON" | "RESPONSE_JSON_INVALID",
+    readonly metadata: { endpoint: "openrouter_chat_completions"; statusClass: "2xx"; contentType: "json" | "html" | "text" | "other" | "missing"; byteLength: number }
+  ) {
+    super(code, false);
+    this.name = "ProviderResponseError";
+  }
+}
+
 export const defaultProviderRequestTimeoutMs = 60_000;
 
 export async function fetchWithProviderTimeout(

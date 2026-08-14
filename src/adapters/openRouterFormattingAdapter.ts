@@ -2,7 +2,7 @@ import type { ModelAdapters } from "../domain/modelContracts.js";
 import { applyFormattingPlan, type FormattingDecorationPlan } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
-import { isRetryableProviderError, safeProviderErrorCode } from "./providerErrors.js";
+import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
 
 export type FormattingInteractionRequest = {
   model: string;
@@ -68,7 +68,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
       };
     } catch (error) {
       logger.warn(
-        { event: "formatting_request_failed", projectId: params.projectId, modelLabel: this.input.model, formattingOption: params.formattingOption, errorCode: safeErrorCode(error) },
+        { event: "formatting_request_failed", projectId: params.projectId, modelLabel: this.input.model, formattingOption: params.formattingOption, errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
         "formatting request failed"
       );
       return failure("FORMAT_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
@@ -169,6 +169,15 @@ function isValidAnchor(value: unknown): boolean {
 
 function safeErrorCode(error: unknown): string {
   return safeProviderErrorCode(error);
+}
+
+function safeResponseMetadata(error: unknown): ProviderResponseError["metadata"] | undefined {
+  return error instanceof ProviderResponseError ? error.metadata : undefined;
+}
+
+function safeErrorName(error: unknown): string {
+  if (error instanceof Error && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error.name)) return error.name;
+  return "UnknownError";
 }
 
 function safeMessage(error: unknown): string {
