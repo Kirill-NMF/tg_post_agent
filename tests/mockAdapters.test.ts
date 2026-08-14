@@ -27,7 +27,7 @@ describe("MockModelAdapters", () => {
     expect(result.value.action).toBe("route_to_draft");
   });
 
-  it("uses a readable Option 2 marker that does not look like encoding corruption", async () => {
+  it("returns an anchored Option 2 decoration plan instead of replacement text", async () => {
     const adapters = new MockModelAdapters();
     const result = await adapters.formatPost({
       projectId: "p1",
@@ -37,7 +37,11 @@ describe("MockModelAdapters", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.formattedText).toMatch(/^✨ draft/);
-    expect(result.value.formattedText).not.toMatch(/\?{2,}|�|Р |Гђ|Г‘/);
+    expect(result.value.decorationPlan).toMatchObject({
+      option: "option_2",
+      operations: [{ kind: "emoji_insertion", anchor: { text: "draft", occurrence: 0 }, position: "before" }]
+    });
+    expect("formattedText" in result.value).toBe(false);
   });
+
 });

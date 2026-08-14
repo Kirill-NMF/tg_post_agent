@@ -242,3 +242,14 @@ Phase 10 is a cross-stage validation slice from Stage 1 edit-audio input to Stag
 - [x] Persist recommendation/reveal state in the existing JSON field while reading legacy array plans.
 - [x] Cover coherent single-thesis, meaningful series, guarded selection, planning corrections, and persistence.
 - [ ] Mandatory 3/3 owner manual planning-quality acceptance after controlled deployment.
+
+## Phase 11. Formatting Foundation
+
+- [x] Define strict decoration-plan domain contracts anchored to the canonical accepted draft.
+- [x] Render only insertions/wrappers over canonical text and fail closed to the original draft.
+- [x] Define Option 1 as readability/Markdown without expressive emoji and Option 2 as readability plus anchored emoji.
+- [x] Add Tier 1 validation and lexical-preservation tests for valid, invalid, deleting, reordering, ambiguous, and fallback plans.
+- [x] Defer Telegram Premium/custom emoji as a Phase 11 no-op.
+- [ ] Add public Stage 3 buttons, jobs, or real formatter providers (Phase 12+ only after their contracts and tests).
+- [ ] Run applicable Tier 2 Telegram transport evidence once Stage 3 has a user-facing flow.
+- [ ] Owner literary/UX acceptance after Tier 1/Tier 2 Stage 3 evidence.

@@ -1,4 +1,5 @@
 import type { AdapterResult, DraftText, FormattingOption, FormattingRevision, OutputLanguage, PlanOption, PlanningResult, PreservationCheck, ProjectId, RewriteMode, SourceAudioInput } from "./types.js";
+import type { FormattingDecorationPlan } from "./formatting.js";
 export type SourceTranscriptionInput = {
     projectId: ProjectId;
     source: SourceAudioInput;
@@ -56,7 +57,7 @@ export type ModelAdapters = {
         draftText: string;
         formattingOption: FormattingOption;
     }): Promise<AdapterResult<{
-        formattedText: string;
+        decorationPlan: FormattingDecorationPlan;
         formattingNotes?: string[];
     }>>;
     reviseFormatting(input: {

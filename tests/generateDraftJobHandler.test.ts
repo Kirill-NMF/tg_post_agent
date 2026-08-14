@@ -8,7 +8,7 @@ import { JobWorker } from "../src/services/jobWorker.js";
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("GENERATE_DRAFT job handler", () => {
-  it("persists the draft and sends the format button without leaking transcript", async () => {
+  it("persists the draft without exposing incomplete Stage 3 UI or leaking transcript", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
@@ -28,7 +28,7 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Generated draft text");
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open"]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual([]);
   });
 
   it("preserves saved draft and state when notification fails after persistence", async () => {

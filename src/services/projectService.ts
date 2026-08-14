@@ -15,6 +15,7 @@ import type {
 } from "../domain/types.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
+import { applyFormattingPlan } from "../domain/formatting.js";
 import { draftActionButtons } from "./draftPresentation.js";
 import { currentPlan } from "./planSplitJobHandler.js";
 import { alternativePlanButtons, planButtons, renderAlternativePlansMessage, renderPlanRecommendationMessage } from "./planningPresentation.js";
@@ -212,12 +213,12 @@ export class ProjectService {
     }
 
     const formatted = await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }));
-    const preservation = await unwrap(this.models.checkPreservation({ projectId: project.id, draftText: post.currentDraft, formattedText: formatted.formattedText, formattingOption }));
-    if (!preservation.passed) {
-      return [{ kind: "message", text: "Mock preservation check не пропустил оформление. Попробуйте другой вариант." }];
+    const rendered = applyFormattingPlan(post.currentDraft, formatted.decorationPlan);
+    if (!rendered.ok) {
+      return [{ kind: "message", text: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u044c \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439." }];
     }
 
-    post.formattedText = formatted.formattedText;
+    post.formattedText = rendered.text;
     post.formattingOption = formattingOption;
     project.state = "formatted_editing";
     await this.projects.save(project);
@@ -248,14 +249,12 @@ export class ProjectService {
       return this.reviseDraft(telegramUserId, revision.draftEditInstruction);
     }
 
-    const preservation = await unwrap(
-      this.models.checkPreservation({ projectId: project.id, draftText: post.currentDraft, formattedText: revision.formattedText, formattingOption: post.formattingOption })
-    );
-    if (!preservation.passed) {
-      return [{ kind: "message", text: "Правка оформления выглядит как изменение текста. Вернитесь к черновику." }];
+    const rendered = applyFormattingPlan(post.currentDraft, revision.decorationPlan);
+    if (!rendered.ok) {
+      return [{ kind: "message", text: "\u041f\u0440\u0430\u0432\u043a\u0430 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u044f \u043d\u0435 \u043f\u0440\u043e\u0448\u043b\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443 \u0441\u043e\u0445\u0440\u0430\u043d\u043d\u043e\u0441\u0442\u0438. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439." }];
     }
 
-    post.formattedText = revision.formattedText;
+    post.formattedText = rendered.text;
     await this.projects.save(project);
     return [{ kind: "message", text: post.formattedText, buttons: finalButtons(project) }];
   }

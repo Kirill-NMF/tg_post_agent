@@ -704,3 +704,7 @@ PreservationReason = {
 ### Security Note
 
 The preservation checker is a guardrail, not an authority to expand scope. If a model-assisted checker says changed wording is acceptable, product rules still win: Stage 3 must not rewrite the draft.
+
+## Stage 3 Foundation: Decoration Plans
+
+A future formatting provider returns a FormattingDecorationPlan, not a replacement formatted_text. The plan contains only exact source anchors plus paragraph-break, Markdown-span, or Option-2 emoji insertion operations. Application code validates and renders the plan over the canonical draft, so a malformed or semantic-changing plan falls back to the original draft. Premium/custom emoji is not an allowed operation in Phase 11.

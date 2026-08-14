@@ -10,6 +10,7 @@ Portable engineering playbooks extracted from project work. They describe reusab
 - [Risk-based state-machine resilience testing](playbooks/risk-based-state-machine-resilience.md)
 - [Coordinator-builder operating protocol](playbooks/coordinator-builder-operating-protocol.md)
 - [Safe production operations for small private bots](playbooks/safe-private-bot-production-operations.md)
+- [Preservation-first transformations](playbooks/preservation-first-transformations.md)
 
 ## Contribution Rule
 

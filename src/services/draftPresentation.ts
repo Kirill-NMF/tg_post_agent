@@ -1,7 +1,8 @@
 import type { BotButton } from "../domain/types.js";
 
 export function draftActionButtons(): BotButton[] {
-  return [{ label: "Оформить", action: "format:open" }];
+  // Stage 3 has no real formatter path yet, so drafts intentionally expose no formatting callback.
+  return [];
 }
 
 export function draftReplyMarkup() {

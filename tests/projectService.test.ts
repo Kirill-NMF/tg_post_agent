@@ -15,50 +15,37 @@ function service() {
 }
 
 describe("ProjectService mock state machine", () => {
-  it("runs the main audio-to-final-post path without Telegram network", async () => {
+  it("runs the main audio-to-draft path without exposing incomplete Stage 3 UI", async () => {
     const { projects } = service();
 
-    expect(message((await projects.start("100", "200"))[0]).text).toContain("Пришлите");
+    expect(message((await projects.start("100", "200"))[0]).text).toContain("\u041f\u0440\u0438\u0448\u043b\u0438\u0442\u0435");
     const planning = await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
-    expect(message(planning[0]).text).toContain("Рекомендую: 1 пост");
+    expect(message(planning[0]).text).toContain("\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u044e: 1 \u043f\u043e\u0441\u0442");
     expect((await projects.getActiveProject("100"))?.state).toBe("planning");
 
     const rewrite = await projects.choosePlan("100", "recommended");
     expect(message(rewrite[0]).buttons?.map((button) => button.action)).toEqual(["rewrite:clean_up", "rewrite:make_post"]);
-    expect(message(rewrite[0]).buttons?.map((button) => button.label)).toEqual(["Почистить", "Сделать пост"]);
+    expect(message(rewrite[0]).buttons?.map((button) => button.label)).toEqual(["\u041f\u043e\u0447\u0438\u0441\u0442\u0438\u0442\u044c", "\u0421\u0434\u0435\u043b\u0430\u0442\u044c \u043f\u043e\u0441\u0442"]);
 
     const draft = await projects.chooseRewriteMode("100", "make_post");
     expect(message(draft[0]).text).toContain("Mock draft 1");
-    expect(message(draft[0]).buttons?.[0]).toEqual({ label: "Оформить", action: "format:open" });
+    expect(message(draft[0]).buttons).toEqual([]);
     expect((await projects.getActiveProject("100"))?.state).toBe("draft_editing");
 
     const revised = await projects.reviseDraft("100", "shorten intro");
     expect(message(revised[0]).text).toContain("Applied edit: shorten intro");
-
-    const formatChoice = await projects.openFormatChoice("100");
-    expect(message(formatChoice[0]).buttons?.map((button) => button.action)).toEqual(["format:option_1", "format:option_2"]);
-
-    const formatted = await projects.formatCurrentPost("100", "option_2");
-    expect(message(formatted[0]).text).toContain("Mock draft 1");
-    expect((await projects.getActiveProject("100"))?.state).toBe("formatted_editing");
-
-    const final = await projects.finalizeCurrentPost("100");
-    expect(final).toHaveLength(2);
-    expect(final[1]).toMatchObject({ kind: "document", filename: "post-1.txt" });
-    expect(final[0]?.kind === "message" ? final[0].buttons : undefined).toBeUndefined();
-    expect((await projects.getActiveProject("100"))?.state).toBe("done");
+    expect(message(revised[0]).buttons).toEqual([]);
   });
 
-  it("does not offer a next post for a coherent single-plan recommendation", async () => {
+  it("does not offer a Stage 3 action for a coherent single-plan draft", async () => {
     const { projects } = service();
     await projects.start("100", "200");
     await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice-file-id" });
     await projects.choosePlan("100", "recommended");
-    await projects.chooseRewriteMode("100", "make_post");
-    await projects.openFormatChoice("100");
-    await projects.formatCurrentPost("100", "option_1");
-    const final = await projects.finalizeCurrentPost("100");
-    expect(message(final[0]).buttons).toBeUndefined();
+    const draft = await projects.chooseRewriteMode("100", "make_post");
+
+    expect(message(draft[0]).buttons).toEqual([]);
+    expect((await projects.getActiveProject("100"))?.state).toBe("draft_editing");
   });
 
   it("enqueues draft generation instead of running mock draft synchronously when jobs are configured", async () => {

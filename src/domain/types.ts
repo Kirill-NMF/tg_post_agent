@@ -80,7 +80,11 @@ export type DraftText = {
 };
 
 export type FormattingRevision =
-  | { action: "updated_formatting"; formattedText: string; editClassification: "formatting_only" }
+  | {
+      action: "updated_formatting";
+      decorationPlan: import("./formatting.js").FormattingDecorationPlan;
+      editClassification: "formatting_only";
+    }
   | {
       action: "route_to_draft";
       draftEditInstruction: string;

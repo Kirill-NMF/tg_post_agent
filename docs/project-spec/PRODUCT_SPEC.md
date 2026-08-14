@@ -404,3 +404,12 @@ MVP считается рабочим, если:
 - финал приходит сообщением и `.txt`;
 - история проекта сохраняется;
 - аудио удаляется после завершения проекта.
+
+### Stage 3 Foundation Contract
+
+The canonical accepted draft remains the sole lexical source. Formatting accepts only typed decoration operations anchored to that draft and renders them over the original text; a provider replacement body is never canonical.
+
+- Option 1: Telegram readability only: paragraph boundaries and allowed Markdown spans, with no expressive emoji.
+- Option 2: the same readability plus emoji insertions anchored to existing text.
+- Both options preserve the original lexical text exactly; invalid, ambiguous, deleting, reordering, or unsupported operations fail closed to the original draft.
+- Telegram Premium/custom emoji remains explicitly deferred and is a no-op in this phase.

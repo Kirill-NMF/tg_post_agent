@@ -42,6 +42,16 @@ describe("BotRouter", () => {
     expect(message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "rewrite:clean_up" }))[0]).text).toContain("Mock draft");
   });
 
+  it("rejects stale Stage 3 callbacks without starting a formatting flow", async () => {
+    const botRouter = router();
+    await botRouter.handleText({ telegramUserId: "100", chatId: "200", text: "/start" });
+    await botRouter.handleAudio({ telegramUserId: "100", chatId: "200", audio: { kind: "voice", telegramFileId: "voice-id" } });
+    await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "plan:recommended" });
+    await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "rewrite:make_post" });
+
+    const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "format:open" }))[0]);
+    expect(response.text).toContain("\u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435 \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f");
+  });
   it("routes rewrite callback to draft job enqueue path when jobs are configured", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();

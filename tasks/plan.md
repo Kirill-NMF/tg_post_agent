@@ -2,6 +2,6 @@
 
 Canonical plan: docs/project-spec/DEVELOPMENT_PLAN.md.
 
-Current stage: Phase 10 remains open only for 3/3 acceptance. The planning recommendation quality slice and the Stage 2 Russian-default language repair are deployed; Tier 1 deterministic coverage and Tier 2 dedicated-chat transport, source-audio, text-correction, and voice-correction evidence are green.
+Current stage: Phase 11 Formatting Foundation is in progress. The owner accepted the initial Stage 2 result only; that is not blanket acceptance of every Stage 2 correction path. Phase 11 has no public Stage 3 flow yet.
 
-Next gate: owner performs manual 3/3 acceptance from a clean `/start`: verify Russian planning recommendation, meaningful alternatives when present, Russian draft generation, and Russian revision after text or voice correction. A clear explicit instruction for another language is the only override; mixed-language source material is not one. Do not advance to Phase 11. Phase 10 is not closed until that acceptance is explicit; formatted_editing voice corrections remain deferred to Stage 3.
+Next gate: complete the provider/job/UI Stage 3 slice with Tier 1 terminal-path tests and applicable Tier 2 Telegram evidence before any formatting owner review. Option 1/Option 2 literary/UX acceptance stays deferred. Telegram Premium/custom emoji and formatted-edit voice corrections remain out of scope.

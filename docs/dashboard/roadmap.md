@@ -24,7 +24,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | --- | --- | --- | --- | --- |
 | Stage 1: Transcription | core implementation built; real acceptance pending | Audio intake, temporary processing, transcription, and persisted transcript are built. | Tier 2 intake-contract repair | Re-run guarded transport validation after the coordinator repair. |
 | Stage 2: Plan/draft/revision | core implementation built; real acceptance pending | Planning, draft generation, text and edit-audio correction paths are built. | Tier 2 intake-contract repair | Validate delivery and corrections after the coordinator repair. |
-| Stage 3: Formatting | not started | Formatting and final-post behavior remain deferred. | none | none |
+| Stage 3: Formatting | Phase 11 foundation in progress; user-facing flow not tested | Preservation-first decoration-plan validation/rendering is built; no Telegram UI, job, or provider is wired. | none yet | not tested until a complete Stage 3 path exists. |
 | Packaging/deploy | later | Runtime operations continue only through controlled authorized work. | as scoped | Controlled runtime checks only. |
 
 ## Engineering Phase Roadmap
@@ -43,7 +43,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 8: Gemini Draft Generation | Stage 2 | done | 2/3 | adapter/job/service tests | Review draft quality later. |
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
 | Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | source-audio Tier 2 passed; correction Tier 2 pending | 3/3 after Tier 2 | Canonical /start and one bounded synthetic audio to planning response passed; run dedicated text/voice correction regressions | Owner quality acceptance only after Tier 2. |
-| Phase 11: Formatting Foundation | Stage 3 | next candidate | 3/3 | formatting contracts, preservation tests | Review Option 1/Option 2 outputs. |
+| Phase 11: Formatting Foundation | Stage 3 | in progress; foundation-only | 3/3 after technical path | deterministic decoration-plan validation and lexical-preservation tests; no public UI | Owner reviews Option 1/Option 2 only after a technically verified user-facing flow. |
 | Phase 12: Real Formatting Adapter | Stage 3 | later | 3/3 | provider validation, preservation check | Check emoji density and no word rewrites. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
 | Phase 14: Telethon E2E Harness | all | later | 3/3 | Telethon real account smoke | Validate full Telegram click-through. |
@@ -63,7 +63,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 Phase 10 has real Tier 2 source-audio transport evidence: canonical identity, one synthetic Russian OGG/Opus upload, one real Stage 1 transcription, and one real Stage 2 planning response. The category-only report confirms local fixture and dedicated-test-project cleanup; the normal single worker runtime was restored afterward.
 
-The remaining Tier 2 subgate is the dedicated-chat text/voice correction regression set. The source-audio canary deliberately did not test correction behavior and does not substitute for it. Only after that evidence passes may the owner run 3/3 literary, UX, and quality acceptance. Stage 3 remains unstarted.
+The remaining Tier 2 subgate is the dedicated-chat text/voice correction regression set. The source-audio canary deliberately did not test correction behavior and does not substitute for it. Only after that evidence passes may the owner run 3/3 literary, UX, and quality acceptance. Phase 11 has started the internal Stage 3 foundation; its user-facing flow remains not tested.
 
 ## Provider Configuration Update
 
@@ -84,7 +84,7 @@ Tier 2 draft-generation delivery passed with one terminal draft result and clean
 | source audio to planning | plan result/recovery delivery | evidence recorded | plan quality only |
 | planning text/voice correction | revised-plan result/recovery delivery | evidence recorded | correction quality only |
 | rewrite mode to draft | draft result/recovery delivery | evidence recorded | draft quality only |
-| Stage 3 formatting/finalization | none | not tested; Stage 3 not started | none |
+| Stage 3 formatting/finalization | none | not tested; Phase 11 foundation only | none |
 
 This is a path-level register, not a blanket historical pass. Any changed or newly discovered neighboring transition must be added with `not tested`, `failed`, or concrete evidence before owner handoff.
 

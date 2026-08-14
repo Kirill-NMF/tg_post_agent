@@ -18,11 +18,18 @@ export class MockModelAdapters implements ModelAdapters {
   async reviseDraft(input: { currentDraft: string; latestUserEdit: string }): Promise<AdapterResult<{ updatedDraft: { fullText: string }; appliedEditSummary: string }>> {
     return ok({ updatedDraft: { fullText: input.currentDraft + "\n\nApplied edit: " + input.latestUserEdit }, appliedEditSummary: "Mock draft revision applied." });
   }
-  async formatPost(input: Parameters<ModelAdapters["formatPost"]>[0]): Promise<AdapterResult<{ formattedText: string; formattingNotes: string[] }>> { return ok({ formattedText: input.formattingOption === "option_2" ? "✨ " + input.draftText : input.draftText, formattingNotes: ["Mock " + input.formattingOption + " formatting."] }); }
+  async formatPost(input: Parameters<ModelAdapters["formatPost"]>[0]): Promise<AdapterResult<{ decorationPlan: import("../domain/formatting.js").FormattingDecorationPlan; formattingNotes: string[] }>> {
+    const operations = input.formattingOption === "option_2"
+      ? [{ kind: "emoji_insertion" as const, anchor: { text: input.draftText, occurrence: 0 }, position: "before" as const, emoji: "\u2728" }]
+      : [];
+    return ok({ decorationPlan: { option: input.formattingOption, operations }, formattingNotes: ["Mock " + input.formattingOption + " decoration plan."] });
+  }
+
   async reviseFormatting(input: Parameters<ModelAdapters["reviseFormatting"]>[0]): Promise<AdapterResult<FormattingRevision>> {
     if (/\b(word|wording|meaning|draft|semantic|text)\b/i.test(input.latestUserEdit)) return ok({ action: "route_to_draft", draftEditInstruction: input.latestUserEdit, editClassification: "semantic_or_wording_change", reason: "Mock classifier treats this as wording or meaning change." });
-    return ok({ action: "updated_formatting", formattedText: input.formattedText + "\n\nFormatting edit: " + input.latestUserEdit, editClassification: "formatting_only" });
+    return ok({ action: "updated_formatting", decorationPlan: { option: input.formattingOption, operations: [] }, editClassification: "formatting_only" });
   }
+
   async checkPreservation(input: Parameters<ModelAdapters["checkPreservation"]>[0]): Promise<AdapterResult<PreservationCheck>> {
     const passed = normalize(input.formattedText).includes(normalize(input.draftText));
     return ok({ passed, severity: passed ? "none" : "major", reasons: passed ? [] : [{ code: "wording_changed", message: "Mock preservation check could not find the draft text inside the formatted text." }], suggestedAction: passed ? "accept" : "retry_formatting" });

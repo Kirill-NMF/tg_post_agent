@@ -5,12 +5,12 @@ Date: 2026-08-13
 ## Current Product Stage
 
 - Stage 1 core implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
-- Stage 2 core planning, draft, and revision implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
-- Stage 3 has not started.
+- Stage 2 core planning, draft, and revision implementation is built. The owner accepted the initial result only; remaining correction-path acceptance is not blanket-closed.
+- Stage 3 Phase 11 formatting foundation is in progress; no user-facing Stage 3 path exists and it is not tested.
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and Tier 2 technical validation are complete: canonical /start transport, bounded synthetic source-audio, text planning correction, and voice planning correction all have dedicated-test-chat evidence. Phase 10 remains open only for owner 3/3 literary, product, and UX acceptance; Stage 3 has not started.
+Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 11 now owns the Stage 3 formatting foundation, whose user-facing flow remains not tested.
 
 ## Branch And GitHub
 
@@ -69,10 +69,14 @@ The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delive
 
 Before owner 3/3, the active changed-flow inventory records trigger, durable initial state, acknowledgement, job, exactly-one terminal delivery or safe recovery, terminal state, Tier 1 evidence, Tier 2 evidence, and the owner-only question. An acknowledgement alone is never evidence of completion.
 
-Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization is `not tested` because it has not started. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
+Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization user-facing flow is `not tested`; Phase 11 contains only an internal foundation. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
 
 The remaining owner focus is literary, product, and UX judgement only after the applicable path-level technical inventory remains green. A future owner-found delivery or stuck-state defect returns the affected flow to Tier 1 and, when transport-facing, Tier 2 before it can close.
 
 ## Clean Mode Contract
 
 `clean_up` now has an explicit lexical-preservation prompt contract and deterministic prompt tests; `make_post` remains the only rewrite/post-structuring mode. These tests verify instructions, not LLM output fidelity. Owner literary evaluation of Clean output remains pending; no runtime/deployment change was made by this contract update.
+
+## Phase 11 Formatting Foundation
+
+Only the initial Stage 2 owner result is accepted; this does not blanket-accept every Stage 2 correction path. Phase 11 is in progress. The Stage 3 foundation provides deterministic, preservation-first decoration-plan validation and rendering only. No Stage 3 Telegram button, job, provider adapter, or user-facing flow exists yet, so all Stage 3 transport/UI paths are not tested. Owner evaluation for formatting is deferred until a complete, technically verified Stage 3 path exists.

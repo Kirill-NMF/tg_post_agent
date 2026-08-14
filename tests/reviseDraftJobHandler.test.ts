@@ -8,7 +8,7 @@ import { createReviseDraftJobHandler } from "../src/services/reviseDraftJobHandl
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("REVISE_DRAFT job handler", () => {
-  it("persists the updated draft and sends the format button", async () => {
+  it("persists the updated draft without exposing incomplete Stage 3 UI", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
@@ -27,7 +27,7 @@ describe("REVISE_DRAFT job handler", () => {
     expect(updated?.messages.at(-1)).toMatchObject({ kind: "draft", text: "Updated draft text" });
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Updated draft text");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open"]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual([]);
   });
 
   it("preserves saved revision and state when notification fails", async () => {
