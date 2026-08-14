@@ -71,3 +71,7 @@ OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production c
 # P0 Draft-Generation Regression
 
 Phase 10 owner 3/3 is blocked pending a fresh Tier 2 validation of the repaired rewrite-mode to draft-delivery path. The P0 deployment persists busy state before `GENERATE_DRAFT` enqueueing, compensates a failed enqueue, and delivers safe terminal recovery instead of leaving `draft_generating` silent.
+
+## P0 Draft Delivery
+
+Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. The daily bounded canary budget is exhausted (15/15); next gate is owner 3/3 acceptance.

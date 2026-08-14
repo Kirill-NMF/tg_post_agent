@@ -60,3 +60,7 @@ The active production project is not resumed or modified by this deployment. The
 ## Provider Routing Update
 
 OpenRouter is the primary Stage 1/2 gateway when `OPENROUTER_API_KEY` is configured: `openai/whisper-large-v3` for transcription and `google/gemini-2.5-pro` for planning/drafts by default. Direct OpenAI transcription and direct Gemini planning/drafts remain optional one-attempt fallbacks only after retryable network, rate-limit, or 5xx failures. The required runtime credentials and worker-enabled restart are already provisioned through the VPS-only secret path; this checkpoint does not claim live functional acceptance until the controlled repair restart and renewed owner 3/3 test complete.
+
+## P0 Draft Smoke
+
+The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delivery and draft_editing; the marker-scoped fixture and jobs were removed. Tier 2 technical draft-delivery evidence is restored. The category-only daily canary ledger is exhausted at 15/15. Owner 3/3 literary/product/UX acceptance remains pending.
