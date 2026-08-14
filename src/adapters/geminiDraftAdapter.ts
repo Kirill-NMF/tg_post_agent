@@ -131,6 +131,25 @@ export function createGeminiDraftClient(apiKey: string): GeminiDraftClient {
 }
 
 function buildDraftPrompt(params: Parameters<ModelAdapters["generateDraft"]>[0] & { slice: PlanPostSlice }): string {
+  if (params.rewriteMode === "make_post") {
+    const compactContext = params.compactContext?.length ? params.compactContext.map((item) => `- ${item}`).join("\n") : "No previous draft edits.";
+    return [
+      "Generate one complete Russian Telegram post draft for the selected plan slice.",
+      "Return only JSON that matches the schema.",
+      "The output must be a full replacement draft, not a patch or instructions.",
+      "Do not format as Option 1 or Option 2; formatting is a later stage.",
+      "Turn the selected transcript material into a polished Telegram post while preserving facts, intent, and voice.",
+      `Post index: ${params.postIndex} of ${params.selectedPlan.postCount}`,
+      `Plan title: ${params.selectedPlan.title}`,
+      `Plan slice topic: ${params.slice.topic}`,
+      `Plan slice angle: ${params.slice.angle}`,
+      `Plan slice includes: ${params.slice.includes.join("; ")}`,
+      `Plan slice excludes: ${(params.slice.excludes ?? []).join("; ") || "none"}`,
+      `Compact edit context:\n${compactContext}`,
+      `Transcript:\n${params.transcript}`
+    ].join("\n\n");
+  }
+
   const modeInstruction =
     params.rewriteMode === "clean_up"
       ? "\u0410\u043a\u043a\u0443\u0440\u0430\u0442\u043d\u043e \u043e\u0442\u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u0443\u0439 \u0440\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0443, \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0432 \u0441\u043c\u044b\u0441\u043b \u0438 \u0433\u043e\u043b\u043e\u0441 \u0430\u0432\u0442\u043e\u0440\u0430."
