@@ -153,8 +153,15 @@ export class ProjectService {
 
     project.rewriteMode = rewriteMode;
     if (this.jobs) {
-      await this.enqueueDraftGeneration(project);
+      project.state = "draft_generating";
       await this.projects.save(project);
+      try {
+        await this.enqueueDraftGeneration(project);
+      } catch {
+        project.state = "rewrite_mode";
+        await this.projects.save(project);
+        return [{ kind: "message", text: "Не удалось запустить генерацию черновика. Выберите режим переписывания ещё раз." }];
+      }
       return [{ kind: "message", text: "Режим выбран. Генерирую черновик; пришлю его здесь, когда он будет готов." }];
     }
 
@@ -284,8 +291,15 @@ export class ProjectService {
 
     project.currentPostIndex = nextIndex;
     if (this.jobs) {
-      await this.enqueueDraftGeneration(project);
+      project.state = "draft_generating";
       await this.projects.save(project);
+      try {
+        await this.enqueueDraftGeneration(project);
+      } catch {
+        project.state = "rewrite_mode";
+        await this.projects.save(project);
+        return [{ kind: "message", text: "Не удалось запустить генерацию следующего черновика. Выберите режим переписывания ещё раз." }];
+      }
       return [{ kind: "message", text: "Генерирую следующий черновик; пришлю его здесь, когда он будет готов." }];
     }
 
@@ -361,7 +375,6 @@ export class ProjectService {
     }
     const post = currentPost(project);
     if (!post) throw new Error("Current post not found.");
-    project.state = "draft_generating";
     await this.jobs.enqueue({
       type: "GENERATE_DRAFT",
       projectId: project.id,

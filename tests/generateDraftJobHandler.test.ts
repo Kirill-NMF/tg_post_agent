@@ -69,6 +69,41 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
   });
 
+  it("turns an exhausted retryable provider failure into one safe recovery", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedDraftProject(projects);
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {}, maxAttempts: 1 });
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: retryableFailingDraftingAdapter(), notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_PROVIDER_TIMEOUT" });
+    expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
+  });
+
+  it("recovers the project when the adapter throws unexpectedly", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedDraftProject(projects);
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: { async generateDraft() { throw new Error("timeout"); } }, notifier })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_PROVIDER_UNEXPECTED_FAILURE" });
+    expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
+    expect(notifier.messages).toHaveLength(1);
+  });
+
   it("fails safely for inactive projects or missing prerequisites without writing a draft", async () => {
     const missingProjects = new InMemoryProjectRepository();
     const missingJobs = new InMemoryJobRepository();
@@ -133,6 +168,14 @@ function failingDraftingAdapter(): Pick<ModelAdapters, "generateDraft"> {
         ok: false,
         error: { code: "GEMINI_DRAFT_OUTPUT_INVALID", message: "Provider request failed: HTTP_400.", retryable: false }
       };
+    }
+  };
+}
+
+function retryableFailingDraftingAdapter(): Pick<ModelAdapters, "generateDraft"> {
+  return {
+    async generateDraft() {
+      return { ok: false, error: { code: "DRAFT_PROVIDER_TIMEOUT", message: "Timed out.", retryable: true } };
     }
   };
 }

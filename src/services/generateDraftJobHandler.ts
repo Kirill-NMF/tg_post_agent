@@ -30,17 +30,23 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     if (!post) throw new PermanentJobError("DRAFT_POST_MISSING", "Current post is required before draft generation.");
 
     logger.info({ event: "draft_generation_started", jobId: job.id, projectId: job.projectId, postIndex: post.index }, "draft generation started");
-    const result = await deps.drafting.generateDraft({
-      projectId: project.id,
-      selectedPlan: project.selectedPlan,
-      postIndex: post.index,
-      rewriteMode: project.rewriteMode,
-      transcript: project.transcript,
-      compactContext: draftContext(project),
-      outputLanguage: project.outputLanguage
-    });
+    let result: Awaited<ReturnType<ModelAdapters["generateDraft"]>>;
+    try {
+      result = await deps.drafting.generateDraft({
+        projectId: project.id,
+        selectedPlan: project.selectedPlan,
+        postIndex: post.index,
+        rewriteMode: project.rewriteMode,
+        transcript: project.transcript,
+        compactContext: draftContext(project),
+        outputLanguage: project.outputLanguage
+      });
+    } catch {
+      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE");
+      throw new PermanentJobError("DRAFT_PROVIDER_UNEXPECTED_FAILURE", "Draft provider failed unexpectedly.");
+    }
     if (!result.ok) {
-      if (result.error.retryable) throw new RetryableJobError(result.error.code, result.error.message);
+      if (result.error.retryable && job.attempts < job.maxAttempts) throw new RetryableJobError(result.error.code, result.error.message);
       await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code);
       throw new PermanentJobError(result.error.code, result.error.message);
     }
@@ -68,6 +74,7 @@ async function recoverFromPermanentDraftFailure(
   jobId: string,
   errorCode: string
 ): Promise<void> {
+  if (project.state !== "draft_generating") return;
   project.state = "rewrite_mode";
   await deps.projects.save(project);
 
