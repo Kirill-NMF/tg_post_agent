@@ -20,6 +20,7 @@ import { draftActionButtons } from "./draftPresentation.js";
 import { finalActionButtons, formatChoiceButtons } from "./formatPresentation.js";
 import { currentPlan } from "./planSplitJobHandler.js";
 import { alternativePlanButtons, planButtons, renderAlternativePlansMessage, renderPlanRecommendationMessage } from "./planningPresentation.js";
+import { noopLogger, type Logger } from "../observability/logger.js";
 
 export class ProjectService {
   constructor(
@@ -27,7 +28,8 @@ export class ProjectService {
     private readonly models: ModelAdapters,
     private readonly jobs?: JobRepository,
     private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number; draftGeneration: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3, draftGeneration: 3 },
-    private readonly formattingEnabled = false
+    private readonly formattingEnabled = false,
+    private readonly logger: Logger = noopLogger
   ) {}
 
   async start(telegramUserId: TelegramUserId, chatId: TelegramChatId): Promise<BotResponse[]> {
@@ -161,7 +163,8 @@ export class ProjectService {
       await this.projects.save(project);
       try {
         await this.enqueueDraftGeneration(project);
-      } catch {
+      } catch (error) {
+        recordDraftEnqueueFailure(this.logger, project.id, error);
         project.state = "rewrite_mode";
         await this.projects.save(project);
         return [{ kind: "message", text: "Не удалось запустить генерацию черновика. Выберите режим переписывания ещё раз." }];
@@ -480,6 +483,24 @@ export class ProjectService {
       payload: { postIndex: post.index, latestUserEdit }
     });
   }
+}
+function recordDraftEnqueueFailure(logger: Logger, projectId: string, error: unknown): void {
+  try {
+    logger.warn(
+      { event: "draft_generation_enqueue_failed", projectId, errorCategory: draftEnqueueFailureCategory(error) },
+      "draft generation enqueue failed"
+    );
+  } catch {
+    // Observability must never prevent the fail-closed recovery response.
+  }
+}
+
+function draftEnqueueFailureCategory(error: unknown): "db_unique_conflict" | "db_constraint" | "db_connectivity" | "unknown" {
+  const code = typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+  if (code === "23505") return "db_unique_conflict";
+  if (code === "23503" || code === "23514" || code === "22P02") return "db_constraint";
+  if (typeof code === "string" && /^(ECONN|ETIMEDOUT)/.test(code)) return "db_connectivity";
+  return "unknown";
 }
 
 function message(kind: ProjectMessageKind, text: string) {

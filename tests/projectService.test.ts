@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MockModelAdapters } from "../src/adapters/mockModelAdapters.js";
 import type { PlanOption, Project } from "../src/domain/types.js";
+import type { Logger, LogFields } from "../src/observability/logger.js";
 import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository.js";
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { ProjectService } from "../src/services/projectService.js";
@@ -69,6 +70,21 @@ describe("ProjectService mock state machine", () => {
       dedupeKey: `project:${project.id}:post:1:draft:make_post`,
       payload: { postIndex: 1, rewriteMode: "make_post" }
     });
+  });
+
+  it("records a safe enqueue category when rewrite-mode draft creation fails before any provider job", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new ThrowingJobRepository();
+    const logger = new CapturingLogger();
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, undefined, false, logger);
+    const project = await seedRewriteProject(repository);
+
+    const response = await projects.chooseRewriteMode("100", "make_post");
+
+    expect(message(response[0]).text).toContain("Не удалось запустить");
+    expect((await repository.findById(project.id))?.state).toBe("rewrite_mode");
+    expect(logger.entries).toContainEqual(expect.objectContaining({ fields: expect.objectContaining({ event: "draft_generation_enqueue_failed", errorCategory: "db_unique_conflict" }) }));
+    expect(JSON.stringify(logger.entries)).not.toContain("raw database detail");
   });
 
   it("enqueues draft revision instead of mutating the draft synchronously when jobs are configured", async () => {
@@ -190,6 +206,19 @@ describe("ProjectService mock state machine", () => {
     expect(message(edited[0]).text).toContain("Mock voice edit");
   });
 });
+
+class ThrowingJobRepository extends InMemoryJobRepository {
+  override async enqueue(): Promise<never> {
+    throw Object.assign(new Error("raw database detail"), { code: "23505" });
+  }
+}
+
+class CapturingLogger implements Logger {
+  readonly entries: Array<{ fields: LogFields; message: string }> = [];
+  info(fields: LogFields, message: string): void { this.entries.push({ fields, message }); }
+  warn(fields: LogFields, message: string): void { this.entries.push({ fields, message }); }
+  error(fields: LogFields, message: string): void { this.entries.push({ fields, message }); }
+}
 
 function message(response: BotResponse | undefined) {
   if (!response || response.kind !== "message") throw new Error("Expected message response.");

@@ -21,7 +21,7 @@ export function buildApplication(env: NodeJS.ProcessEnv) {
   const db = config.databaseUrl ? createDb(createDbPool({ databaseUrl: config.databaseUrl })) : undefined;
   const repository = db ? new PgProjectRepository(db) : new InMemoryProjectRepository();
   const jobRepository = db ? new PgJobRepository(db) : undefined;
-  const projectService = new ProjectService(repository, new MockModelAdapters(), jobRepository, { sourceAudio: config.sourceAudioJobMaxAttempts, editAudio: config.editAudioJobMaxAttempts, planRevision: config.planRevisionJobMaxAttempts }, Boolean(config.openRouterApiKey && config.openRouterFormattingModel));
+  const projectService = new ProjectService(repository, new MockModelAdapters(), jobRepository, { sourceAudio: config.sourceAudioJobMaxAttempts, editAudio: config.editAudioJobMaxAttempts, planRevision: config.planRevisionJobMaxAttempts }, Boolean(config.openRouterApiKey && config.openRouterFormattingModel), consoleLogger);
   const authService = new TelegramAuthService(config.allowedTelegramIds);
   const router = new BotRouter(authService, projectService);
   const bot = createBot(config.botToken, router);
