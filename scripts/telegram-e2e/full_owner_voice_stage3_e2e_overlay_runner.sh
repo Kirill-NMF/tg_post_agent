@@ -41,6 +41,10 @@ case "${1:-preflight}" in
   scope-preflight)
     exec su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; set -a; . .runtime/bot.env; TG_POST_AGENT_SCOPE_PREFLIGHT=true node scripts/telegram-e2e/project_recipient_scope.mjs'
     ;;
+  source-preflight)
+    prepare_harness_files
+    exec su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh source-preflight'
+    ;;
   run)
     prepare_harness_files
     report_path="$report_dir/full-owner-$(date +%s)-$$.json"

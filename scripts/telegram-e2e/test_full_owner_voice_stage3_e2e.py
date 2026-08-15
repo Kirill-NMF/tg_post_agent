@@ -1,3 +1,4 @@
+import datetime as dt
 import json, sys, tempfile, unittest
 from unittest import mock
 from pathlib import Path
@@ -16,6 +17,19 @@ class M:
         self.id = id
         self.sender_id = sender
         self.reply_markup = type('K', (), {'rows': [R(data)]})()
+
+class Media:
+    def __init__(self, message_id, sender, age_seconds, kind):
+        self.id = message_id
+        self.sender_id = sender
+        self.date = dt.datetime.fromtimestamp(1_000 - age_seconds, tz=dt.timezone.utc)
+        self.voice = object() if kind == 'voice' else None
+        self.audio = object() if kind == 'audio' else None
+
+class SourceClient:
+    def __init__(self, messages): self.messages = messages
+    async def get_messages(self, target, limit): return self.messages
+    async def download_media(self, message, file): Path(file).write_bytes(b'x')
 
 
 class T(unittest.TestCase):
@@ -56,6 +70,7 @@ class T(unittest.TestCase):
         self.assertIn('chown "$runtime_user":"$runtime_user" "$ledger_path"', runner)
         self.assertIn('install -d -o "$runtime_user" -g "$runtime_user" -m 700 "$report_dir"', runner)
         self.assertIn('TG_POST_AGENT_FULL_E2E_REPORT=', runner)
+        self.assertIn('source-preflight)', runner)
     def test_preflight_refuses_missing_audio_copy_before_telegram_actions(self):
         with tempfile.TemporaryDirectory() as directory:
             ledger_path = Path(directory) / 'ledger.json'
@@ -67,6 +82,34 @@ class T(unittest.TestCase):
         self.assertFalse(report['canProceed'])
         self.assertEqual(report['category'], 'source_audio_copy_unavailable')
         self.assertEqual(report['externalCallBound'], 4)
+    def test_source_recovery_selects_latest_recent_owner_audio_only(self):
+        messages = [
+            Media(9, 7, 1, 'document'),
+            Media(10, 8, 1, 'audio'),
+            Media(11, 7, 31 * 24 * 60 * 60, 'voice'),
+            Media(12, 7, 2, 'voice'),
+            Media(13, 7, 1, 'audio'),
+        ]
+        self.assertIs(x.select_recent_owner_media(messages, 7, 1_000), messages[-1])
+    def test_source_recovery_ignores_bot_document_and_non_media(self):
+        messages = [Media(1, 8, 1, 'audio'), Media(2, 7, 1, 'document')]
+        self.assertIsNone(x.select_recent_owner_media(messages, 7, 1_000))
+    def test_source_recovery_source_unavailable_cleans_existing_temp_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            audio = Path(directory) / 'audio.mp3'
+            audio.write_bytes(b'stale')
+            with self.assertRaises(x.CanaryError) as raised:
+                asyncio.run(x.recover_owner_audio(SourceClient([]), object(), 7, audio, now=lambda: 1_000))
+            self.assertEqual(raised.exception.category, 'source_unavailable')
+            self.assertFalse(audio.exists())
+    def test_source_recovery_download_is_validated_and_cleanup_is_explicit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            audio = Path(directory) / 'audio.mp3'
+            media = Media(3, 7, 1, 'audio')
+            self.assertEqual(asyncio.run(x.recover_owner_audio(SourceClient([media]), object(), 7, audio, now=lambda: 1_000)), 'audio')
+            self.assertTrue(x.audio_copy_ready(audio))
+            self.assertTrue(x.cleanup_audio_copy(audio))
+            self.assertFalse(audio.exists())
     def test_scope_poll_deadline_returns_absent(self): self.assertFalse(asyncio.run(x.wait_for_scope(lambda a, c: {'found': False}, 7, 1, deadline=0, interval=0)).get('found'))
     def test_selector_uses_user_and_run_start_not_source_message(self):
         rows = [{'user': 7, 'created': 4}, {'user': 8, 'created': 9}, {'user': 7, 'created': 6}]

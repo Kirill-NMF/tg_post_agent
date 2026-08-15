@@ -25,6 +25,8 @@ E2E_ONE_ATTEMPT_OVERLAY = {
     "DRAFT_GENERATION_JOB_MAX_ATTEMPTS": "1",
     "FORMATTING_JOB_MAX_ATTEMPTS": "1",
 }
+SOURCE_RECOVERY_HISTORY_LIMIT = 100
+SOURCE_RECOVERY_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 
 def overlay_environment(normal_environment: dict[str, str]) -> dict[str, str]:
     overlay = dict(normal_environment)
@@ -44,7 +46,13 @@ def e2e_preflight(ledger: dict[str, object], environment: dict[str, str]) -> dic
         return {"canProceed": False, "category": "ledger_insufficient", "externalCallBound": bound}
     return {"canProceed": True, "category": None, "externalCallBound": bound}
 
-def e2e_preflight_from_environment(environment: dict[str, str]) -> dict[str, object]:
+def audio_copy_ready(audio: Path) -> bool:
+    try:
+        return audio.is_file() and audio.stat().st_size > 0
+    except OSError:
+        return False
+
+def e2e_preflight_from_environment(environment: dict[str, str], require_audio: bool = True) -> dict[str, object]:
     try:
         with Path(environment["TG_POST_AGENT_FULL_E2E_LEDGER_PATH"]).open("r", encoding="utf-8") as handle:
             ledger = json.load(handle)
@@ -53,12 +61,7 @@ def e2e_preflight_from_environment(environment: dict[str, str]) -> dict[str, obj
     result = e2e_preflight(ledger if isinstance(ledger, dict) else {}, environment)
     if not result["canProceed"]:
         return result
-    try:
-        audio = Path(environment["TG_POST_AGENT_OWNER_AUDIO_COPY"])
-        audio_ready = audio.is_file() and audio.stat().st_size > 0
-    except (KeyError, OSError):
-        audio_ready = False
-    if not audio_ready:
+    if require_audio and not audio_copy_ready(Path(environment.get("TG_POST_AGENT_OWNER_AUDIO_COPY", ""))):
         return {"canProceed": False, "category": "source_audio_copy_unavailable", "externalCallBound": 4}
     return result
 
@@ -103,6 +106,44 @@ def newer_callback_prefixes(messages, cursor: int) -> list[str]:
 
 def source_audio_send_kwargs() -> dict[str, bool]:
     return {"voice_note": False, "force_document": False}
+
+def owner_media_class(message) -> str | None:
+    if getattr(message, "voice", None) is not None:
+        return "voice"
+    if getattr(message, "audio", None) is not None:
+        return "audio"
+    return None
+
+def select_recent_owner_media(messages, account_id: int, now: float, max_age_seconds: float = SOURCE_RECOVERY_MAX_AGE_SECONDS):
+    eligible = []
+    for message in messages:
+        timestamp = getattr(getattr(message, "date", None), "timestamp", lambda: None)()
+        if getattr(message, "sender_id", None) != account_id or not isinstance(timestamp, (int, float)):
+            continue
+        if not 0 <= now - timestamp <= max_age_seconds or owner_media_class(message) is None:
+            continue
+        eligible.append(message)
+    return max(eligible, key=lambda message: getattr(message, "id", -1), default=None)
+
+def cleanup_audio_copy(audio: Path) -> bool:
+    try:
+        if audio.is_file():
+            audio.unlink()
+        return not audio.exists()
+    except OSError:
+        return False
+
+async def recover_owner_audio(client, target, account_id: int, audio: Path, now=time.time) -> str:
+    if not cleanup_audio_copy(audio):
+        raise CanaryError("source_temp_cleanup_failed")
+    messages = await client.get_messages(target, limit=SOURCE_RECOVERY_HISTORY_LIMIT)
+    selected = select_recent_owner_media(messages, account_id, now())
+    if selected is None:
+        raise CanaryError("source_unavailable")
+    await client.download_media(selected, file=str(audio))
+    if not audio_copy_ready(audio):
+        raise CanaryError("source_download_unavailable")
+    return owner_media_class(selected) or "unknown"
 
 async def receive_until(conversation, bot_id: int, prefix: str, timeout: float):
     deadline = asyncio.get_running_loop().time() + timeout
@@ -153,13 +194,12 @@ async def run() -> dict[str, object]:
     report: dict[str, object] = {"stages": [], "terminal": "not_observed", "cleanupAudio": False, "sttCalls": 0, "planCalls": 0, "draftCalls": 0, "option2Calls": 0}
     audio = Path(os.environ.get("TG_POST_AGENT_OWNER_AUDIO_COPY", ""))
     report_path = Path(os.environ.get("TG_POST_AGENT_FULL_E2E_REPORT", "/tmp/tg-post-agent-full-owner-e2e-report.json"))
-    preflight = e2e_preflight_from_environment(dict(os.environ))
+    preflight = e2e_preflight_from_environment(dict(os.environ), require_audio=False)
     report.update(preflight)
     if not preflight["canProceed"]:
         report["terminal"] = "failed"; report["category"] = preflight["category"]
         try:
-            if audio.is_file(): audio.unlink()
-            report["cleanupAudio"] = not audio.exists()
+            report["cleanupAudio"] = cleanup_audio_copy(audio)
         finally:
             persist_report(report_path, report)
         return report
@@ -176,6 +216,8 @@ async def run() -> dict[str, object]:
             configured_recipient = os.environ["TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID"]
         if not recipient_matches(account.id, configured_recipient): raise CanaryError("recipient_identity_mismatch")
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
+        report["sourceRecovered"] = True
+        report["sourceMediaClass"] = await recover_owner_audio(client, target, account.id, audio)
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             run_started = time.time(); await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
             outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], **source_audio_send_kwargs()); cursor = outgoing.id; report["stages"].append("audio_uploaded")
@@ -195,15 +237,47 @@ async def run() -> dict[str, object]:
     except Exception as error: report["terminal"] = "failed"; report["category"] = type(error).__name__
     finally:
         try:
-            if audio.is_file(): audio.unlink()
-            report["cleanupAudio"] = not audio.exists()
+            report["cleanupAudio"] = cleanup_audio_copy(audio)
         finally:
             try: persist_report(report_path, report)
             finally: await client.disconnect()
     return report
 
+async def source_preflight() -> dict[str, object]:
+    """Read-only dialog recovery check with no bot message, callback, or provider call."""
+    from telethon import TelegramClient
+    from telethon.sessions import StringSession
+    report: dict[str, object] = {"sourceReady": False, "cleanupAudio": False}
+    audio = Path(os.environ.get("TG_POST_AGENT_OWNER_AUDIO_COPY", ""))
+    preflight = e2e_preflight_from_environment(dict(os.environ), require_audio=False)
+    report.update(preflight)
+    if not preflight["canProceed"]:
+        report["category"] = preflight["category"]
+        report["cleanupAudio"] = cleanup_audio_copy(audio)
+        return report
+    client = TelegramClient(StringSession(os.environ["TG_POST_AGENT_REAL_TG_STRING_SESSION"]), int(os.environ["TG_POST_AGENT_REAL_TG_API_ID"]), os.environ["TG_POST_AGENT_REAL_TG_API_HASH"])
+    try:
+        await client.connect()
+        identity = await asyncio.to_thread(fetch_runtime_bot_identity, os.environ["TG_POST_AGENT_REAL_TG_BOT_TOKEN"])
+        target = await client.get_entity(identity.username)
+        account = await client.get_me()
+        if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity):
+            raise CanaryError("target_or_session")
+        report["sourceMediaClass"] = await recover_owner_audio(client, target, account.id, audio)
+        report["sourceReady"] = True
+    except CanaryError as error:
+        report["category"] = error.category
+    except Exception as error:
+        report["category"] = type(error).__name__
+    finally:
+        report["cleanupAudio"] = cleanup_audio_copy(audio)
+        await client.disconnect()
+    return report
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["--preflight"]:
         print(json.dumps(e2e_preflight_from_environment(dict(os.environ)), sort_keys=True))
+    elif sys.argv[1:] == ["--source-preflight"]:
+        print(json.dumps(asyncio.run(source_preflight()), sort_keys=True))
     else:
         print(json.dumps(asyncio.run(run())))

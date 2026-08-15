@@ -18,6 +18,7 @@ export DRAFT_GENERATION_JOB_MAX_ATTEMPTS=1
 export FORMATTING_JOB_MAX_ATTEMPTS=1
 case "${1:-run}" in
   preflight) exec python3 scripts/telegram-e2e/full_owner_voice_stage3_e2e.py --preflight ;;
+  source-preflight) exec python3 scripts/telegram-e2e/full_owner_voice_stage3_e2e.py --source-preflight ;;
   run) exec python3 scripts/telegram-e2e/full_owner_voice_stage3_e2e.py ;;
   *) exit 64 ;;
 esac
