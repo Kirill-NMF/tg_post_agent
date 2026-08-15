@@ -5,6 +5,7 @@ import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { createGenerateDraftJobHandler } from "../src/services/generateDraftJobHandler.js";
 import { JobWorker } from "../src/services/jobWorker.js";
+import type { LogFields, Logger } from "../src/observability/logger.js";
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 
 describe("GENERATE_DRAFT job handler", () => {
@@ -64,7 +65,7 @@ describe("GENERATE_DRAFT job handler", () => {
     await worker.processOne({ workerId: "worker-1" });
 
     expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
-    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "GEMINI_DRAFT_OUTPUT_INVALID" });
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_FAILURE_CONTRACT" });
     expect(notifier.messages[0]?.text).toContain("План и выбранный режим сохранены");
     expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["rewrite:make_post"]);
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
@@ -82,7 +83,7 @@ describe("GENERATE_DRAFT job handler", () => {
 
     await worker.processOne({ workerId: "worker-1" });
 
-    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_PROVIDER_TIMEOUT" });
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_FAILURE_TIMEOUT" });
     expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
@@ -100,9 +101,50 @@ describe("GENERATE_DRAFT job handler", () => {
 
     await worker.processOne({ workerId: "worker-1" });
 
-    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_PROVIDER_UNEXPECTED_FAILURE" });
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "DRAFT_FAILURE_PROVIDER" });
     expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
     expect(notifier.messages).toHaveLength(1);
+  });
+
+  it.each([
+    ["provider", "DRAFT_PROVIDER_RATE_LIMITED", "DRAFT_FAILURE_PROVIDER"],
+    ["timeout", "DRAFT_PROVIDER_TIMEOUT", "DRAFT_FAILURE_TIMEOUT"],
+    ["contract", "GEMINI_DRAFT_OUTPUT_INVALID", "DRAFT_FAILURE_CONTRACT"],
+    ["validation", "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID", "DRAFT_FAILURE_VALIDATION"],
+    ["internal", "DRAFT_UNKNOWN_FAILURE", "DRAFT_FAILURE_INTERNAL"]
+  ])("persists and emits the normalized %s terminal category", async (_family, sourceCode, expectedCode) => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const logger = new CapturingLogger();
+    const project = await seedDraftProject(projects);
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {}, maxAttempts: 1 });
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: fixedFailureAdapter(sourceCode), logger })
+    }, logger);
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: expectedCode });
+    expect(logger.entries).toContainEqual({
+      level: "warn",
+      fields: { event: "draft_generation_terminal_failure", jobId: job.id, projectId: project.id, failureCategory: expectedCode },
+      message: "draft generation reached terminal failure"
+    });
+  });
+
+  it("does not emit a terminal failure category on successful generation", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const logger = new CapturingLogger();
+    const project = await seedDraftProject(projects);
+    await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: fakeDraftingAdapter({ fullText: "Generated draft text" }), logger })
+    }, logger);
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect(logger.entries.some((entry) => entry.fields.event === "draft_generation_terminal_failure")).toBe(false);
   });
 
   it("fails safely for inactive projects or missing prerequisites without writing a draft", async () => {
@@ -181,6 +223,14 @@ function retryableFailingDraftingAdapter(): Pick<ModelAdapters, "generateDraft">
   };
 }
 
+function fixedFailureAdapter(code: string): Pick<ModelAdapters, "generateDraft"> {
+  return {
+    async generateDraft() {
+      return { ok: false, error: { code, message: "safe test failure", retryable: false } };
+    }
+  };
+}
+
 function planOption(): PlanOption {
   return {
     optionId: "one_post",
@@ -201,4 +251,12 @@ class CapturingNotifier implements TelegramNotifier {
     this.messages.push({ chatId, text, options });
     if (this.error) throw this.error;
   }
+}
+
+class CapturingLogger implements Logger {
+  readonly entries: Array<{ level: "info" | "warn" | "error"; fields: LogFields; message: string }> = [];
+
+  info(fields: LogFields, message: string): void { this.entries.push({ level: "info", fields, message }); }
+  warn(fields: LogFields, message: string): void { this.entries.push({ level: "warn", fields, message }); }
+  error(fields: LogFields, message: string): void { this.entries.push({ level: "error", fields, message }); }
 }

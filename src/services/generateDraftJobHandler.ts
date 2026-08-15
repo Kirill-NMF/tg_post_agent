@@ -59,9 +59,11 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
       providerDurationMs = Math.max(0, now() - providerStartedAt);
     } catch {
       providerDurationMs = Math.max(0, now() - providerStartedAt);
-      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE", retry, now);
+      const failureCategory = "DRAFT_FAILURE_PROVIDER";
+      logger.warn({ event: "draft_generation_terminal_failure", jobId: job.id, projectId: project.id, failureCategory }, "draft generation reached terminal failure");
+      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, failureCategory, retry, now);
       emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_unexpected_failure");
-      throw new PermanentJobError("DRAFT_PROVIDER_UNEXPECTED_FAILURE", "Draft provider failed unexpectedly.");
+      throw new PermanentJobError(failureCategory, "Draft provider failed unexpectedly.");
     }
     if (!result.ok) {
       const repairableOutput = result.error.code === "GEMINI_DRAFT_OUTPUT_INVALID" || result.error.code === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID";
@@ -69,9 +71,11 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
         emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, 0, Math.max(0, now() - startedAt), repairableOutput ? "output_repair_scheduled" : "retry_scheduled");
         throw new RetryableJobError(result.error.code, result.error.message);
       }
-      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code, retry, now);
+      const failureCategory = normalizeDraftTerminalFailure(result.error.code);
+      logger.warn({ event: "draft_generation_terminal_failure", jobId: job.id, projectId: project.id, failureCategory }, "draft generation reached terminal failure");
+      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, failureCategory, retry, now);
       emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "terminal_failure");
-      throw new PermanentJobError(result.error.code, result.error.message);
+      throw new PermanentJobError(failureCategory, "Draft generation reached terminal failure.");
     }
 
     const draftVersion = nextDraftVersion(post);
@@ -137,6 +141,14 @@ function emitTiming(logger: Logger, job: Job, queueWaitMs: number, providerDurat
   } catch {
     // Timing must not interrupt a terminal draft state or recovery.
   }
+}
+
+function normalizeDraftTerminalFailure(sourceCode: string): "DRAFT_FAILURE_PROVIDER" | "DRAFT_FAILURE_TIMEOUT" | "DRAFT_FAILURE_CONTRACT" | "DRAFT_FAILURE_VALIDATION" | "DRAFT_FAILURE_INTERNAL" {
+  if (sourceCode.includes("TIMEOUT")) return "DRAFT_FAILURE_TIMEOUT";
+  if (sourceCode === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" || sourceCode.includes("LANGUAGE_INVALID") || sourceCode.includes("VALIDATION")) return "DRAFT_FAILURE_VALIDATION";
+  if (sourceCode === "GEMINI_DRAFT_OUTPUT_INVALID" || sourceCode.includes("SCHEMA") || sourceCode.includes("JSON") || sourceCode.includes("CONTRACT")) return "DRAFT_FAILURE_CONTRACT";
+  if (sourceCode.startsWith("DRAFT_PROVIDER_") || sourceCode.startsWith("GEMINI_PROVIDER_") || sourceCode.includes("RATE_LIMIT") || sourceCode.includes("HTTP_") || sourceCode.includes("NETWORK")) return "DRAFT_FAILURE_PROVIDER";
+  return "DRAFT_FAILURE_INTERNAL";
 }
 
 function draftContext(project: Project): string[] {
