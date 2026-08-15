@@ -183,3 +183,38 @@ function fallback(originalText: string, code: string, message: string): Formatti
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
+
+
+export type CanonicalFormattingSegment = { id: string; start: number; end: number };
+export type SegmentFormattingOperation =
+  | { id: string; kind: "paragraph_break"; position: "before" | "after" }
+  | { id: string; kind: "emoji_insertion"; position: "before" | "after"; emoji: string }
+  | { id: string; kind: "markdown_span"; style: "bold" | "italic" | "code" };
+
+export function deriveCanonicalSegments(text: string): CanonicalFormattingSegment[] {
+  if (!text) return [];
+  const segments: CanonicalFormattingSegment[] = [];
+  const matcher = /[^\n](?:[\s\S]*?[^\n])?(?=\n{2,}|$)/g;
+  for (const match of text.matchAll(matcher)) segments.push({ id: "block_" + (segments.length + 1), start: match.index ?? 0, end: (match.index ?? 0) + match[0].length });
+  return segments;
+}
+
+export function applySegmentFormattingPlan(text: string, option: FormattingOption, operations: SegmentFormattingOperation[]): FormattingApplyResult {
+  const segments = deriveCanonicalSegments(text);
+  const known = new Set(segments.map((segment) => segment.id));
+  const used = new Set<string>();
+  const anchors: FormattingOperation[] = [];
+  for (const operation of operations) {
+    if (!known.has(operation.id)) return fallback(text, "FORMAT_SEGMENT_UNKNOWN", "Formatting segment is not canonical.");
+    const key = operation.id + ":" + operation.kind;
+    if (used.has(key)) return fallback(text, "FORMAT_SEGMENT_DUPLICATE", "Duplicate segment decoration is not allowed.");
+    used.add(key);
+    const segment = segments.find((item) => item.id === operation.id)!;
+    const value = text.slice(segment.start, segment.end);
+    const occurrence = text.slice(0, segment.start).split(value).length - 1;
+    if (operation.kind === "markdown_span") anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, style: operation.style });
+    else if (operation.kind === "emoji_insertion") anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, position: operation.position, emoji: operation.emoji });
+    else anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, position: operation.position });
+  }
+  return applyFormattingPlan(text, { option, operations: anchors });
+}

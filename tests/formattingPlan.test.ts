@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFormattingPlan, recoverCanonicalText, type FormattingDecorationPlan } from "../src/domain/formatting.js";
+import { applyFormattingPlan, applySegmentFormattingPlan, deriveCanonicalSegments, recoverCanonicalText, type FormattingDecorationPlan } from "../src/domain/formatting.js";
 
 describe("formatting decoration plans", () => {
   const source = "Alpha one.\n\nBeta two.";
@@ -80,5 +80,19 @@ describe("formatting decoration plans", () => {
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
     expect(recoverCanonicalText(result.text.replace("*", ""), result.insertions)).toBeUndefined();
+  });
+
+  it("uses stable server-derived segment ids without model text anchors", () => {
+    const segments = deriveCanonicalSegments("Alpha.\n\nBeta.");
+    expect(segments.map((segment) => segment.id)).toEqual(["block_1", "block_2"]);
+    const result = applySegmentFormattingPlan("Alpha.\n\nBeta.", "option_2", [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji: "✨" }, { id: "block_2", kind: "paragraph_break", position: "before" }]);
+    expect(result.ok).toBe(true); if (result.ok) expect(recoverCanonicalText(result.text, result.insertions)).toBe("Alpha.\n\nBeta.");
+  });
+  it("rejects unknown or duplicate segment ids and preserves canonical text", () => {
+    expect(applySegmentFormattingPlan("Only.", "option_2", [{ id: "block_9", kind: "paragraph_break", position: "after" }])).toMatchObject({ ok: false, code: "FORMAT_SEGMENT_UNKNOWN", text: "Only." });
+    expect(applySegmentFormattingPlan("Only.", "option_2", [{ id: "block_1", kind: "paragraph_break", position: "after" }, { id: "block_1", kind: "paragraph_break", position: "before" }])).toMatchObject({ ok: false, code: "FORMAT_SEGMENT_DUPLICATE", text: "Only." });
+  });
+  it("segments empty and one-block drafts deterministically", () => {
+    expect(deriveCanonicalSegments("")).toEqual([]); expect(deriveCanonicalSegments("Only.").map((segment) => segment.id)).toEqual(["block_1"]);
   });
 });
