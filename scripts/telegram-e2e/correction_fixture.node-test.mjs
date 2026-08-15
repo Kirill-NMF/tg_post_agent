@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRewriteFixture, cleanupTargetMatches, syntheticFixtureTranscript } from "./correction_fixture.mjs";
+import { buildRewriteFixture, cleanupTargetMatches, syntheticFixtureTranscript, draftEnqueueGuard } from "./correction_fixture.mjs";
 
 test("builds a marker-scoped rewrite-mode project with source isolation", () => {
   const fixture = buildRewriteFixture({ accountId: "7", transcript: "PRIVATE_SOURCE", marker: "marker", now: new Date("2026-01-01") });
@@ -32,4 +32,12 @@ test("synthetic transcript is explicit test-only and creates a valid rewrite fix
   const fixture = buildRewriteFixture({ accountId: "7", transcript: syntheticFixtureTranscript(), marker: "marker", now: new Date() });
   assert.equal(fixture.state, "rewrite_mode"); assert.ok(fixture.transcript.includes("\n\n")); assert.ok(fixture.selectedPlan);
   if (previous === undefined) delete process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE; else process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE = previous;
+});
+
+test("draft enqueue refuses non-marker, wrong-state, and duplicate fixtures", () => {
+  const fixture = buildRewriteFixture({ accountId: "7", transcript: "x", marker: "tier2-correction-canary-v1", now: new Date() });
+  assert.equal(draftEnqueueGuard({ fixture, accountId: "7", activeDraftJobCount: 0 }), null);
+  assert.equal(draftEnqueueGuard({ fixture, accountId: "8", activeDraftJobCount: 0 }), "fixture_invalid");
+  assert.equal(draftEnqueueGuard({ fixture: { ...fixture, state: "planning" }, accountId: "7", activeDraftJobCount: 0 }), "fixture_invalid");
+  assert.equal(draftEnqueueGuard({ fixture, accountId: "7", activeDraftJobCount: 1 }), "draft_job_already_active");
 });
