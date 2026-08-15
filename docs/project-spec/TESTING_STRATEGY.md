@@ -109,3 +109,8 @@ Every owner-found delivery, stuck-state, or state-transition defect first become
 ## Draft regeneration terminal inventory
 
 Triggers: draft:rerun:clean_up:<draftVersion> and draft:rerun:make_post:<draftVersion>; initial state: draft_editing; acknowledgement: rerun progress; async job: one versioned GENERATE_DRAFT with requested mode; terminal outcome: exactly one new active draft and mode or one recovery retaining the prior draft and mode. Tier 1 covers exact source inputs, history retention, atomic mode swap, failure recovery, stale and duplicate callbacks, button rendering after initial/revised drafts, and callback routing. Tier 2 requires one dedicated Telegram click smoke before owner UX handoff.
+
+
+## Stage 2 reliability matrix
+
+GENERATE_DRAFT deterministic coverage must prove three-attempt cap, retryable provider and output-repair scheduling, permanent auth refusal, no duplicate job/delivery, direct selected-mode retry control, rerun preservation, stale callback refusal, and safe category-only timing.

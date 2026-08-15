@@ -56,7 +56,7 @@ describe("GENERATE_DRAFT job handler", () => {
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedDraftProject(projects);
-    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {}, maxAttempts: 1 });
     const worker = new JobWorker(jobs, {
       GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: failingDraftingAdapter(), notifier })
     });
@@ -65,7 +65,8 @@ describe("GENERATE_DRAFT job handler", () => {
 
     expect(await projects.findById(project.id)).toMatchObject({ state: "rewrite_mode" });
     expect(await jobs.findById(job.id)).toMatchObject({ status: "failed", errorCode: "GEMINI_DRAFT_OUTPUT_INVALID" });
-    expect(notifier.messages[0]?.text).toContain("Не удалось подготовить черновик");
+    expect(notifier.messages[0]?.text).toContain("План и выбранный режим сохранены");
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["rewrite:make_post"]);
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
   });
 

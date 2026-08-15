@@ -249,3 +249,8 @@ A FORMAT_POST malformed, terminal provider, or notification failure restores `dr
 ## Draft regeneration
 
 In draft_editing, draft:rerun:clean_up:<version> and draft:rerun:make_post:<version> are accepted only when the callback version matches the active draft. The project first moves to draft_generating and queues one versioned GENERATE_DRAFT with the requested mode. A double tap gets pending guidance; an old button gets stale guidance. Success appends the new draft to history, atomically swaps the active draft and rewrite mode, increments its version, and returns to draft_editing. Terminal failure retains the preceding active draft and rewrite mode.
+
+
+## Stage 2 generation recovery
+
+A selected rewrite mode stays durable while draft_generating. Retryable provider failures and repairable draft-output validation use the same job up to three attempts. Terminal initial failure returns to rewrite_mode with one direct retry button for the already selected mode; terminal rerun failure returns to draft_editing and preserves the active draft and rewrite mode.

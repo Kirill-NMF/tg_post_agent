@@ -26,7 +26,7 @@ export class ProjectService {
     private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters,
     private readonly jobs?: JobRepository,
-    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3 },
+    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number; draftGeneration: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3, draftGeneration: 3 },
     private readonly formattingEnabled = false
   ) {}
 
@@ -150,6 +150,7 @@ export class ProjectService {
 
   async chooseRewriteMode(telegramUserId: TelegramUserId, rewriteMode: RewriteMode): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
+    if (project.state === "draft_generating") return [{ kind: "message", text: "Черновик уже генерируется. Дождитесь результата." }];
     if (project.state !== "rewrite_mode" || !project.selectedPlan || !project.transcript || !project.currentPostIndex) {
       return [{ kind: "message", text: "Режим можно выбрать после выбора плана." }];
     }
@@ -432,7 +433,8 @@ export class ProjectService {
       projectId: project.id,
       postId: post.id,
       dedupeKey: `project:${project.id}:post:${project.currentPostIndex}:draft:${project.rewriteMode}`,
-      payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode }
+      payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode },
+      maxAttempts: this.jobAttempts.draftGeneration ?? 3
     });
   }
 
@@ -441,7 +443,8 @@ export class ProjectService {
     await this.jobs.enqueue({
       type: "GENERATE_DRAFT", projectId: project.id, postId: post.id,
       dedupeKey: "project:" + project.id + ":post:" + post.index + ":rerun:" + rewriteMode + ":" + sourceDraftVersion,
-      payload: { postIndex: post.index, rewriteMode, generationMode: "rerun", sourceDraftVersion }
+      payload: { postIndex: post.index, rewriteMode, generationMode: "rerun", sourceDraftVersion },
+      maxAttempts: this.jobAttempts.draftGeneration ?? 3
     });
   }
 

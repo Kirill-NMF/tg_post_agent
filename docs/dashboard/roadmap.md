@@ -101,3 +101,8 @@ Versioned mode-specific rerun-from-source is implemented with deterministic Tier
 ## Stage 3 latency baseline
 
 Timing instrumentation is deployed for FORMAT_POST. The first controlled owner Option 2 run is a single baseline sample: locate formatting_job_timing by job id and read queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, totalDurationMs, and terminalCategory. Do not change provider/model/timeout from one sample; use the dominant category to select the next measured diagnostic.
+
+
+## Stage 2 reliability checkpoint
+
+Draft generation now keeps one selected-mode intent through bounded retries and direct retry recovery. The next controlled owner check must verify one selected mode yields exactly one draft or one direct same-mode retry control, then record draft_generation_job_timing fields without exposing content.

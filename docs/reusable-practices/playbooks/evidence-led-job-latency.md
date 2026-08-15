@@ -21,3 +21,8 @@ For Stage 3, providerDurationMs covers the adapter request boundary, including r
 ## Anti-patterns
 
 Changing provider/model/timeout because of an anecdotal wait; logging content to explain latency; treating totalDurationMs as provider latency; retrying the baseline sample; allowing telemetry failures to block recovery.
+
+
+## Draft-generation terminal timing
+
+For Stage 2 generation use draft_generation_job_timing with the same bounded timing fields as formatting. terminalCategory distinguishes success, retry_scheduled, output_repair_scheduled, terminal_failure, notifier_failed, and provider_unexpected_failure. A repair attempt is part of the original intent and must use the same confirmed source and rewrite mode.

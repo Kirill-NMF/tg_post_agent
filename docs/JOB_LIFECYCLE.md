@@ -262,3 +262,8 @@ A rejected formatting plan records only a bounded failure boundary and validatio
 ## Stage 3 shared-boundary composition
 
 A formatting plan may combine one emoji insertion and one paragraph break at the same original boundary. For an after-anchor pair the renderer places emoji before the paragraph break; for a before-anchor pair it places the paragraph break before emoji. It records both inserted tokens, so canonical text recovery remains exact. Duplicate operations of the same decoration category at one boundary are rejected as FORMAT_INSERTION_CONFLICT and restore draft_editing.
+
+
+## Stage 2 draft-generation reliability
+
+One selected rewrite mode creates one GENERATE_DRAFT intent with at most three provider attempts. Retryable provider failures and bounded output repair remain in the same durable job and preserve the confirmed plan, transcript, and mode. A terminal initial failure preserves plan and selected mode in rewrite_mode and sends one direct retry button for that mode; a rerun failure restores the prior active draft and mode with its versioned direct retry button. Stale rerun actions do not receive an automatic retry control.

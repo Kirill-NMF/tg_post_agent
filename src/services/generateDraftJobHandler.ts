@@ -4,7 +4,7 @@ import type { Project, ProjectMessageKind } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
-import { draftReplyMarkup } from "./draftPresentation.js";
+import { draftGenerationRetryMarkup, draftReplyMarkup } from "./draftPresentation.js";
 import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWorker.js";
 
 export type GenerateDraftJobHandlerDeps = {
@@ -13,6 +13,7 @@ export type GenerateDraftJobHandlerDeps = {
   notifier?: TelegramNotifier;
   logger?: Logger;
   formattingEnabled?: boolean;
+  now?: () => number;
 };
 
 export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps): JobHandler {
@@ -20,6 +21,9 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     if (job.type !== "GENERATE_DRAFT") throw new PermanentJobError("UNEXPECTED_JOB_TYPE", "Handler received an unexpected job type.");
     if (!job.projectId) throw new PermanentJobError("MISSING_PROJECT_ID", "Draft job is missing project id.");
     const logger = deps.logger ?? noopLogger;
+    const now = deps.now ?? Date.now;
+    const startedAt = now();
+    const queueWaitMs = Math.max(0, startedAt - job.createdAt.getTime());
     const project = await deps.projects.findById(job.projectId);
     if (!project || !project.isActive) throw new PermanentJobError("PROJECT_NOT_ACTIVE", "Project is no longer active.");
     if (project.state !== "draft_generating") throw new PermanentJobError("PROJECT_STATE_INVALID", "Project is not waiting for draft generation.");
@@ -31,13 +35,17 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     if (!post) throw new PermanentJobError("DRAFT_POST_MISSING", "Current post is required before draft generation.");
     const rerun = rerunRequest(job.payload);
     if (rerun && (!post.currentDraft || currentDraftVersion(post) !== rerun.sourceDraftVersion)) {
-      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_RERUN_STALE", true);
+      project.state = "draft_editing";
+      await deps.projects.save(project);
       throw new PermanentJobError("DRAFT_RERUN_STALE", "Draft rerun source is stale.");
     }
     const requestedRewriteMode = rerun?.rewriteMode ?? project.rewriteMode;
+    const retry = rerun ? { rewriteMode: rerun.rewriteMode, sourceDraftVersion: rerun.sourceDraftVersion } : { rewriteMode: requestedRewriteMode };
 
     logger.info({ event: "draft_generation_started", jobId: job.id, projectId: job.projectId, postIndex: post.index }, "draft generation started");
     let result: Awaited<ReturnType<ModelAdapters["generateDraft"]>>;
+    const providerStartedAt = now();
+    let providerDurationMs = 0;
     try {
       result = await deps.drafting.generateDraft({
         projectId: project.id,
@@ -48,13 +56,21 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
         compactContext: rerun ? [] : draftContext(project),
         outputLanguage: project.outputLanguage
       });
+      providerDurationMs = Math.max(0, now() - providerStartedAt);
     } catch {
-      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE", Boolean(rerun));
+      providerDurationMs = Math.max(0, now() - providerStartedAt);
+      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE", retry, now);
+      emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_unexpected_failure");
       throw new PermanentJobError("DRAFT_PROVIDER_UNEXPECTED_FAILURE", "Draft provider failed unexpectedly.");
     }
     if (!result.ok) {
-      if (result.error.retryable && job.attempts < job.maxAttempts) throw new RetryableJobError(result.error.code, result.error.message);
-      await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code, Boolean(rerun));
+      const repairableOutput = result.error.code === "GEMINI_DRAFT_OUTPUT_INVALID" || result.error.code === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID";
+      if ((result.error.retryable || repairableOutput) && job.attempts < job.maxAttempts) {
+        emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, 0, Math.max(0, now() - startedAt), repairableOutput ? "output_repair_scheduled" : "retry_scheduled");
+        throw new RetryableJobError(result.error.code, result.error.message);
+      }
+      const notifierDurationMs = await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code, retry, now);
+      emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "terminal_failure");
       throw new PermanentJobError(result.error.code, result.error.message);
     }
 
@@ -67,13 +83,14 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     await deps.projects.save(project);
     logger.info({ event: "draft_generation_saved", jobId: job.id, projectId: job.projectId, postIndex: post.index, draftLength: post.currentDraft.length }, "draft generation saved");
 
-    const notificationStatus = await notifyDraft(deps, project, post.currentDraft, post.draftVersion, job.id);
+    const notification = await notifyDraft(deps, project, post.currentDraft, post.draftVersion, job.id, now);
+    emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notification.durationMs, Math.max(0, now() - startedAt), notification.status === "failed" ? "notifier_failed" : "success");
     return {
       provider: result.meta.provider,
       modelLabel: result.meta.modelLabel,
       postIndex: post.index,
       draftLength: post.currentDraft.length,
-      notificationStatus
+      notificationStatus: notification.status
     };
   };
 }
@@ -83,28 +100,42 @@ async function recoverFromPermanentDraftFailure(
   project: Project,
   jobId: string,
   errorCode: string,
-  retainActiveDraft: boolean
-): Promise<void> {
-  if (project.state !== "draft_generating") return;
-  project.state = retainActiveDraft ? "draft_editing" : "rewrite_mode";
+  retry: { rewriteMode: "clean_up" | "make_post"; sourceDraftVersion?: number },
+  now: () => number
+): Promise<number> {
+  if (project.state !== "draft_generating") return 0;
+  project.state = retry.sourceDraftVersion ? "draft_editing" : "rewrite_mode";
   await deps.projects.save(project);
 
-  if (!deps.notifier) return;
+  if (!deps.notifier) return 0;
   try {
-    await deps.notifier.sendMessage(project.chatId, retainActiveDraft ? "Не удалось сгенерировать новый черновик. Текущий черновик сохранён; попробуйте ещё раз." : errorCode === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" ? "Не удалось подготовить черновик на нужном языке. Выберите режим переписывания ещё раз." : "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
+    const notifierStartedAt = now();
+    const text = retry.sourceDraftVersion ? "Не удалось сгенерировать новый черновик. Текущий черновик сохранён; повторите тот же режим." : "Не удалось подготовить черновик. План и выбранный режим сохранены; повторите тот же режим.";
+    await deps.notifier.sendMessage(project.chatId, text, { reply_markup: draftGenerationRetryMarkup(retry.rewriteMode, retry.sourceDraftVersion) });
+    return Math.max(0, now() - notifierStartedAt);
   } catch {
     deps.logger?.warn({ event: "draft_generation_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft generation recovery notification failed");
+    return 0;
   }
 }
 
-async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, draft: string, draftVersion: number, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
-  if (!deps.notifier) return "not_configured";
+async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, draft: string, draftVersion: number, jobId: string, now: () => number): Promise<{ status: "not_configured" | "sent" | "failed"; durationMs: number }> {
+  if (!deps.notifier) return { status: "not_configured", durationMs: 0 };
+  const notifierStartedAt = now();
   try {
     await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion) });
-    return "sent";
+    return { status: "sent", durationMs: Math.max(0, now() - notifierStartedAt) };
   } catch {
     deps.logger?.warn({ event: "draft_generation_notification_failed", jobId, projectId: project.id }, "draft generation notification failed");
-    return "failed";
+    return { status: "failed", durationMs: Math.max(0, now() - notifierStartedAt) };
+  }
+}
+
+function emitTiming(logger: Logger, job: Job, queueWaitMs: number, providerDurationMs: number, validationApplicationDurationMs: number, notifierDurationMs: number, totalDurationMs: number, terminalCategory: string): void {
+  try {
+    logger.info({ event: "draft_generation_job_timing", jobId: job.id, type: job.type, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, totalDurationMs, terminalCategory }, "draft generation job timing");
+  } catch {
+    // Timing must not interrupt a terminal draft state or recovery.
   }
 }
 

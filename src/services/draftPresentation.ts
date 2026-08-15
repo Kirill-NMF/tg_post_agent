@@ -14,3 +14,9 @@ export function draftReplyMarkup(formattingEnabled = false, draftVersion = 1) {
     inline_keyboard: draftActionButtons(formattingEnabled, draftVersion).map((button) => [{ text: button.label, callback_data: button.action }])
   };
 }
+
+export function draftGenerationRetryMarkup(rewriteMode: "clean_up" | "make_post", sourceDraftVersion?: number) {
+  const label = rewriteMode === "clean_up" ? "Повторить: Почистить" : "Повторить: Сделать пост";
+  const action = sourceDraftVersion ? "draft:rerun:" + rewriteMode + ":" + sourceDraftVersion : "rewrite:" + rewriteMode;
+  return { inline_keyboard: [[{ text: label, callback_data: action }]] };
+}
