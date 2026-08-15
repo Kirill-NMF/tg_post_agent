@@ -34,6 +34,32 @@ describe("OpenRouterFormattingAdapter", () => {
       .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
   });
 
+  it("classifies an Option 2 lexical safety rejection without logging draft or model output", async () => {
+    const logger = new CapturingLogger();
+    const adapter = new OpenRouterFormattingAdapter({
+      client: capturingClient(JSON.stringify({
+        option: "option_2",
+        operations: [
+          { kind: "emoji_insertion", anchor: { text: "Alpha", occurrence: 0 }, position: "after", emoji: "\u{1f4a1}" },
+          { kind: "paragraph_break", anchor: { text: "Alpha", occurrence: 0 }, position: "after" }
+        ]
+      })),
+      model: "owner-selected-format-model",
+      logger
+    });
+
+    await expect(adapter.formatPost({ projectId: "project-1", draftText: "SECRET DRAFT Alpha", formattingOption: "option_2" }))
+      .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
+    expect(logger.entries.at(-1)?.fields).toMatchObject({
+      event: "formatting_request_failed",
+      failureBoundary: "formatting_plan_validation",
+      validationCode: "FORMAT_INSERTION_AMBIGUOUS",
+      errorCode: "FORMAT_INSERTION_AMBIGUOUS",
+      errorName: "FormattingPlanValidationError"
+    });
+    expect(JSON.stringify(logger.entries)).not.toContain("SECRET DRAFT");
+  });
+
   it("categorizes unknown provider errors without logging draft or raw output", async () => {
     const logger = new CapturingLogger();
     const adapter = new OpenRouterFormattingAdapter({

@@ -57,6 +57,32 @@ describe("FORMAT_POST job handler", () => {
     expect(notifier.messages[0]?.text).not.toContain("Canonical draft");
   });
 
+  it("keeps the active Option 2 draft editable after a rejected decoration plan", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_INSERTION_AMBIGUOUS", message: "plan rejected", retryable: false } }; } },
+        notifier
+      })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    const restored = await projects.findById(project.id);
+    expect((await jobs.findById(job.id))?.status).toBe("failed");
+    expect(restored?.state).toBe("draft_editing");
+    expect(restored?.posts[0]?.currentDraft).toBe("Canonical draft.");
+    expect(restored?.posts[0]?.formattedText).toBeUndefined();
+    expect(restored?.posts[0]?.formattingOption).toBeUndefined();
+    expect(notifier.messages).toHaveLength(1);
+    expect(notifier.messages[0]?.text).not.toContain("Canonical draft.");
+  });
+
   it("turns an exhausted retryable timeout into one safe recovery", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();

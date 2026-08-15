@@ -42,3 +42,8 @@ Record path-specific Tier 1/Tier 2 evidence and the final durable state. A dashb
 ### Anti-Patterns
 
 Treating acknowledgement as completion; asking owners to discover delivery/state bugs; hiding busy-state failures; calling a mock test a transport smoke.
+
+
+## Formatting-plan diagnostic procedure
+
+When Stage 3 sends a safe recovery after a provider response, record only a boundary category and a bounded validation code. A valid JSON plan rejected by the lexical or emoji renderer is formatting_plan_validation; a non-JSON or malformed provider envelope is provider_response; transport failures are provider_transport. Keep draft text, prompt, response body, credentials, and headers out of logs. Reproduce the selected category with a fixture, assert that the active draft returns to draft_editing, and require exactly one recovery notification before a controlled transport check.

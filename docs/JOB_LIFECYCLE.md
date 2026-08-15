@@ -252,3 +252,8 @@ Text or voice correction of a formatted result invalidates the stale formatted s
 ## Draft regeneration
 
 A mode-specific rerun uses GENERATE_DRAFT with a versioned payload and requested clean_up or make_post mode. It uses the same Stage 2 generation adapter, passing confirmed selected plan and stored transcript only; compact edit context is empty. Previous drafts remain in history. The handler replaces current_draft and rewrite_mode only after valid success, and terminal recovery retains the prior editable draft and mode.
+
+
+## Stage 3 safe plan-validation evidence
+
+A rejected formatting plan records only a bounded failure boundary and validation code. The plan-validation boundary distinguishes lexical or emoji decoration rejection from provider response and transport failures without recording a draft, prompt, model body, credentials, or headers. The terminal path restores draft_editing and leaves the canonical active draft unchanged.

@@ -18,6 +18,13 @@ export type FormattingInteractionClient = {
   create(request: FormattingInteractionRequest): Promise<{ output_text?: unknown }>;
 };
 
+export class FormattingPlanValidationError extends Error {
+  constructor(readonly code: string) {
+    super("Formatting plan validation failed.");
+    this.name = "FormattingPlanValidationError";
+  }
+}
+
 export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatPost"> {
   private readonly maxOperations: number;
 
@@ -68,7 +75,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
       };
     } catch (error) {
       logger.warn(
-        { event: "formatting_request_failed", projectId: params.projectId, modelLabel: this.input.model, formattingOption: params.formattingOption, errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
+        { event: "formatting_request_failed", projectId: params.projectId, modelLabel: this.input.model, formattingOption: params.formattingOption, failureBoundary: failureBoundary(error), validationCode: safeValidationCode(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
         "formatting request failed"
       );
       return failure("FORMAT_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
@@ -82,12 +89,17 @@ export function parseFormattingPlan(
   formattingOption: FormattingOption,
   maxOperations = 30
 ): FormattingDecorationPlan {
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID");
+  }
   if (!isRecord(parsed) || !hasOnlyKeys(parsed, ["option", "operations"])) {
-    throw new Error("Formatting output must contain only option and operations.");
+    throw new FormattingPlanValidationError("FORMAT_PLAN_SCHEMA_INVALID");
   }
   if (parsed.option !== formattingOption || !Array.isArray(parsed.operations) || parsed.operations.length > maxOperations || !parsed.operations.every(isValidOperationShape)) {
-    throw new Error("Formatting output option or operation count is invalid.");
+    throw new FormattingPlanValidationError("FORMAT_PLAN_CONTRACT_INVALID");
   }
 
   const plan: FormattingDecorationPlan = {
@@ -95,7 +107,7 @@ export function parseFormattingPlan(
     operations: parsed.operations as FormattingDecorationPlan["operations"]
   };
   const rendered = applyFormattingPlan(draftText, plan);
-  if (!rendered.ok) throw new Error("Formatting output does not preserve the canonical draft.");
+  if (!rendered.ok) throw new FormattingPlanValidationError(rendered.code);
   return plan;
 }
 
@@ -168,7 +180,19 @@ function isValidAnchor(value: unknown): boolean {
 }
 
 function safeErrorCode(error: unknown): string {
-  return safeProviderErrorCode(error);
+  return error instanceof FormattingPlanValidationError ? error.code : safeProviderErrorCode(error);
+}
+
+function failureBoundary(error: unknown): "formatting_plan_validation" | "provider_response" | "provider_transport" | "unknown" {
+  if (error instanceof FormattingPlanValidationError) return "formatting_plan_validation";
+  if (error instanceof ProviderResponseError) return "provider_response";
+  const code = safeProviderErrorCode(error);
+  if (code !== "PROVIDER_REQUEST_FAILED") return "provider_transport";
+  return "unknown";
+}
+
+function safeValidationCode(error: unknown): string | undefined {
+  return error instanceof FormattingPlanValidationError ? error.code : undefined;
 }
 
 function safeResponseMetadata(error: unknown): ProviderResponseError["metadata"] | undefined {
