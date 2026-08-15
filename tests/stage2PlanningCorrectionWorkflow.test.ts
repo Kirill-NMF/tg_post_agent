@@ -278,6 +278,10 @@ class RecordingJobs implements JobRepository {
     return this.inner.claimNextDue(input);
   }
 
+  claimDueById(input: { jobId: JobId; workerId: string; now?: Date }): Promise<Job | undefined> {
+    return this.inner.claimDueById(input);
+  }
+
   markSucceeded(jobId: JobId, result?: Record<string, unknown>): Promise<Job> {
     return this.inner.markSucceeded(jobId, result);
   }

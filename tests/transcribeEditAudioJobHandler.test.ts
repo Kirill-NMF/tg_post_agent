@@ -231,6 +231,10 @@ class InspectingJobs implements JobRepository {
     return this.inner.claimNextDue(input);
   }
 
+  claimDueById(input: { jobId: JobId; workerId: string; now?: Date }) {
+    return this.inner.claimDueById(input);
+  }
+
   markSucceeded(jobId: JobId, result?: Record<string, unknown>) {
     return this.inner.markSucceeded(jobId, result);
   }
