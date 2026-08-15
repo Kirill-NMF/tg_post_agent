@@ -113,8 +113,8 @@ async def run() -> dict[str, object]:
         if not recipient_matches(account.id, configured_recipient): raise CanaryError("recipient_identity_mismatch")
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
         async with client.conversation(target, timeout=180, exclusive=True) as c:
-            await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
-            run_started = time.time(); outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
+            run_started = time.time(); await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
+            outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
             scope = await wait_for_scope(persisted_scope, account.id, run_started)
             report["projectScopeFound"] = bool(scope.get("found")); report["projectStateCategory"] = scope.get("state")
             if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")

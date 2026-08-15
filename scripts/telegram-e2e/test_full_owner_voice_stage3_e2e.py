@@ -25,4 +25,7 @@ class T(unittest.TestCase):
   rows=[{'user':7,'created':4},{'user':8,'created':9},{'user':7,'created':6}]
   self.assertEqual(x.select_scope(rows,7,5)['created'],6)
  def test_selector_absent_fails_closed(self): self.assertIsNone(x.select_scope([{'user':8,'created':9}],7,5))
+ def test_pre_start_boundary_selects_project_created_by_start(self):
+  rows=[{'user':7,'created':4},{'user':7,'created':5},{'user':8,'created':6}]
+  self.assertEqual(x.select_scope(rows,7,4)['created'],5)
 if __name__=='__main__': unittest.main()
