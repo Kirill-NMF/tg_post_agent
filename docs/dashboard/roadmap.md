@@ -96,3 +96,8 @@ No owner literary/UX handoff is permitted when a listed changed path lacks Tier 
 ## Stage 2 regeneration evidence
 
 Versioned mode-specific rerun-from-source is implemented with deterministic Tier 1 coverage. Telegram transport validation is not yet run; it remains a required dedicated-click Tier 2 checkpoint before owner UX acceptance.
+
+
+## Stage 3 latency baseline
+
+Timing instrumentation is deployed for FORMAT_POST. The first controlled owner Option 2 run is a single baseline sample: locate formatting_job_timing by job id and read queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, totalDurationMs, and terminalCategory. Do not change provider/model/timeout from one sample; use the dominant category to select the next measured diagnostic.

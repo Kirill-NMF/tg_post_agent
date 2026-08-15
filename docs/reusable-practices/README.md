@@ -11,6 +11,7 @@ Portable engineering playbooks extracted from project work. They describe reusab
 - [Coordinator-builder operating protocol](playbooks/coordinator-builder-operating-protocol.md)
 - [Safe production operations for small private bots](playbooks/safe-private-bot-production-operations.md)
 - [Preservation-first transformations](playbooks/preservation-first-transformations.md)
+- [Evidence-led job latency diagnosis](playbooks/evidence-led-job-latency.md)
 
 ## Contribution Rule
 

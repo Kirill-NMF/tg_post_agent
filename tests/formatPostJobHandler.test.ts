@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ModelAdapters } from "../src/domain/modelContracts.js";
+import type { Job } from "../src/domain/jobTypes.js";
 import type { Project } from "../src/domain/types.js";
 import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository.js";
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { createFormatPostJobHandler } from "../src/services/formatPostJobHandler.js";
 import { JobWorker } from "../src/services/jobWorker.js";
 import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
+import type { Logger, LogFields } from "../src/observability/logger.js";
 
 describe("FORMAT_POST job handler", () => {
   it("persists a validated formatted result, then notifies exactly once", async () => {
@@ -32,6 +34,21 @@ describe("FORMAT_POST job handler", () => {
     expect(notifier.messages[0]).toMatchObject({ chatId: "200", text: "*Canonical* draft." });
     expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:edit", "final:accept"]);
     expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
+  });
+
+  it("emits redacted Stage 3 timing for a successful formatting job", async () => {
+    const projects = new InMemoryProjectRepository();
+    const notifier = new CapturingNotifier();
+    const logger = new CapturingLogger();
+    const project = await seedFormattingProject(projects);
+    const job: Job = { id: "job-timing", type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" }, status: "running", attempts: 1, maxAttempts: 1, runAfter: new Date(100), createdAt: new Date(100), updatedAt: new Date(100) };
+    const values = [500, 510, 530, 540, 550, 560, 570, 580];
+    const handler = createFormatPostJobHandler({ projects, formatting: successAdapter(), notifier, logger, now: () => values.shift() ?? 580 });
+
+    await handler(job);
+
+    expect(logger.entries.at(-1)?.fields).toMatchObject({ event: "formatting_job_timing", jobId: "job-timing", type: "FORMAT_POST", terminalCategory: "success", queueWaitMs: 400, providerDurationMs: 20, validationApplicationDurationMs: 10, notifierDurationMs: 10, totalDurationMs: 80 });
+    expect(JSON.stringify(logger.entries)).not.toContain("Canonical draft");
   });
 
   it("restores draft_editing and sends one recovery after permanent malformed output", async () => {
@@ -61,13 +78,15 @@ describe("FORMAT_POST job handler", () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
+    const logger = new CapturingLogger();
     const project = await seedFormattingProject(projects);
     const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
     const worker = new JobWorker(jobs, {
       FORMAT_POST: createFormatPostJobHandler({
         projects,
         formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_INSERTION_CONFLICT", message: "plan rejected", retryable: false } }; } },
-        notifier
+        notifier,
+        logger
       })
     });
 
@@ -81,6 +100,30 @@ describe("FORMAT_POST job handler", () => {
     expect(restored?.posts[0]?.formattingOption).toBeUndefined();
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).not.toContain("Canonical draft.");
+    expect(logger.entries.find((entry) => entry.fields.event === "formatting_job_timing")?.fields).toMatchObject({ terminalCategory: "provider_or_plan_failure" });
+  });
+
+  it("does not let a timing logger failure prevent Option 2 recovery", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
+    const logger = new TimingThrowingLogger();
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_INSERTION_CONFLICT", message: "plan rejected", retryable: false } }; } },
+        notifier,
+        logger
+      })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+
+    expect((await jobs.findById(job.id))?.status).toBe("failed");
+    expect((await projects.findById(project.id))?.state).toBe("draft_editing");
+    expect(notifier.messages).toHaveLength(1);
   });
 
   it("turns an exhausted retryable timeout into one safe recovery", async () => {
@@ -161,6 +204,20 @@ function successAdapter(): Pick<ModelAdapters, "formatPost"> {
       };
     }
   };
+}
+
+class CapturingLogger implements Logger {
+  readonly entries: Array<{ level: string; fields: LogFields; message: string }> = [];
+  info(fields: LogFields, message: string): void { this.entries.push({ level: "info", fields, message }); }
+  warn(fields: LogFields, message: string): void { this.entries.push({ level: "warn", fields, message }); }
+  error(fields: LogFields, message: string): void { this.entries.push({ level: "error", fields, message }); }
+}
+
+class TimingThrowingLogger extends CapturingLogger {
+  override info(fields: LogFields, message: string): void {
+    if (fields.event === "formatting_job_timing") throw new Error("timing sink unavailable");
+    super.info(fields, message);
+  }
 }
 
 class CapturingNotifier implements TelegramNotifier {
