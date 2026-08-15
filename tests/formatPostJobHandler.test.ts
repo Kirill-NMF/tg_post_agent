@@ -66,6 +66,27 @@ describe("FORMAT_POST job handler", () => {
     expect(notifier.messages).toHaveLength(1);
   });
 
+  it("calls the Option 2 segment adapter with its bound receiver", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const project = await seedFormattingProject(projects);
+    const adapter = {
+      marker: "bound",
+      async formatPost() { throw new Error("legacy path must not be used"); },
+      async formatOption2Segments(input: { segments: readonly { id: string }[] }) {
+        if (this.marker !== "bound") throw new Error("segment_adapter_receiver_lost");
+        return { ok: true as const, value: { directives: [{ id: input.segments[0]!.id, kind: "emoji_insertion" as const, position: "before" as const, emoji: "✨" }] }, meta: { provider: "openrouter" as const, modelLabel: "bound-segment-model" } };
+      }
+    };
+    await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({ projects, formatting: adapter })
+    });
+
+    await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("✨Canonical draft.");
+  });
+
   it("recovers an Option 2 invalid segment directive without mutating the active draft", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();

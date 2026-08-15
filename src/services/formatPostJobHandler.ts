@@ -52,13 +52,12 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
 
     if (request.formattingOption === "option_2") {
       const segments = deriveCanonicalSegments(post.currentDraft);
-      const segmentFormatter = deps.formatting.formatOption2Segments;
-      if (!segmentFormatter) {
+      if (!deps.formatting.formatOption2Segments) {
         providerFailure = { code: "FORMAT_SEGMENT_ADAPTER_UNAVAILABLE", message: "Segment formatting is unavailable.", retryable: false };
       } else {
         const providerStartedAt = now();
         try {
-          const result = await segmentFormatter({ projectId: project.id, segments });
+          const result = await deps.formatting.formatOption2Segments({ projectId: project.id, segments });
           providerDurationMs = Math.max(0, now() - providerStartedAt);
           if (!result.ok) {
             providerFailure = result.error;
