@@ -37,11 +37,38 @@ describe("formatting decoration plans", () => {
     { label: "reordering operation", plan: { option: "option_2", operations: [{ kind: "reorder", anchors: [] }] } },
     { label: "ambiguous anchor", plan: { option: "option_2", operations: [{ kind: "emoji_insertion", anchor: { text: "Alpha" }, position: "after", emoji: "\u{1f4a1}" }] } },
     { label: "Option 1 emoji", plan: { option: "option_1", operations: [{ kind: "emoji_insertion", anchor: { text: "Alpha", occurrence: 0 }, position: "after", emoji: "\u{1f4a1}" }] } },
-    { label: "conflicting insertion anchors", plan: { option: "option_2", operations: [{ kind: "emoji_insertion", anchor: { text: "Alpha", occurrence: 0 }, position: "after", emoji: "\u{1f4a1}" }, { kind: "paragraph_break", anchor: { text: "Alpha", occurrence: 0 }, position: "after" }] } }
   ])("rejects $label and returns the original draft unchanged", ({ plan }) => {
     const result = applyFormattingPlan(source, plan as unknown as FormattingDecorationPlan);
     expect(result.ok).toBe(false);
     expect(result.text).toBe(source);
+  });
+
+  it("composes an Option 2 emoji and paragraph break at one anchor in stable order", () => {
+    const canonical = "Alpha. Beta.";
+    const result = applyFormattingPlan(canonical, {
+      option: "option_2",
+      operations: [
+        { kind: "paragraph_break", anchor: { text: "Alpha.", occurrence: 0 }, position: "after" },
+        { kind: "emoji_insertion", anchor: { text: "Alpha.", occurrence: 0 }, position: "after", emoji: "\u{1f4a1}" }
+      ]
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.text).toBe("Alpha.\u{1f4a1}\n\n Beta.");
+    expect(recoverCanonicalText(result.text, result.insertions)).toBe(canonical);
+  });
+
+  it("rejects duplicate decorations at one boundary and retains canonical text", () => {
+    const result = applyFormattingPlan(source, {
+      option: "option_2",
+      operations: [
+        { kind: "paragraph_break", anchor: { text: "Alpha", occurrence: 0 }, position: "after" },
+        { kind: "paragraph_break", anchor: { text: "Alpha", occurrence: 0 }, position: "after" }
+      ]
+    });
+
+    expect(result).toMatchObject({ ok: false, code: "FORMAT_INSERTION_CONFLICT", text: source });
   });
 
   it("fails closed when rendered presentation cannot be removed at the recorded anchors", () => {

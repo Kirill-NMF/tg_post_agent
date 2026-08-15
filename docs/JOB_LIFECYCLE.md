@@ -257,3 +257,8 @@ A mode-specific rerun uses GENERATE_DRAFT with a versioned payload and requested
 ## Stage 3 safe plan-validation evidence
 
 A rejected formatting plan records only a bounded failure boundary and validation code. The plan-validation boundary distinguishes lexical or emoji decoration rejection from provider response and transport failures without recording a draft, prompt, model body, credentials, or headers. The terminal path restores draft_editing and leaves the canonical active draft unchanged.
+
+
+## Stage 3 shared-boundary composition
+
+A formatting plan may combine one emoji insertion and one paragraph break at the same original boundary. For an after-anchor pair the renderer places emoji before the paragraph break; for a before-anchor pair it places the paragraph break before emoji. It records both inserted tokens, so canonical text recovery remains exact. Duplicate operations of the same decoration category at one boundary are rejected as FORMAT_INSERTION_CONFLICT and restore draft_editing.

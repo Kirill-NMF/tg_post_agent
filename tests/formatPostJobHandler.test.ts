@@ -66,7 +66,7 @@ describe("FORMAT_POST job handler", () => {
     const worker = new JobWorker(jobs, {
       FORMAT_POST: createFormatPostJobHandler({
         projects,
-        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_INSERTION_AMBIGUOUS", message: "plan rejected", retryable: false } }; } },
+        formatting: { async formatPost() { return { ok: false, error: { code: "FORMAT_INSERTION_CONFLICT", message: "plan rejected", retryable: false } }; } },
         notifier
       })
     });

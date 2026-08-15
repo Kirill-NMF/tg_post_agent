@@ -24,3 +24,8 @@ Record the canonical input fingerprint or safe test fixture label, operation val
 ## Anti-Patterns
 
 Accepting model-generated replacement text; treating a semantic similarity score as preservation proof; silently applying partially valid operations; letting a display option introduce lexical content; using a premium/platform-only presentation feature without an explicit implementation decision.
+
+
+## Shared-boundary decoration rule
+
+For insert-only transformations, define a stable order for compatible insertions that share a source boundary and store every rendered insertion for exact recovery. Do not reject a safe emoji plus paragraph pair merely because their indexes match. Reject duplicate operations in the same decoration category with a bounded safe code, then prove the active canonical value and editable state survive the terminal path.

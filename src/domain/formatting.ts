@@ -25,8 +25,15 @@ export type FormattingApplyResult =
   | { ok: false; code: string; message: string; text: string };
 
 type ResolvedOperation =
-  | { kind: "paragraph_break" | "emoji_insertion"; sourceIndex: number; text: string }
+  | { kind: "paragraph_break" | "emoji_insertion"; sourceIndex: number; text: string; position: "before" | "after" }
   | { kind: "markdown_span"; start: number; end: number; marker: string };
+
+type PendingInsertion = {
+  sourceIndex: number;
+  text: string;
+  category: "paragraph_break" | "emoji_insertion" | "markdown_open" | "markdown_close";
+  position?: "before" | "after";
+};
 
 type Invalid = { ok: false; code: string; message: string };
 
@@ -43,18 +50,24 @@ export function applyFormattingPlan(originalText: string, plan: FormattingDecora
     resolved.push(result.value);
   }
 
-  const insertionIndexes = new Set<number>();
+  const insertionKeys = new Set<string>();
   const spans: Array<{ start: number; end: number }> = [];
-  const insertions: Array<{ sourceIndex: number; text: string }> = [];
+  const insertions: PendingInsertion[] = [];
 
   for (const operation of resolved) {
     if (operation.kind === "markdown_span") {
       spans.push({ start: operation.start, end: operation.end });
-      insertions.push({ sourceIndex: operation.start, text: operation.marker });
-      insertions.push({ sourceIndex: operation.end, text: operation.marker });
-    } else {
-      insertions.push({ sourceIndex: operation.sourceIndex, text: operation.text });
+      insertions.push({ sourceIndex: operation.start, text: operation.marker, category: "markdown_open" });
+      insertions.push({ sourceIndex: operation.end, text: operation.marker, category: "markdown_close" });
+      continue;
     }
+    const category = operation.kind;
+    const key = String(operation.sourceIndex) + ":" + category;
+    if (insertionKeys.has(key)) {
+      return fallback(originalText, "FORMAT_INSERTION_CONFLICT", "Duplicate decorations cannot share the same insertion boundary.");
+    }
+    insertionKeys.add(key);
+    insertions.push({ sourceIndex: operation.sourceIndex, text: operation.text, category, position: operation.position });
   }
 
   spans.sort((left, right) => left.start - right.start || left.end - right.end);
@@ -64,14 +77,7 @@ export function applyFormattingPlan(originalText: string, plan: FormattingDecora
     }
   }
 
-  for (const insertion of insertions) {
-    if (insertionIndexes.has(insertion.sourceIndex)) {
-      return fallback(originalText, "FORMAT_INSERTION_AMBIGUOUS", "Multiple decorations cannot use the same insertion anchor.");
-    }
-    insertionIndexes.add(insertion.sourceIndex);
-  }
-
-  insertions.sort((left, right) => left.sourceIndex - right.sourceIndex);
+  insertions.sort((left, right) => left.sourceIndex - right.sourceIndex || insertionOrder(left) - insertionOrder(right) || left.text.localeCompare(right.text));
   let cursor = 0;
   let text = "";
   const renderedInsertions: RenderedInsertion[] = [];
@@ -108,7 +114,7 @@ function resolveOperation(
     const anchor = resolveAnchor(originalText, operation.anchor);
     if (!anchor.ok) return anchor;
     if (operation.position !== "before" && operation.position !== "after") return invalidOperation("Paragraph break position is invalid.");
-    return { ok: true, value: { kind: "paragraph_break", sourceIndex: operation.position === "before" ? anchor.value.start : anchor.value.end, text: "\n\n" } };
+    return { ok: true, value: { kind: "paragraph_break", sourceIndex: operation.position === "before" ? anchor.value.start : anchor.value.end, text: "\n\n", position: operation.position } };
   }
   if (operation.kind === "emoji_insertion") {
     if (option !== "option_2") return { ok: false, code: "FORMAT_OPTION_1_EMOJI_FORBIDDEN", message: "Option 1 does not allow expressive emoji." };
@@ -118,7 +124,7 @@ function resolveOperation(
     if (typeof operation.emoji !== "string" || !isExpressiveEmoji(operation.emoji)) {
       return { ok: false, code: "FORMAT_EMOJI_INVALID", message: "Emoji insertion must contain only a bounded expressive emoji token." };
     }
-    return { ok: true, value: { kind: "emoji_insertion", sourceIndex: operation.position === "before" ? anchor.value.start : anchor.value.end, text: operation.emoji } };
+    return { ok: true, value: { kind: "emoji_insertion", sourceIndex: operation.position === "before" ? anchor.value.start : anchor.value.end, text: operation.emoji, position: operation.position } };
   }
   if (operation.kind === "markdown_span") {
     const anchor = resolveAnchor(originalText, operation.anchor);
@@ -146,6 +152,13 @@ function resolveAnchor(originalText: string, candidate: unknown): { ok: true; va
     fromIndex = matchIndex + candidate.text.length;
   }
   return { ok: true, value: { start: matchIndex, end: matchIndex + candidate.text.length } };
+}
+
+function insertionOrder(insertion: PendingInsertion): number {
+  if (insertion.category === "markdown_close") return 0;
+  if (insertion.position === "after") return insertion.category === "emoji_insertion" ? 1 : 2;
+  if (insertion.position === "before") return insertion.category === "paragraph_break" ? 3 : 4;
+  return 5;
 }
 
 function markerForStyle(style: unknown): string | undefined {
