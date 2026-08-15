@@ -28,6 +28,9 @@ def callback(message, prefix: str):
             if getattr(button, "data", b"").decode().startswith(prefix): return button
     return None
 
+def recipient_matches(account_id: int, configured_recipient: str | None) -> bool:
+    return bool(configured_recipient and configured_recipient.isdigit() and int(configured_recipient) == account_id)
+
 async def receive_until(conversation, bot_id: int, prefix: str, timeout: float):
     deadline = asyncio.get_running_loop().time() + timeout
     while True:
@@ -46,9 +49,9 @@ async def receive_message(conversation, bot_id: int, timeout: float):
 async def observe_callback(client, target, bot_id: int, after_id: int, prefix: str, timeout: float):
     deadline = asyncio.get_running_loop().time() + timeout
     while asyncio.get_running_loop().time() < deadline:
-        messages = await client.get_messages(target, limit=40, min_id=after_id)
-        current = [m for m in messages if m.sender_id == bot_id and m.id > after_id]
-        for message in reversed(current):
+        messages = await client.get_messages(target, limit=40)
+        current = sorted((m for m in messages if m.sender_id == bot_id and m.id > after_id), key=lambda message: message.id)
+        for message in current:
             choice = callback(message, prefix)
             if choice: return message, choice, {"callbackPrefix": prefix, "newBotMessageCount": len(current), "cursorAdvanced": True}
         await asyncio.sleep(1)
@@ -78,6 +81,12 @@ async def run() -> dict[str, object]:
         await client.connect()
         identity = await asyncio.to_thread(fetch_runtime_bot_identity, os.environ["TG_POST_AGENT_REAL_TG_BOT_TOKEN"])
         target = await client.get_entity(identity.username)
+        account = await client.get_me()
+        configured_recipient = os.environ.get("TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID")
+        if configured_recipient is None:
+            os.environ["TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID"] = str(account.id)
+            configured_recipient = os.environ["TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID"]
+        if not recipient_matches(account.id, configured_recipient): raise CanaryError("recipient_identity_mismatch")
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
