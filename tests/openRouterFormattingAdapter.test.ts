@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OpenRouterFormattingAdapter, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
+import { FormattingPlanValidationError, OpenRouterFormattingAdapter, parseFormattingPlan, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
 import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
@@ -20,6 +20,19 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(client.requests[0]?.input).toContain("decoration plan only");
     expect(client.requests[0]?.input).not.toContain("replacement body");
   });
+
+  it("categorizes a mismatched selected option without recording model content", () => {
+    expectValidationCode(() => parseFormattingPlan(JSON.stringify({ option: "option_1", operations: [] }), "Alpha text.", "option_2"), "FORMAT_PLAN_OPTION_MISMATCH");
+  });
+
+  it.each([
+    [JSON.stringify({ option: "option_2", operations: "not-an-array" }), "FORMAT_PLAN_OPERATIONS_INVALID"],
+    [JSON.stringify({ option: "option_2", operations: [{ kind: "emoji_insertion", anchor: { text: "Alpha", occurrence: 0 }, emoji: "\u{2728}" }] }), "FORMAT_PLAN_OPERATION_SHAPE_INVALID"],
+    [JSON.stringify({ option: "option_2", operations: Array.from({ length: 31 }, () => ({ kind: "paragraph_break", anchor: { text: "Alpha", occurrence: 0 }, position: "after" })) }), "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED"]
+  ])("categorizes decoration contract failures safely", (output, expected) => {
+    expectValidationCode(() => parseFormattingPlan(output, "Alpha text.", "option_2"), expected);
+  });
+
 
   it.each([
     JSON.stringify({ option: "option_1", operations: [] }),
@@ -105,4 +118,14 @@ class CapturingLogger implements Logger {
   info(fields: LogFields, message: string): void { this.entries.push({ level: "info", fields, message }); }
   warn(fields: LogFields, message: string): void { this.entries.push({ level: "warn", fields, message }); }
   error(fields: LogFields, message: string): void { this.entries.push({ level: "error", fields, message }); }
+}
+
+function expectValidationCode(run: () => void, expected: string): void {
+  try {
+    run();
+    throw new Error("expected formatting plan validation failure");
+  } catch (error) {
+    expect(error).toBeInstanceOf(FormattingPlanValidationError);
+    expect((error as FormattingPlanValidationError).code).toBe(expected);
+  }
 }

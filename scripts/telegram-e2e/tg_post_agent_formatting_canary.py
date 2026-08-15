@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import asyncio,hashlib,json,os,subprocess,sys
+import asyncio,hashlib,json,os,re,subprocess,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 from tg_post_agent_smoke import *
@@ -20,7 +20,7 @@ def write(p,x):
  with os.fdopen(f,"w")as o:json.dump(x,o,separators=(",",":"),sort_keys=True);o.write("\n")
  os.chmod(p,0o600)
 def model_fingerprint():
- return hashlib.sha256((need("OPENROUTER_FORMATTING_MODEL")+"|"+os.environ.get("OPENROUTER_FORMATTING_ROUTE_FINGERPRINT","default")).encode()).hexdigest()[:12]
+ return hashlib.sha256((need("OPENROUTER_FORMATTING_MODEL")+"|"+os.environ.get("OPENROUTER_FORMATTING_ROUTE_FINGERPRINT","default")+"|"+os.environ.get("TG_POST_AGENT_FORMATTING_CANARY_SLICE","default")).encode()).hexdigest()[:12]
 def reserve(o):
  x=json.loads(LEDGER.read_text()) if LEDGER.exists() else {"dailyBudget":30,"attemptedBillableOperations":15,"remainingBudget":15,"entries":[]}
  if x["dailyBudget"]!=30 or x["attemptedBillableOperations"]>=30:raise CanaryError("budget_exhausted")
@@ -35,6 +35,10 @@ def classify_terminal(has_final_controls, has_any_controls):
  if has_final_controls:return "final"
  if not has_any_controls:return "recovery"
  raise CanaryError("stale_controls")
+def lexical_preserved(message):
+ canonical=["Synthetic","marker","scoped","draft"]
+ observed=re.findall(r"[A-Za-z]+",message or "")
+ return observed==canonical
 def btn(m,d):
  for r in getattr(getattr(m,"reply_markup",None),"rows",[])or[]:
   for b in getattr(r,"buttons",[])or[]:
@@ -49,7 +53,7 @@ async def nodup(c,t):
  try:await asyncio.wait_for(c.get_response(),t);raise CanaryError("duplicate_terminal")
  except TimeoutError:pass
 async def run(o):
- z={"option":o,"targetConfigured":False,"formatChoiceObserved":False,"formatTerminal":"not_observed","noDuplicate":False,"artifactObserved":False,"fixtureCleaned":False,"providerCallReserved":False,"lastStage":"preflight"};cl=None;account=None
+ z={"option":o,"targetConfigured":False,"formatChoiceObserved":False,"formatTerminal":"not_observed","noDuplicate":False,"artifactObserved":False,"lexicalPreserved":False,"fixtureCleaned":False,"providerCallReserved":False,"lastStage":"preflight"};cl=None;account=None
  try:
   from telethon import TelegramClient
   from telethon.sessions import StringSession
@@ -66,6 +70,8 @@ async def run(o):
     terminal=classify_terminal(False, bool(getattr(final,"reply_markup",None)))
    z["formatTerminal"]=terminal;await nodup(c,3);z["noDuplicate"]=True
    if terminal == "recovery": raise CanaryError("terminal_recovery")
+   if not lexical_preserved(getattr(final,"message",None)):raise CanaryError("lexical_preservation")
+   z["lexicalPreserved"]=True
    await final.click(data=done.data);a=await receive(c,ident.telegram_id,60,"artifact_timeout")
    if not getattr(a,"document",None):raise CanaryError("artifact_missing")
    await nodup(c,3);z["artifactObserved"]=True

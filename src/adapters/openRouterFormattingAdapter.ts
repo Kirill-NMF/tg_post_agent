@@ -98,8 +98,17 @@ export function parseFormattingPlan(
   if (!isRecord(parsed) || !hasOnlyKeys(parsed, ["option", "operations"])) {
     throw new FormattingPlanValidationError("FORMAT_PLAN_SCHEMA_INVALID");
   }
-  if (parsed.option !== formattingOption || !Array.isArray(parsed.operations) || parsed.operations.length > maxOperations || !parsed.operations.every(isValidOperationShape)) {
-    throw new FormattingPlanValidationError("FORMAT_PLAN_CONTRACT_INVALID");
+  if (parsed.option !== formattingOption) {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_OPTION_MISMATCH");
+  }
+  if (!Array.isArray(parsed.operations)) {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_OPERATIONS_INVALID");
+  }
+  if (parsed.operations.length > maxOperations) {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED");
+  }
+  if (!parsed.operations.every(isValidOperationShape)) {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_OPERATION_SHAPE_INVALID");
   }
 
   const plan: FormattingDecorationPlan = {

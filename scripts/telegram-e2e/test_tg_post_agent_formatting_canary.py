@@ -10,6 +10,9 @@ class T(unittest.TestCase):
   self.assertEqual(x.classify_terminal(False,False),"recovery")
   self.assertEqual(x.classify_terminal(True,True),"final")
   with self.assertRaises(x.CanaryError):x.classify_terminal(False,True)
+ def test_lexical_classifier_accepts_only_decorated_synthetic_draft(self):
+  self.assertTrue(x.lexical_preserved("✨ *Synthetic* marker scoped draft."))
+  self.assertFalse(x.lexical_preserved("Synthetic marker changed draft."))
  def test_model_fingerprint_allows_new_model_once_and_refuses_same_model_duplicate(self):
   old_ledger, old_env=x.LEDGER,dict(x.os.environ)
   with tempfile.TemporaryDirectory()as d:
