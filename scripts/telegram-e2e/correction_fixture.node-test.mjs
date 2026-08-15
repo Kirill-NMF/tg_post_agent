@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRewriteFixture, cleanupTargetMatches, syntheticFixtureTranscript, draftEnqueueGuard } from "./correction_fixture.mjs";
+import { buildRewriteFixture, cleanupTargetMatches, syntheticFixtureTranscript, draftEnqueueGuard, heldDraftEnqueue } from "./correction_fixture.mjs";
 
 test("builds a marker-scoped rewrite-mode project with source isolation", () => {
   const fixture = buildRewriteFixture({ accountId: "7", transcript: "PRIVATE_SOURCE", marker: "marker", now: new Date("2026-01-01") });
@@ -40,4 +40,9 @@ test("draft enqueue refuses non-marker, wrong-state, and duplicate fixtures", ()
   assert.equal(draftEnqueueGuard({ fixture, accountId: "8", activeDraftJobCount: 0 }), "fixture_invalid");
   assert.equal(draftEnqueueGuard({ fixture: { ...fixture, state: "planning" }, accountId: "7", activeDraftJobCount: 0 }), "fixture_invalid");
   assert.equal(draftEnqueueGuard({ fixture, accountId: "7", activeDraftJobCount: 1 }), "draft_job_already_active");
+});
+
+test("held draft enqueue is future-due and one-attempt", () => {
+  const now = new Date("2026-01-01T00:00:00Z"), hold = heldDraftEnqueue(now);
+  assert.equal(hold.maxAttempts, 1); assert.equal(hold.runAfter.getTime() - now.getTime(), 900000);
 });
