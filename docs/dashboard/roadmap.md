@@ -95,4 +95,4 @@ No owner literary/UX handoff is permitted when a listed changed path lacks Tier 
 
 ## Stage 2 regeneration evidence
 
-Versioned regenerate-from-source is implemented with deterministic Tier 1 coverage. Telegram transport validation is not yet run; it remains a required dedicated-click Tier 2 checkpoint before owner UX acceptance.
+Versioned mode-specific rerun-from-source is implemented with deterministic Tier 1 coverage. Telegram transport validation is not yet run; it remains a required dedicated-click Tier 2 checkpoint before owner UX acceptance.

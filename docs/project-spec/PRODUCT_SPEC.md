@@ -423,4 +423,4 @@ A successfully formatted message exposes a correction action and final acceptanc
 
 ### Draft regeneration
 
-After an editable draft is delivered, the bot also shows Сгенерировать заново beside Оформить. It creates a new initial draft from the same confirmed selected plan, stored transcript, and rewrite mode. Current draft text, prior corrections, and earlier generated drafts stay audit history and are not source inputs. The active draft changes only after successful generation; failure retains the prior editable draft with recovery guidance.
+After an editable draft is delivered, the bot shows Почистить заново and Сделать пост заново beside Оформить. Each action creates a new initial draft from the same confirmed selected plan and stored transcript in its explicit mode. Current draft text, prior corrections, and earlier generated drafts stay audit history and are not source inputs. The active draft and rewrite mode change only after successful generation; failure retains the prior editable draft and its existing rewrite mode with recovery guidance.

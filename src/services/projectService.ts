@@ -205,7 +205,7 @@ export class ProjectService {
     return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled, post.draftVersion) }];
   }
 
-  async regenerateDraft(telegramUserId: TelegramUserId, sourceDraftVersion: number): Promise<BotResponse[]> {
+  async rerunDraft(telegramUserId: TelegramUserId, rewriteMode: RewriteMode, sourceDraftVersion: number): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
     const post = currentPost(project);
     if (project.state === "draft_generating") return [{ kind: "message", text: "Новый черновик уже генерируется. Дождитесь результата." }];
@@ -216,7 +216,7 @@ export class ProjectService {
     project.state = "draft_generating";
     await this.projects.save(project);
     try {
-      await this.enqueueDraftRegeneration(project, post, sourceDraftVersion);
+      await this.enqueueDraftRerun(project, post, rewriteMode, sourceDraftVersion);
     } catch {
       project.state = "draft_editing";
       await this.projects.save(project);
@@ -436,12 +436,12 @@ export class ProjectService {
     });
   }
 
-  private async enqueueDraftRegeneration(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, sourceDraftVersion: number): Promise<void> {
-    if (!this.jobs || !project.rewriteMode) throw new Error("Cannot enqueue draft regeneration without job repository and rewrite mode.");
+  private async enqueueDraftRerun(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, rewriteMode: RewriteMode, sourceDraftVersion: number): Promise<void> {
+    if (!this.jobs) throw new Error("Cannot enqueue draft rerun without job repository.");
     await this.jobs.enqueue({
       type: "GENERATE_DRAFT", projectId: project.id, postId: post.id,
-      dedupeKey: "project:" + project.id + ":post:" + post.index + ":regenerate:" + sourceDraftVersion,
-      payload: { postIndex: post.index, rewriteMode: project.rewriteMode, generationMode: "regenerate", sourceDraftVersion }
+      dedupeKey: "project:" + project.id + ":post:" + post.index + ":rerun:" + rewriteMode + ":" + sourceDraftVersion,
+      payload: { postIndex: post.index, rewriteMode, generationMode: "rerun", sourceDraftVersion }
     });
   }
 

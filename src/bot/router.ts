@@ -59,8 +59,8 @@ export class BotRouter {
     if (group === "plan" && isPlanOption(value)) return this.projects.choosePlan(event.telegramUserId, value);
     if (group === "rewrite" && isRewriteMode(value)) return this.projects.chooseRewriteMode(event.telegramUserId, value);
     if (event.action === "format:open") return this.projects.openFormatChoice(event.telegramUserId);
-    const regenerationVersion = parseRegenerationAction(event.action);
-    if (regenerationVersion !== undefined) return this.projects.regenerateDraft(event.telegramUserId, regenerationVersion);
+    const rerun = parseRerunAction(event.action);
+    if (rerun) return this.projects.rerunDraft(event.telegramUserId, rerun.rewriteMode, rerun.sourceDraftVersion);
     if (event.action === "format:edit") return this.projects.openFormattedCorrection(event.telegramUserId);
     if (group === "format" && (value === "option_1" || value === "option_2")) return this.projects.formatCurrentPost(event.telegramUserId, value);
     if (event.action === "final:accept") return this.projects.finalizeCurrentPost(event.telegramUserId);
@@ -81,9 +81,9 @@ function isRewriteMode(value: string | undefined): value is RewriteMode {
   return value === "clean_up" || value === "make_post";
 }
 
-function parseRegenerationAction(action: string): number | undefined {
-  const match = /^draft:regenerate:(\d+)$/.exec(action);
+function parseRerunAction(action: string): { rewriteMode: RewriteMode; sourceDraftVersion: number } | undefined {
+  const match = /^draft:rerun:(clean_up|make_post):(\d+)$/.exec(action);
   if (!match) return undefined;
-  const version = Number(match[1]);
-  return Number.isSafeInteger(version) && version > 0 ? version : undefined;
+  const sourceDraftVersion = Number(match[2]);
+  return Number.isSafeInteger(sourceDraftVersion) && sourceDraftVersion > 0 ? { rewriteMode: match[1] as RewriteMode, sourceDraftVersion } : undefined;
 }

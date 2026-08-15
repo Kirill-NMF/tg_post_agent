@@ -28,7 +28,7 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Generated draft text");
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open", "draft:regenerate:1"]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open", "draft:rerun:clean_up:1", "draft:rerun:make_post:1"]);
   });
 
   it("preserves saved draft and state when notification fails after persistence", async () => {

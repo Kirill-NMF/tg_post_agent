@@ -251,4 +251,4 @@ Text or voice correction of a formatted result invalidates the stale formatted s
 
 ## Draft regeneration
 
-A regeneration uses GENERATE_DRAFT with a versioned payload. It uses the same Stage 2 generation adapter and rewrite mode, passing confirmed selected plan and stored transcript only; compact edit context is empty. Previous drafts remain in history. The handler replaces current_draft only after valid success, and terminal recovery retains the prior editable draft.
+A mode-specific rerun uses GENERATE_DRAFT with a versioned payload and requested clean_up or make_post mode. It uses the same Stage 2 generation adapter, passing confirmed selected plan and stored transcript only; compact edit context is empty. Previous drafts remain in history. The handler replaces current_draft and rewrite_mode only after valid success, and terminal recovery retains the prior editable draft and mode.

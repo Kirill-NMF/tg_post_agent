@@ -248,4 +248,4 @@ A FORMAT_POST malformed, terminal provider, or notification failure restores `dr
 
 ## Draft regeneration
 
-In draft_editing, draft:regenerate:<version> is accepted only when the callback version matches the active draft. The project first moves to draft_generating and queues one versioned GENERATE_DRAFT. A double tap gets pending guidance; an old button gets stale guidance. Success appends the new draft to history, swaps the active draft, increments its version, and returns to draft_editing. Terminal failure retains the preceding active draft and returns to draft_editing.
+In draft_editing, draft:rerun:clean_up:<version> and draft:rerun:make_post:<version> are accepted only when the callback version matches the active draft. The project first moves to draft_generating and queues one versioned GENERATE_DRAFT with the requested mode. A double tap gets pending guidance; an old button gets stale guidance. Success appends the new draft to history, atomically swaps the active draft and rewrite mode, increments its version, and returns to draft_editing. Terminal failure retains the preceding active draft and rewrite mode.
