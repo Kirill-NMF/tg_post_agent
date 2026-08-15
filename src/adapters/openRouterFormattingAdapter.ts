@@ -153,6 +153,99 @@ export const formattingPlanSchema: Record<string, unknown> = {
   }
 };
 
+
+export type Option2SegmentDirective =
+  | { id: string; kind: "paragraph_break"; position: "before" | "after" }
+  | { id: string; kind: "markdown_span"; style: "bold" | "italic" | "code" }
+  | { id: string; kind: "emoji_insertion"; position: "before" | "after"; emoji: string };
+
+export const option2SegmentPlanSchema: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: ["operations"],
+  properties: {
+    operations: {
+      type: "array",
+      maxItems: 30,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "kind"],
+        properties: {
+          id: { type: "string", pattern: "^block_[1-9][0-9]*$" },
+          kind: { type: "string", enum: ["paragraph_break", "markdown_span", "emoji_insertion"] },
+          position: { type: "string", enum: ["before", "after"] },
+          style: { type: "string", enum: ["bold", "italic", "code"] },
+          emoji: { type: "string", minLength: 1, maxLength: 16 }
+        }
+      }
+    }
+  }
+};
+
+export function buildOption2SegmentPrompt(segmentIds: readonly string[]): string {
+  validateSegmentIds(segmentIds);
+  return [
+    "Return exactly one JSON object matching the supplied schema.",
+    "Return Option 2 decoration directives keyed only by canonical segment IDs.",
+    "Allowed segment IDs: " + segmentIds.join(", "),
+    "Never return anchors, source text, replacement text, or any lexical source words."
+  ].join("\n");
+}
+
+export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string[], maxOperations = 30): Option2SegmentDirective[] {
+  validateSegmentIds(segmentIds);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID");
+  }
+  if (!isRecord(parsed) || !hasOnlyKeys(parsed, ["operations"]) || !Array.isArray(parsed.operations)) {
+    throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+  }
+  if (parsed.operations.length > maxOperations) {
+    throw new FormattingPlanValidationError("FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED");
+  }
+
+  const allowedIds = new Set(segmentIds);
+  const seen = new Set<string>();
+  const directives: Option2SegmentDirective[] = [];
+  for (const operation of parsed.operations) {
+    if (!isRecord(operation) || typeof operation.id !== "string" || !allowedIds.has(operation.id)) {
+      throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
+    }
+    const duplicateKey = operation.id + ":" + String(operation.kind);
+    if (seen.has(duplicateKey)) throw new FormattingPlanValidationError("FORMAT_SEGMENT_DUPLICATE");
+
+    if (operation.kind === "paragraph_break" && hasOnlyKeys(operation, ["id", "kind", "position"]) && isSegmentPosition(operation.position)) {
+      directives.push({ id: operation.id, kind: "paragraph_break", position: operation.position });
+    } else if (operation.kind === "markdown_span" && hasOnlyKeys(operation, ["id", "kind", "style"]) && isSegmentStyle(operation.style)) {
+      directives.push({ id: operation.id, kind: "markdown_span", style: operation.style });
+    } else if (operation.kind === "emoji_insertion" && hasOnlyKeys(operation, ["id", "kind", "position", "emoji"]) && isSegmentPosition(operation.position) && typeof operation.emoji === "string" && operation.emoji.length > 0) {
+      directives.push({ id: operation.id, kind: "emoji_insertion", position: operation.position, emoji: operation.emoji });
+    } else {
+      throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+    }
+    seen.add(duplicateKey);
+  }
+  return directives;
+}
+
+function validateSegmentIds(segmentIds: readonly string[]): void {
+  if (segmentIds.length === 0 || segmentIds.some((id) => !/^block_[1-9][0-9]*$/.test(id)) || new Set(segmentIds).size !== segmentIds.length) {
+    throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
+  }
+}
+
+function isSegmentPosition(value: unknown): value is "before" | "after" {
+  return value === "before" || value === "after";
+}
+
+function isSegmentStyle(value: unknown): value is "bold" | "italic" | "code" {
+  return value === "bold" || value === "italic" || value === "code";
+}
+
 function buildFormattingPrompt(params: Parameters<ModelAdapters["formatPost"]>[0]): string {
   const optionInstruction = params.formattingOption === "option_1"
     ? "Option 1: improve Telegram readability only with paragraph boundaries and Markdown spans. Do not use expressive emoji."

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FormattingPlanValidationError, OpenRouterFormattingAdapter, parseFormattingPlan, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
+import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
 import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
@@ -19,6 +19,36 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(result.value.decorationPlan.operations).toHaveLength(1);
     expect(client.requests[0]?.input).toContain("decoration plan only");
     expect(client.requests[0]?.input).not.toContain("replacement body");
+  });
+
+  it("parses ID-only Option 2 directives without exposing canonical segment text", () => {
+    const directives = parseOption2SegmentPlan(JSON.stringify({
+      operations: [
+        { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\\u2728" },
+        { id: "block_2", kind: "paragraph_break", position: "after" }
+      ]
+    }), ["block_1", "block_2"]);
+
+    expect(directives).toEqual([
+      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\\u2728" },
+      { id: "block_2", kind: "paragraph_break", position: "after" }
+    ]);
+    const prompt = buildOption2SegmentPrompt(["block_1", "block_2"]);
+    expect(prompt).toContain("block_1");
+    expect(prompt).not.toContain("CANONICAL_TEXT_SENTINEL");
+    const schema = JSON.stringify(option2SegmentPlanSchema);
+    expect(schema).not.toContain("anchor");
+    expect(schema).not.toContain("replacement");
+    expect(schema).not.toContain("text");
+  });
+
+  it.each([
+    [JSON.stringify({ operations: [{ id: "block_9", kind: "paragraph_break", position: "after" }] }), "FORMAT_SEGMENT_ID_INVALID"],
+    [JSON.stringify({ operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
+  ])("rejects non-ID Option 2 directives", (raw, expected) => {
+    expectSegmentValidationCode(() => parseOption2SegmentPlan(raw, ["block_1"]), expected);
   });
 
   it("categorizes a mismatched selected option without recording model content", () => {
@@ -102,6 +132,16 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(JSON.stringify(logger.entries)).not.toContain("SECRET DRAFT");
   });
 });
+
+function expectSegmentValidationCode(action: () => unknown, expected: string): void {
+  try {
+    action();
+    throw new Error("Expected segment contract validation error.");
+  } catch (error) {
+    expect(error).toBeInstanceOf(FormattingPlanValidationError);
+    expect((error as FormattingPlanValidationError).code).toBe(expected);
+  }
+}
 
 function capturingClient(output: string): FormattingInteractionClient & { requests: Array<{ input: string }> } {
   return {
