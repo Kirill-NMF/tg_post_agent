@@ -28,6 +28,8 @@ export type AppConfig = {
   planSplitJobMaxAttempts: number;
   editAudioJobMaxAttempts: number;
   planRevisionJobMaxAttempts: number;
+  draftGenerationJobMaxAttempts: number;
+  formattingJobMaxAttempts: number;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -63,7 +65,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     sourceAudioJobMaxAttempts: readOptionalInteger(env, "SOURCE_AUDIO_JOB_MAX_ATTEMPTS") ?? 3,
     planSplitJobMaxAttempts: readOptionalInteger(env, "PLAN_SPLIT_JOB_MAX_ATTEMPTS") ?? 3,
     editAudioJobMaxAttempts: readOptionalInteger(env, "EDIT_AUDIO_JOB_MAX_ATTEMPTS") ?? 3,
-    planRevisionJobMaxAttempts: readOptionalInteger(env, "PLAN_REVISION_JOB_MAX_ATTEMPTS") ?? 3
+    planRevisionJobMaxAttempts: readOptionalInteger(env, "PLAN_REVISION_JOB_MAX_ATTEMPTS") ?? 3,
+    draftGenerationJobMaxAttempts: readOptionalInteger(env, "DRAFT_GENERATION_JOB_MAX_ATTEMPTS") ?? 3,
+    formattingJobMaxAttempts: readOptionalInteger(env, "FORMATTING_JOB_MAX_ATTEMPTS") ?? 3
   };
 }
 

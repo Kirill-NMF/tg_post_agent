@@ -37,6 +37,8 @@ describe("env config", () => {
     expect(config.jobWorkerId).toContain("tg-post-agent-");
     expect(config.sourceAudioJobMaxAttempts).toBe(3);
     expect(config.planSplitJobMaxAttempts).toBe(3);
+    expect(config.draftGenerationJobMaxAttempts).toBe(3);
+    expect(config.formattingJobMaxAttempts).toBe(3);
 
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TELEGRAM_MAX_DOWNLOAD_BYTES: "0" })).toThrow("positive integer");
   });
@@ -51,6 +53,8 @@ describe("env config", () => {
       JOB_WORKER_ID: "worker-a",
       SOURCE_AUDIO_JOB_MAX_ATTEMPTS: "1",
       PLAN_SPLIT_JOB_MAX_ATTEMPTS: "1",
+      DRAFT_GENERATION_JOB_MAX_ATTEMPTS: "1",
+      FORMATTING_JOB_MAX_ATTEMPTS: "1",
       PROVIDER_REQUEST_TIMEOUT_MS: "45000",
       PROVIDER_FALLBACKS_ENABLED: "false"
     });
@@ -62,6 +66,8 @@ describe("env config", () => {
     expect(config.sourceAudioJobMaxAttempts).toBe(1);
     expect(config.planSplitJobMaxAttempts).toBe(1);
     expect(config.providerFallbacksEnabled).toBe(false);
+    expect(config.draftGenerationJobMaxAttempts).toBe(1);
+    expect(config.formattingJobMaxAttempts).toBe(1);
     expect(config.providerRequestTimeoutMs).toBe(45_000);
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", JOB_WORKER_ENABLED: "yes" })).toThrow("true or false");
   });

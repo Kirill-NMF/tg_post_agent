@@ -18,6 +18,40 @@ from tg_post_agent_smoke import fetch_runtime_bot_identity, target_matches_canon
 class CanaryError(RuntimeError):
     def __init__(self, category: str): self.category = category; super().__init__(category)
 
+E2E_ONE_ATTEMPT_OVERLAY = {
+    "PROVIDER_FALLBACKS_ENABLED": "false",
+    "SOURCE_AUDIO_JOB_MAX_ATTEMPTS": "1",
+    "PLAN_SPLIT_JOB_MAX_ATTEMPTS": "1",
+    "DRAFT_GENERATION_JOB_MAX_ATTEMPTS": "1",
+    "FORMATTING_JOB_MAX_ATTEMPTS": "1",
+}
+
+def overlay_environment(normal_environment: dict[str, str]) -> dict[str, str]:
+    overlay = dict(normal_environment)
+    overlay.update(E2E_ONE_ATTEMPT_OVERLAY)
+    return overlay
+
+def e2e_preflight(ledger: dict[str, object], environment: dict[str, str]) -> dict[str, object]:
+    if any(environment.get(key) != value for key, value in E2E_ONE_ATTEMPT_OVERLAY.items()):
+        return {"canProceed": False, "category": "one_attempt_overlay_missing", "externalCallBound": None}
+    attempted = ledger.get("attemptedBillableOperations")
+    remaining = ledger.get("remainingBudget")
+    daily = ledger.get("dailyBudget")
+    if not all(isinstance(value, int) for value in (attempted, remaining, daily)) or attempted + remaining != daily:
+        return {"canProceed": False, "category": "ledger_invalid", "externalCallBound": None}
+    bound = 4
+    if remaining < bound:
+        return {"canProceed": False, "category": "ledger_insufficient", "externalCallBound": bound}
+    return {"canProceed": True, "category": None, "externalCallBound": bound}
+
+def e2e_preflight_from_environment(environment: dict[str, str]) -> dict[str, object]:
+    try:
+        with Path(environment["TG_POST_AGENT_FULL_E2E_LEDGER_PATH"]).open("r", encoding="utf-8") as handle:
+            ledger = json.load(handle)
+    except (KeyError, OSError, ValueError, json.JSONDecodeError):
+        return {"canProceed": False, "category": "ledger_unavailable", "externalCallBound": None}
+    return e2e_preflight(ledger if isinstance(ledger, dict) else {}, environment)
+
 def persist_report(path: Path, report: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
@@ -107,6 +141,17 @@ async def run() -> dict[str, object]:
     report: dict[str, object] = {"stages": [], "terminal": "not_observed", "cleanupAudio": False, "sttCalls": 0, "planCalls": 0, "draftCalls": 0, "option2Calls": 0}
     audio = Path(os.environ.get("TG_POST_AGENT_OWNER_AUDIO_COPY", ""))
     report_path = Path(os.environ.get("TG_POST_AGENT_FULL_E2E_REPORT", "/tmp/tg-post-agent-full-owner-e2e-report.json"))
+    preflight = e2e_preflight_from_environment(dict(os.environ))
+    report.update(preflight)
+    if not preflight["canProceed"]:
+        report["terminal"] = "failed"; report["category"] = preflight["category"]
+        try:
+            if audio.is_file(): audio.unlink()
+            report["cleanupAudio"] = not audio.exists()
+        finally:
+            persist_report(report_path, report)
+        return report
+
     client = TelegramClient(StringSession(os.environ["TG_POST_AGENT_REAL_TG_STRING_SESSION"]), int(os.environ["TG_POST_AGENT_REAL_TG_API_ID"]), os.environ["TG_POST_AGENT_REAL_TG_API_HASH"])
     try:
         await client.connect()
@@ -145,4 +190,8 @@ async def run() -> dict[str, object]:
             finally: await client.disconnect()
     return report
 
-if __name__ == "__main__": print(json.dumps(asyncio.run(run())))
+if __name__ == "__main__":
+    if sys.argv[1:] == ["--preflight"]:
+        print(json.dumps(e2e_preflight_from_environment(dict(os.environ)), sort_keys=True))
+    else:
+        print(json.dumps(asyncio.run(run())))

@@ -19,6 +19,18 @@ class T(unittest.TestCase):
   seen=[]
   def fetch(a,c): seen.append(1); return {'found':len(seen)>1,'recipient':'7'}
   self.assertTrue(asyncio.run(x.wait_for_scope(fetch,7,1,deadline=1,interval=0)).get('found'))
+ def test_one_attempt_overlay_bounds_four_stages_without_mutating_normal_config(self):
+  normal={'PROVIDER_FALLBACKS_ENABLED':'true','DRAFT_GENERATION_JOB_MAX_ATTEMPTS':'3'}
+  overlay=x.overlay_environment(normal)
+  report=x.e2e_preflight({'dailyBudget':30,'attemptedBillableOperations':26,'remainingBudget':4},overlay)
+  self.assertTrue(report['canProceed'])
+  self.assertEqual(report['externalCallBound'],4)
+  self.assertEqual(normal,{'PROVIDER_FALLBACKS_ENABLED':'true','DRAFT_GENERATION_JOB_MAX_ATTEMPTS':'3'})
+ def test_missing_overlay_refuses_before_telegram_or_provider_actions(self):
+  report=x.e2e_preflight({'dailyBudget':30,'attemptedBillableOperations':26,'remainingBudget':4},{})
+  self.assertFalse(report['canProceed'])
+  self.assertEqual(report['category'],'one_attempt_overlay_missing')
+  self.assertIsNone(report['externalCallBound'])
  def test_scope_poll_deadline_returns_absent(self):
   self.assertFalse(asyncio.run(x.wait_for_scope(lambda a,c:{'found':False},7,1,deadline=0,interval=0)).get('found'))
  def test_selector_uses_user_and_run_start_not_source_message(self):

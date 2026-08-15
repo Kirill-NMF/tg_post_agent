@@ -27,7 +27,7 @@ export class ProjectService {
     private readonly projects: ProjectRepository,
     private readonly models: ModelAdapters,
     private readonly jobs?: JobRepository,
-    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number; draftGeneration: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3, draftGeneration: 3 },
+    private readonly jobAttempts: Partial<{ sourceAudio: number; editAudio: number; planRevision: number; draftGeneration: number; formatting: number }> = { sourceAudio: 3, editAudio: 3, planRevision: 3, draftGeneration: 3, formatting: 3 },
     private readonly formattingEnabled = false,
     private readonly logger: Logger = noopLogger
   ) {}
@@ -469,7 +469,8 @@ export class ProjectService {
       projectId: project.id,
       postId: post.id,
       dedupeKey: "project:" + project.id + ":post:" + post.index + ":format:" + formattingOption,
-      payload: { postIndex: post.index, formattingOption }
+      payload: { postIndex: post.index, formattingOption },
+      maxAttempts: this.jobAttempts.formatting ?? 3
     });
   }
 

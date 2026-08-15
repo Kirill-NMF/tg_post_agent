@@ -52,7 +52,7 @@ describe("ProjectService mock state machine", () => {
   it("enqueues draft generation instead of running mock draft synchronously when jobs are configured", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
-    const projects = new ProjectService(repository, new MockModelAdapters(), jobs);
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, { draftGeneration: 1 });
     const project = await seedRewriteProject(repository);
 
     const response = await projects.chooseRewriteMode("100", "make_post");
@@ -68,7 +68,8 @@ describe("ProjectService mock state machine", () => {
       projectId: project.id,
       postId: "post-1",
       dedupeKey: `project:${project.id}:post:1:draft:make_post`,
-      payload: { postIndex: 1, rewriteMode: "make_post" }
+      payload: { postIndex: 1, rewriteMode: "make_post" },
+      maxAttempts: 1,
     });
   });
 
@@ -118,7 +119,7 @@ describe("ProjectService mock state machine", () => {
   it("enqueues internal formatting durably without exposing it in draft buttons", async () => {
     const repository = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
-    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, undefined, true);
+    const projects = new ProjectService(repository, new MockModelAdapters(), jobs, { formatting: 1 }, true);
     const project = await seedDraftEditingProject(repository);
     project.state = "format_choice";
     await repository.save(project);
@@ -131,7 +132,8 @@ describe("ProjectService mock state machine", () => {
       type: "FORMAT_POST",
       projectId: project.id,
       postId: "post-1",
-      payload: { postIndex: 1, formattingOption: "option_1" }
+      payload: { postIndex: 1, formattingOption: "option_1" },
+      maxAttempts: 1,
     });
   });
 
