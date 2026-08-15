@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRewriteFixture, cleanupTargetMatches } from "./correction_fixture.mjs";
+import { buildRewriteFixture, cleanupTargetMatches, syntheticFixtureTranscript } from "./correction_fixture.mjs";
 
 test("builds a marker-scoped rewrite-mode project with source isolation", () => {
   const fixture = buildRewriteFixture({ accountId: "7", transcript: "PRIVATE_SOURCE", marker: "marker", now: new Date("2026-01-01") });
@@ -22,4 +22,14 @@ test("fails closed for an invalid account or transcript", () => {
 test("cleanup targets only the exact account, marker, and fixture id", () => {
   assert.equal(cleanupTargetMatches({ projectId: "p", marker: "m", accountId: "7" }, { projectId: "p", marker: "m", accountId: "7" }), true);
   assert.equal(cleanupTargetMatches({ projectId: "p", marker: "m", accountId: "7" }, { projectId: "other", marker: "m", accountId: "7" }), false);
+});
+
+test("synthetic transcript is explicit test-only and creates a valid rewrite fixture", () => {
+  const previous = process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE;
+  delete process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE;
+  assert.throws(() => syntheticFixtureTranscript());
+  process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE = "true";
+  const fixture = buildRewriteFixture({ accountId: "7", transcript: syntheticFixtureTranscript(), marker: "marker", now: new Date() });
+  assert.equal(fixture.state, "rewrite_mode"); assert.ok(fixture.transcript.includes("\n\n")); assert.ok(fixture.selectedPlan);
+  if (previous === undefined) delete process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE; else process.env.TG_POST_AGENT_SYNTHETIC_FIXTURE = previous;
 });
