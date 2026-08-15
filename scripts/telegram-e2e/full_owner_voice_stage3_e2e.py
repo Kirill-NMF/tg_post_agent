@@ -68,6 +68,8 @@ def recipient_matches(account_id: int, configured_recipient: str | None) -> bool
     return bool(configured_recipient and configured_recipient.isdigit() and int(configured_recipient) == account_id)
 
 def persisted_scope(account_id: int, started_at: float) -> dict[str, object]:
+    if os.geteuid() == 0:
+        raise CanaryError("scope_helper_runtime_user_required")
     run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env={**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_STARTED_AT": str(started_at)}, capture_output=True, text=True, check=True)
     return json.loads(run.stdout)
 

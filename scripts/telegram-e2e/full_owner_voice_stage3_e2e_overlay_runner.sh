@@ -29,12 +29,15 @@ case "${1:-preflight}" in
   preflight)
     exec bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh preflight
     ;;
+  scope-preflight)
+    exec su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; set -a; . .runtime/bot.env; TG_POST_AGENT_SCOPE_PREFLIGHT=true node scripts/telegram-e2e/project_recipient_scope.mjs'
+    ;;
   run)
     trap restore_normal_runtime EXIT
     stop_runtime
     start_runtime overlay
     sleep 2
-    bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh run
+    su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh run'
     ;;
   *)
     exit 64
