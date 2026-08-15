@@ -21,4 +21,8 @@ class T(unittest.TestCase):
   self.assertTrue(asyncio.run(x.wait_for_scope(fetch,7,1,deadline=1,interval=0)).get('found'))
  def test_scope_poll_deadline_returns_absent(self):
   self.assertFalse(asyncio.run(x.wait_for_scope(lambda a,c:{'found':False},7,1,deadline=0,interval=0)).get('found'))
+ def test_selector_uses_user_and_run_start_not_source_message(self):
+  rows=[{'user':7,'created':4},{'user':8,'created':9},{'user':7,'created':6}]
+  self.assertEqual(x.select_scope(rows,7,5)['created'],6)
+ def test_selector_absent_fails_closed(self): self.assertIsNone(x.select_scope([{'user':8,'created':9}],7,5))
 if __name__=='__main__': unittest.main()

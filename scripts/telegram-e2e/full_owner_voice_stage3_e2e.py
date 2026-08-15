@@ -40,6 +40,10 @@ def persisted_scope(account_id: int, started_at: float) -> dict[str, object]:
 def scope_is_eligible(scope: dict[str, object], account_id: int) -> bool:
     return bool(scope.get("found")) and recipient_matches(account_id, scope.get("recipient") if isinstance(scope.get("recipient"), str) else None)
 
+def select_scope(rows, account_id: int, started_at: float):
+    eligible = [row for row in rows if row["user"] == account_id and row["created"] >= started_at]
+    return max(eligible, key=lambda row: row["created"], default=None)
+
 async def wait_for_scope(fetch, account_id: int, cursor: int, deadline: float = 10.0, interval: float = 0.5, clock=asyncio.get_running_loop):
     loop = clock()
     end = loop.time() + deadline
