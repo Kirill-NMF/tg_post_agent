@@ -36,6 +36,12 @@ def persisted_scope(account_id: int, cursor: int) -> dict[str, object]:
     run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env={**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_SOURCE_CURSOR": str(cursor)}, capture_output=True, text=True, check=True)
     return json.loads(run.stdout)
 
+def scope_is_eligible(scope: dict[str, object], account_id: int) -> bool:
+    return bool(scope.get("found")) and recipient_matches(account_id, scope.get("recipient") if isinstance(scope.get("recipient"), str) else None)
+
+def newer_callback_prefixes(messages, cursor: int) -> list[str]:
+    return [getattr(button, "data", b"").decode().split(":", 1)[0] for message in sorted((m for m in messages if m.id > cursor), key=lambda item: item.id) for row in getattr(getattr(message, "reply_markup", None), "rows", []) or [] for button in getattr(row, "buttons", []) or []]
+
 async def receive_until(conversation, bot_id: int, prefix: str, timeout: float):
     deadline = asyncio.get_running_loop().time() + timeout
     while True:
@@ -98,7 +104,7 @@ async def run() -> dict[str, object]:
             outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
             scope = await asyncio.to_thread(persisted_scope, account.id, cursor)
             report["projectScopeFound"] = bool(scope.get("found")); report["projectStateCategory"] = scope.get("state")
-            if not scope.get("found") or not recipient_matches(account.id, scope.get("recipient") if isinstance(scope.get("recipient"), str) else None): raise CanaryError("project_recipient_mismatch")
+            if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")
             plan, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "plan:", 180); report["planUiObserved"] = True; report["planUiEvidence"] = evidence; await plan.click(data=choice.data); cursor = plan.id; report["stages"].append("plan_clicked")
             mode, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "rewrite:", 180); report["rewriteUiObserved"] = True; report["rewriteUiEvidence"] = evidence; await mode.click(data=choice.data); cursor = mode.id; report["stages"].append("mode_clicked")
             draft, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "format:open", 180); report["draftUiObserved"] = True; report["draftUiEvidence"] = evidence; draft_text = draft.raw_text or ""; await draft.click(data=choice.data); cursor = draft.id; report["stages"].append("draft_ready")
