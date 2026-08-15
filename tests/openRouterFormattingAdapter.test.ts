@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient } from "../src/adapters/openRouterFormattingAdapter.js";
+import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient, type FormattingInteractionRequest } from "../src/adapters/openRouterFormattingAdapter.js";
 import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
@@ -40,6 +40,38 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(schema).not.toContain("anchor");
     expect(schema).not.toContain("replacement");
     expect(schema).not.toContain("text");
+  });
+
+  it("requests strict OpenRouter JSON Schema for Option 2 segment directives", async () => {
+    const client = capturingClient(JSON.stringify({ operations: [] }));
+    const adapter = new OpenRouterFormattingAdapter({ client, model: "owner-selected-format-model" });
+
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] })).resolves.toMatchObject({ ok: true });
+
+    const request = client.requests[0] as unknown as { response_format?: Record<string, unknown>; stream?: unknown; provider?: Record<string, unknown>; plugins?: unknown };
+    expect(request.response_format).toMatchObject({
+      type: "json_schema",
+      json_schema: { name: "tg_post_agent_option2_segment_plan", strict: true }
+    });
+    expect(JSON.stringify(request.response_format)).toContain("\"additionalProperties\":false");
+    expect(request.stream).toBe(false);
+    expect(request.provider).toMatchObject({ require_parameters: true });
+    expect(request.plugins).toEqual([{ id: "response-healing" }]);
+  });
+
+  it.each(["prose instead of JSON", "```json\n{\"operations\":[]}\n```"])("rejects non-JSON Option 2 provider output", async (output) => {
+    const adapter = new OpenRouterFormattingAdapter({ client: capturingClient(output), model: "owner-selected-format-model" });
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] }))
+      .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
+  });
+
+  it("maps an unsupported structured-output parameter failure to controlled recovery", async () => {
+    const adapter = new OpenRouterFormattingAdapter({
+      client: { async create() { throw new ProviderRequestError("HTTP_400", false); } },
+      model: "owner-selected-format-model"
+    });
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] }))
+      .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
   });
 
   it.each([
@@ -143,11 +175,11 @@ function expectSegmentValidationCode(action: () => unknown, expected: string): v
   }
 }
 
-function capturingClient(output: string): FormattingInteractionClient & { requests: Array<{ input: string }> } {
+function capturingClient(output: string): FormattingInteractionClient & { requests: FormattingInteractionRequest[] } {
   return {
     requests: [],
     async create(request) {
-      this.requests.push({ input: request.input });
+      this.requests.push(request);
       return { output_text: output };
     }
   };

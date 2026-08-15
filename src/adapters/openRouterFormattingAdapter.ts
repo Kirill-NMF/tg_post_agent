@@ -3,16 +3,9 @@ import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDe
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
+import type { OpenRouterInteractionRequest } from "./openRouterInteractionClient.js";
 
-export type FormattingInteractionRequest = {
-  model: string;
-  input: string;
-  response_format: {
-    type: "text";
-    mime_type: "application/json";
-    schema: Record<string, unknown>;
-  };
-};
+export type FormattingInteractionRequest = OpenRouterInteractionRequest;
 
 export type FormattingInteractionClient = {
   create(request: FormattingInteractionRequest): Promise<{ output_text?: unknown }>;
@@ -51,7 +44,17 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
       const interaction = await this.input.client.create({
         model: this.input.model,
         input: buildOption2SegmentPrompt(segmentIds),
-        response_format: { type: "text", mime_type: "application/json", schema: option2SegmentPlanSchema }
+        stream: false,
+        provider: { require_parameters: true },
+        plugins: [{ id: "response-healing" }],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "tg_post_agent_option2_segment_plan",
+            strict: true,
+            schema: option2SegmentPlanSchema
+          }
+        }
       });
       if (typeof interaction.output_text !== "string") {
         return failure("FORMAT_PLAN_OUTPUT_INVALID", "Formatting provider output was missing JSON text.", false);

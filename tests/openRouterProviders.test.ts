@@ -31,6 +31,50 @@ describe("OpenRouter provider boundary", () => {
     expect(JSON.stringify(received)).toContain("SECRET TRANSCRIPT");
   });
 
+  it("sends Option 2 strict JSON Schema with required OpenRouter routing controls", async () => {
+    let received: Record<string, unknown> | undefined;
+    const schema = {
+      type: "object",
+      additionalProperties: false,
+      required: ["operations"],
+      properties: {
+        operations: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["id", "kind"],
+            properties: { id: { type: "string" }, kind: { type: "string" } }
+          }
+        }
+      }
+    };
+    const client = createOpenRouterInteractionClient({
+      apiKey: "test-key",
+      providerRoute: { order: ["anthropic"], allow_fallbacks: false },
+      fetchImpl: async (_url, init) => {
+        received = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return new Response(JSON.stringify({ choices: [{ message: { content: "{\"operations\":[]}" } }] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+    });
+
+    await client.create({
+      model: "anthropic/claude-sonnet-5",
+      input: "ID-only directives",
+      stream: false,
+      provider: { require_parameters: true },
+      plugins: [{ id: "response-healing" }],
+      response_format: { type: "json_schema", json_schema: { name: "tg_post_agent_option2_segment_plan", strict: true, schema } }
+    });
+
+    expect(received).toMatchObject({
+      stream: false,
+      response_format: { type: "json_schema", json_schema: { name: "tg_post_agent_option2_segment_plan", strict: true, schema } },
+      provider: { order: ["anthropic"], allow_fallbacks: false, require_parameters: true },
+      plugins: [{ id: "response-healing" }]
+    });
+  });
+
   it.each([
     ["text/html", "<html>gateway</html>", "RESPONSE_NON_JSON", "html"],
     ["text/plain", "upstream text", "RESPONSE_NON_JSON", "text"],

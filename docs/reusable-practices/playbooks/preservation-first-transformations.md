@@ -29,3 +29,7 @@ Accepting model-generated replacement text; treating a semantic similarity score
 ## Shared-boundary decoration rule
 
 For insert-only transformations, define a stable order for compatible insertions that share a source boundary and store every rendered insertion for exact recovery. Do not reject a safe emoji plus paragraph pair merely because their indexes match. Reject duplicate operations in the same decoration category with a bounded safe code, then prove the active canonical value and editable state survive the terminal path.
+
+## Option 2 structured-output boundary
+
+For ID-addressed Option 2 plans, use OpenRouter's non-streaming `json_schema` response format with `strict: true`, recursively closed plan objects, `provider.require_parameters: true`, and the `response-healing` plugin. Keep local JSON parsing and the canonical segment-ID allowlist as the final safety gate; prose, fenced JSON, text anchors, replacement fields, and unknown IDs remain controlled failures. This contract is isolated from legacy request paths (including Option 1 and Stage 2). Reference: [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs) and [Provider Selection](https://openrouter.ai/docs/guides/routing/provider-selection).

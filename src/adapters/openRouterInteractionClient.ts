@@ -3,11 +3,21 @@ import { defaultProviderRequestTimeoutMs, fetchWithProviderTimeout, ProviderResp
 export type OpenRouterInteractionRequest = {
   model: string;
   input: string;
-  response_format: {
-    type: "text";
-    mime_type: "application/json";
-    schema: Record<string, unknown>;
-  };
+  response_format: OpenRouterLegacyJsonResponseFormat | OpenRouterStrictJsonSchemaResponseFormat;
+  stream?: false;
+  provider?: { require_parameters: true };
+  plugins?: readonly [{ id: "response-healing" }];
+};
+
+export type OpenRouterLegacyJsonResponseFormat = {
+  type: "text";
+  mime_type: "application/json";
+  schema: Record<string, unknown>;
+};
+
+export type OpenRouterStrictJsonSchemaResponseFormat = {
+  type: "json_schema";
+  json_schema: { name: string; strict: true; schema: Record<string, unknown> };
 };
 
 export type OpenRouterInteractionClient = {
@@ -18,6 +28,21 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
   const fetchImpl = input.fetchImpl ?? fetch;
   return {
     async create(request) {
+      let systemContent: string;
+      let responseFormat: Record<string, unknown>;
+      if (request.response_format.type === "json_schema") {
+        systemContent = "Return exactly one JSON object that conforms to the requested JSON Schema.";
+        responseFormat = { type: "json_schema", json_schema: request.response_format.json_schema };
+      } else {
+        systemContent = `Return exactly one JSON object that conforms to this JSON Schema: ${JSON.stringify(request.response_format.schema)}`;
+        responseFormat = { type: "json_object" };
+      }
+      const provider = request.provider || input.providerRoute
+        ? {
+            ...(input.providerRoute ?? {}),
+            ...(request.provider ?? {})
+          }
+        : undefined;
       const response = await fetchWithProviderTimeout(fetchImpl, "https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -30,12 +55,13 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
           messages: [
             {
               role: "system",
-              content: `Return exactly one JSON object that conforms to this JSON Schema: ${JSON.stringify(request.response_format.schema)}`
+              content: systemContent
             },
             { role: "user", content: request.input }
           ],
-          response_format: { type: "json_object" },
-          ...(input.providerRoute ? { provider: input.providerRoute } : {})
+          response_format: responseFormat,
+          ...(provider ? { provider } : {}),
+          ...(request.plugins ? { plugins: request.plugins } : {})
         })
       }, input.requestTimeoutMs ?? defaultProviderRequestTimeoutMs);
       if (!response.ok) throw providerHttpError(response.status);
