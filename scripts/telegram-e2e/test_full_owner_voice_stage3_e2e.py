@@ -51,6 +51,11 @@ class T(unittest.TestCase):
         self.assertIn('scope-preflight)', runner)
         self.assertGreaterEqual(runner.count('su -s /bin/bash "$runtime_user"'), 2)
         self.assertIn("bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh run", runner)
+    def test_runner_prepares_shorttalk_owned_ledger_and_unique_report_path(self):
+        runner = (Path(__file__).parent / 'full_owner_voice_stage3_e2e_overlay_runner.sh').read_text(encoding='utf-8')
+        self.assertIn('chown "$runtime_user":"$runtime_user" "$ledger_path"', runner)
+        self.assertIn('install -d -o "$runtime_user" -g "$runtime_user" -m 700 "$report_dir"', runner)
+        self.assertIn('TG_POST_AGENT_FULL_E2E_REPORT=', runner)
     def test_scope_poll_deadline_returns_absent(self): self.assertFalse(asyncio.run(x.wait_for_scope(lambda a, c: {'found': False}, 7, 1, deadline=0, interval=0)).get('found'))
     def test_selector_uses_user_and_run_start_not_source_message(self):
         rows = [{'user': 7, 'created': 4}, {'user': 8, 'created': 9}, {'user': 7, 'created': 6}]

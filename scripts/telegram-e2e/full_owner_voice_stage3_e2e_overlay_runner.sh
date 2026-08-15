@@ -4,6 +4,8 @@ set -euo pipefail
 cd /opt/tg_post_agent
 runtime_user=shorttalk
 pid_file=.runtime/bot.pid
+ledger_path=/tmp/tg-post-agent-billable-ledger-2026-08-15.json
+report_dir=/tmp/tg-post-agent-e2e-reports
 
 stop_runtime() {
   if [ -f "$pid_file" ]; then
@@ -25,6 +27,13 @@ restore_normal_runtime() {
   start_runtime normal
 }
 
+prepare_harness_files() {
+  test -f "$ledger_path"
+  chown "$runtime_user":"$runtime_user" "$ledger_path"
+  chmod 600 "$ledger_path"
+  install -d -o "$runtime_user" -g "$runtime_user" -m 700 "$report_dir"
+}
+
 case "${1:-preflight}" in
   preflight)
     exec bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh preflight
@@ -33,11 +42,13 @@ case "${1:-preflight}" in
     exec su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; set -a; . .runtime/bot.env; TG_POST_AGENT_SCOPE_PREFLIGHT=true node scripts/telegram-e2e/project_recipient_scope.mjs'
     ;;
   run)
+    prepare_harness_files
+    report_path="$report_dir/full-owner-$(date +%s)-$$.json"
     trap restore_normal_runtime EXIT
     stop_runtime
     start_runtime overlay
     sleep 2
-    su -s /bin/bash "$runtime_user" -c 'cd /opt/tg_post_agent; bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh run'
+    su -s /bin/bash "$runtime_user" -c "cd /opt/tg_post_agent; TG_POST_AGENT_FULL_E2E_REPORT='$report_path' bash scripts/telegram-e2e/full_owner_voice_stage3_e2e.sh run"
     ;;
   *)
     exit 64
