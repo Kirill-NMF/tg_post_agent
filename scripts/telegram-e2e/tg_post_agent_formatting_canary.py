@@ -20,7 +20,7 @@ def write(p,x):
  with os.fdopen(f,"w")as o:json.dump(x,o,separators=(",",":"),sort_keys=True);o.write("\n")
  os.chmod(p,0o600)
 def model_fingerprint():
- return hashlib.sha256(need("OPENROUTER_FORMATTING_MODEL").encode()).hexdigest()[:12]
+ return hashlib.sha256((need("OPENROUTER_FORMATTING_MODEL")+"|"+os.environ.get("OPENROUTER_FORMATTING_ROUTE_FINGERPRINT","default")).encode()).hexdigest()[:12]
 def reserve(o):
  x=json.loads(LEDGER.read_text()) if LEDGER.exists() else {"dailyBudget":30,"attemptedBillableOperations":15,"remainingBudget":15,"entries":[]}
  if x["dailyBudget"]!=30 or x["attemptedBillableOperations"]>=30:raise CanaryError("budget_exhausted")

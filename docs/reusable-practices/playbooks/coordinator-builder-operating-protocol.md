@@ -23,3 +23,11 @@ Retain task scope, branch, commit, checks, independent review outcome, and any b
 ## Anti-Patterns
 
 Hidden reviewer code changes; selecting a material alternative without approval; status polling; using owner review instead of technical verification.
+
+## Builder terminal callback
+
+Before any builder DONE or BLOCKED final response, send exactly one compact coordinator signal to the designated coordinator thread. DONE signal fields: commit, checks, next. BLOCKED signal fields: category, evidence, next. Routine commentary does not trigger a signal.
+
+## Anthropic-pinned formatting evidence
+
+Claude Sonnet 5 Stage 3 formatting can be pinned through OpenRouter to provider order anthropic with allow_fallbacks false. The route fingerprint is part of bounded canary accounting. Current transport evidence reached exactly one terminal recovery after parity and JSON invalid-request preflight; do not spend more generation calls on this route until the provider completion contract is remediated.

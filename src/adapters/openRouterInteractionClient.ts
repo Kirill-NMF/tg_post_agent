@@ -14,7 +14,7 @@ export type OpenRouterInteractionClient = {
   create(request: OpenRouterInteractionRequest): Promise<{ output_text?: unknown }>;
 };
 
-export function createOpenRouterInteractionClient(input: { apiKey: string; fetchImpl?: typeof fetch; requestTimeoutMs?: number }): OpenRouterInteractionClient {
+export function createOpenRouterInteractionClient(input: { apiKey: string; fetchImpl?: typeof fetch; requestTimeoutMs?: number; providerRoute?: { order: string[]; allow_fallbacks: false } }): OpenRouterInteractionClient {
   const fetchImpl = input.fetchImpl ?? fetch;
   return {
     async create(request) {
@@ -33,7 +33,8 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
             },
             { role: "user", content: request.input }
           ],
-          response_format: { type: "json_object" }
+          response_format: { type: "json_object" },
+          ...(input.providerRoute ? { provider: input.providerRoute } : {})
         })
       }, input.requestTimeoutMs ?? defaultProviderRequestTimeoutMs);
       if (!response.ok) throw providerHttpError(response.status);

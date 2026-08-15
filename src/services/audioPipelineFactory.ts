@@ -79,7 +79,7 @@ function createFormattingAdapter(config: AppConfig, logger?: Logger) {
     throw new Error("OPENROUTER_API_KEY is required when OPENROUTER_FORMATTING_MODEL is configured.");
   }
   return new OpenRouterFormattingAdapter({
-    client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs }),
+    client: createOpenRouterInteractionClient({ apiKey: config.openRouterApiKey, requestTimeoutMs: config.providerRequestTimeoutMs, providerRoute: { order: ["anthropic"], allow_fallbacks: false } }),
     model: config.openRouterFormattingModel,
     logger
   });

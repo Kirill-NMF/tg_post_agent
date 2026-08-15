@@ -41,6 +41,13 @@ describe("OpenRouter provider boundary", () => {
       .rejects.toMatchObject({ code, metadata: { endpoint: "openrouter_chat_completions", statusClass: "2xx", contentType: category, byteLength: body.length } });
   });
 
+  it("pins the formatting route to Anthropic without OpenRouter fallback", async () => {
+    let body: Record<string, unknown> | undefined;
+    const client = createOpenRouterInteractionClient({ apiKey: "test-key", providerRoute: { order: ["anthropic"], allow_fallbacks: false }, fetchImpl: async (_url, init) => { body = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), { status: 200, headers: { "content-type": "application/json" } }); } });
+    await client.create({ model: "anthropic/claude-sonnet-5", input: "x", response_format: { type: "text", mime_type: "application/json", schema: {} } });
+    expect(body?.provider).toEqual({ order: ["anthropic"], allow_fallbacks: false });
+  });
+
   it("turns an aborted request into one retryable timeout without logging prompt content", async () => {
     const client = createOpenRouterInteractionClient({
       apiKey: "test-key",
