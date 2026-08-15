@@ -39,6 +39,14 @@ def persisted_scope(account_id: int, cursor: int) -> dict[str, object]:
 def scope_is_eligible(scope: dict[str, object], account_id: int) -> bool:
     return bool(scope.get("found")) and recipient_matches(account_id, scope.get("recipient") if isinstance(scope.get("recipient"), str) else None)
 
+async def wait_for_scope(fetch, account_id: int, cursor: int, deadline: float = 10.0, interval: float = 0.5, clock=asyncio.get_running_loop):
+    loop = clock()
+    end = loop.time() + deadline
+    while True:
+        scope = await asyncio.to_thread(fetch, account_id, cursor)
+        if scope.get("found") or loop.time() >= end: return scope
+        await asyncio.sleep(interval)
+
 def newer_callback_prefixes(messages, cursor: int) -> list[str]:
     return [getattr(button, "data", b"").decode().split(":", 1)[0] for message in sorted((m for m in messages if m.id > cursor), key=lambda item: item.id) for row in getattr(getattr(message, "reply_markup", None), "rows", []) or [] for button in getattr(row, "buttons", []) or []]
 
@@ -102,7 +110,7 @@ async def run() -> dict[str, object]:
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
             outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
-            scope = await asyncio.to_thread(persisted_scope, account.id, cursor)
+            scope = await wait_for_scope(persisted_scope, account.id, cursor)
             report["projectScopeFound"] = bool(scope.get("found")); report["projectStateCategory"] = scope.get("state")
             if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")
             plan, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "plan:", 180); report["planUiObserved"] = True; report["planUiEvidence"] = evidence; await plan.click(data=choice.data); cursor = plan.id; report["stages"].append("plan_clicked")
