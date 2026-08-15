@@ -1,16 +1,20 @@
 import type { Job } from "../domain/jobTypes.js";
-import { applyFormattingPlan } from "../domain/formatting.js";
+import { applyFormattingPlan, applySegmentFormattingPlan, deriveCanonicalSegments, type CanonicalFormattingSegment, type SegmentFormattingOperation } from "../domain/formatting.js";
 import type { ModelAdapters } from "../domain/modelContracts.js";
-import type { FormattingOption, Project, ProjectMessageKind } from "../domain/types.js";
+import type { AdapterMeta, AdapterResult, FormattingOption, Project, ProjectMessageKind } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
 import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWorker.js";
 import { formattedReplyMarkup } from "./formatPresentation.js";
 
+type SegmentFormattingAdapter = {
+  formatOption2Segments(input: { projectId: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: SegmentFormattingOperation[] }>>
+};
+
 export type FormatPostJobHandlerDeps = {
   projects: ProjectRepository;
-  formatting: Pick<ModelAdapters, "formatPost">;
+  formatting: Pick<ModelAdapters, "formatPost"> & Partial<SegmentFormattingAdapter>;
   notifier?: TelegramNotifier;
   logger?: Logger;
   now?: () => number;
@@ -39,36 +43,80 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
       "formatting started"
     );
 
-    let result: Awaited<ReturnType<ModelAdapters["formatPost"]>>;
-    const providerStartedAt = now();
+    let providerFailure: { code: string; message: string; retryable: boolean } | undefined;
+    let providerMeta: AdapterMeta | undefined;
+    let operationCount = 0;
+    let rendered: ReturnType<typeof applyFormattingPlan> | ReturnType<typeof applySegmentFormattingPlan> | undefined;
     let providerDurationMs = 0;
-    try {
-      result = await deps.formatting.formatPost({
-        projectId: project.id,
-        draftText: post.currentDraft,
-        formattingOption: request.formattingOption
-      });
-      providerDurationMs = Math.max(0, now() - providerStartedAt);
-    } catch {
-      providerDurationMs = Math.max(0, now() - providerStartedAt);
-      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_PROVIDER_UNEXPECTED_FAILURE", now);
-      emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_unexpected_failure");
-      throw new PermanentJobError("FORMAT_PROVIDER_UNEXPECTED_FAILURE", "Formatting provider failed unexpectedly.");
-    }
+    let validationApplicationDurationMs = 0;
 
-    if (!result.ok) {
-      if (result.error.retryable && job.attempts < job.maxAttempts) {
-        emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, 0, Math.max(0, now() - startedAt), "retry_scheduled");
-        throw new RetryableJobError(result.error.code, result.error.message);
+    if (request.formattingOption === "option_2") {
+      const segments = deriveCanonicalSegments(post.currentDraft);
+      const segmentFormatter = deps.formatting.formatOption2Segments;
+      if (!segmentFormatter) {
+        providerFailure = { code: "FORMAT_SEGMENT_ADAPTER_UNAVAILABLE", message: "Segment formatting is unavailable.", retryable: false };
+      } else {
+        const providerStartedAt = now();
+        try {
+          const result = await segmentFormatter({ projectId: project.id, segments });
+          providerDurationMs = Math.max(0, now() - providerStartedAt);
+          if (!result.ok) {
+            providerFailure = result.error;
+          } else {
+            providerMeta = result.meta;
+            operationCount = result.value.directives.length;
+            const validationStartedAt = now();
+            rendered = applySegmentFormattingPlan(post.currentDraft, "option_2", result.value.directives);
+            validationApplicationDurationMs = Math.max(0, now() - validationStartedAt);
+          }
+        } catch {
+          providerDurationMs = Math.max(0, now() - providerStartedAt);
+          const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_PROVIDER_UNEXPECTED_FAILURE", now);
+          emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_unexpected_failure");
+          throw new PermanentJobError("FORMAT_PROVIDER_UNEXPECTED_FAILURE", "Formatting provider failed unexpectedly.");
+        }
       }
-      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, result.error.code, now);
-      emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_or_plan_failure");
-      throw new PermanentJobError(result.error.code, result.error.message);
+    } else {
+      const providerStartedAt = now();
+      try {
+        const result = await deps.formatting.formatPost({
+          projectId: project.id,
+          draftText: post.currentDraft,
+          formattingOption: request.formattingOption
+        });
+        providerDurationMs = Math.max(0, now() - providerStartedAt);
+        if (!result.ok) {
+          providerFailure = result.error;
+        } else {
+          providerMeta = result.meta;
+          operationCount = result.value.decorationPlan.operations.length;
+          const validationStartedAt = now();
+          rendered = applyFormattingPlan(post.currentDraft, result.value.decorationPlan);
+          validationApplicationDurationMs = Math.max(0, now() - validationStartedAt);
+        }
+      } catch {
+        providerDurationMs = Math.max(0, now() - providerStartedAt);
+        const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_PROVIDER_UNEXPECTED_FAILURE", now);
+        emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_unexpected_failure");
+        throw new PermanentJobError("FORMAT_PROVIDER_UNEXPECTED_FAILURE", "Formatting provider failed unexpectedly.");
+      }
     }
 
-    const validationStartedAt = now();
-    const rendered = applyFormattingPlan(post.currentDraft, result.value.decorationPlan);
-    const validationApplicationDurationMs = Math.max(0, now() - validationStartedAt);
+    if (providerFailure) {
+      if (providerFailure.retryable && job.attempts < job.maxAttempts) {
+        emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, 0, Math.max(0, now() - startedAt), "retry_scheduled");
+        throw new RetryableJobError(providerFailure.code, providerFailure.message);
+      }
+      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, providerFailure.code, now);
+      emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_or_plan_failure");
+      throw new PermanentJobError(providerFailure.code, providerFailure.message);
+    }
+    if (!rendered || !providerMeta) {
+      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_SEGMENT_APPLICATION_UNAVAILABLE", now);
+      emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, Math.max(0, now() - startedAt), "validation_application_failure");
+      throw new PermanentJobError("FORMAT_SEGMENT_APPLICATION_UNAVAILABLE", "Formatting application was unavailable.");
+    }
+
     if (!rendered.ok) {
       const notifierDurationMs = await recoverFromFailure(deps, project, job.id, rendered.code, now);
       emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, Math.max(0, now() - startedAt), "validation_application_failure");
@@ -82,7 +130,7 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
     await deps.projects.save(project);
 
     logger.info(
-      { event: "formatting_saved", jobId: job.id, projectId: project.id, postIndex: post.index, formattingOption: request.formattingOption, operationCount: result.value.decorationPlan.operations.length },
+      { event: "formatting_saved", jobId: job.id, projectId: project.id, postIndex: post.index, formattingOption: request.formattingOption, operationCount },
       "formatting saved"
     );
 
@@ -95,8 +143,8 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
     }
     emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notification.durationMs, Math.max(0, now() - startedAt), notification.status === "failed" ? "notifier_failed_recovered" : "success");
     return {
-      provider: result.meta.provider,
-      modelLabel: result.meta.modelLabel,
+      provider: providerMeta.provider,
+      modelLabel: providerMeta.modelLabel,
       postIndex: post.index,
       formattingOption: request.formattingOption,
       notificationStatus: notification.status

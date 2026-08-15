@@ -36,6 +36,94 @@ describe("FORMAT_POST job handler", () => {
     expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
   });
 
+  it("uses valid Option 2 segment directives to persist a formatted final", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    let legacyCalls = 0;
+    let segmentCalls = 0;
+    await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: {
+          async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
+          async formatOption2Segments(input: { segments: readonly { id: string }[] }) {
+            segmentCalls += 1;
+            expect(input.segments.map((segment) => segment.id)).toEqual(["block_1"]);
+            return { ok: true as const, value: { directives: [{ id: "block_1", kind: "emoji_insertion" as const, position: "before" as const, emoji: "\u{2728}" }] }, meta: { provider: "openrouter", modelLabel: "fake-segment-model" } };
+          }
+        },
+        notifier
+      })
+    });
+
+    await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
+    expect(segmentCalls).toBe(1);
+    expect(legacyCalls).toBe(0);
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728}Canonical draft.");
+    expect(notifier.messages).toHaveLength(1);
+  });
+
+  it("recovers an Option 2 invalid segment directive without mutating the active draft", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const notifier = new CapturingNotifier();
+    const project = await seedFormattingProject(projects);
+    let legacyCalls = 0;
+    let segmentCalls = 0;
+    const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: {
+          async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
+          async formatOption2Segments() {
+            segmentCalls += 1;
+            return { ok: true as const, value: { directives: [{ id: "block_9", kind: "paragraph_break" as const, position: "after" as const }] }, meta: { provider: "openrouter", modelLabel: "fake-segment-model" } };
+          }
+        },
+        notifier
+      })
+    });
+
+    await worker.processOne({ workerId: "worker-1" });
+    const restored = await projects.findById(project.id);
+    expect((await jobs.findById(job.id))?.status).toBe("failed");
+    expect(segmentCalls).toBe(1);
+    expect(legacyCalls).toBe(0);
+    expect(restored?.state).toBe("draft_editing");
+    expect(restored?.posts[0]?.currentDraft).toBe("Canonical draft.");
+    expect(restored?.posts[0]?.formattedText).toBeUndefined();
+    expect(notifier.messages).toHaveLength(1);
+  });
+
+  it("keeps Option 1 on the legacy formatting adapter path", async () => {
+    const projects = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const project = await seedFormattingProject(projects);
+    let legacyCalls = 0;
+    let segmentCalls = 0;
+    await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_1" } });
+    const worker = new JobWorker(jobs, {
+      FORMAT_POST: createFormatPostJobHandler({
+        projects,
+        formatting: {
+          async formatPost() {
+            legacyCalls += 1;
+            return { ok: true as const, value: { decorationPlan: { option: "option_1" as const, operations: [] } }, meta: { provider: "openrouter", modelLabel: "legacy-model" } };
+          },
+          async formatOption2Segments() { segmentCalls += 1; throw new Error("Option 2 only"); }
+        }
+      })
+    });
+
+    await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
+    expect(legacyCalls).toBe(1);
+    expect(segmentCalls).toBe(0);
+  });
+
   it("emits redacted Stage 3 timing for a successful formatting job", async () => {
     const projects = new InMemoryProjectRepository();
     const notifier = new CapturingNotifier();

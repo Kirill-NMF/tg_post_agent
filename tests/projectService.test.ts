@@ -119,6 +119,30 @@ describe("ProjectService mock state machine", () => {
     });
   });
 
+  it("uses the Option 2 segment path when synchronous formatting adapter support is available", async () => {
+    const repository = new InMemoryProjectRepository();
+    let legacyCalls = 0;
+    let segmentCalls = 0;
+    const models = Object.assign(new MockModelAdapters(), {
+      async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
+      async formatOption2Segments(input: { segments: readonly { id: string }[] }) {
+        segmentCalls += 1;
+        expect(input.segments.map((segment) => segment.id)).toEqual(["block_1"]);
+        return { ok: true as const, value: { directives: [{ id: "block_1", kind: "emoji_insertion" as const, position: "before" as const, emoji: "\u{2728}" }] } };
+      }
+    });
+    const projects = new ProjectService(repository, models, undefined, undefined, true);
+    const project = await seedDraftEditingProject(repository);
+    project.state = "format_choice";
+    await repository.save(project);
+
+    await projects.formatCurrentPost("100", "option_2");
+
+    expect(segmentCalls).toBe(1);
+    expect(legacyCalls).toBe(0);
+    expect((await repository.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728}Current draft");
+  });
+
   it("keeps the no-job mock path revising drafts synchronously", async () => {
     const repository = new InMemoryProjectRepository();
     const projects = new ProjectService(repository, new MockModelAdapters());

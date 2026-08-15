@@ -1,5 +1,5 @@
 import type { ModelAdapters } from "../domain/modelContracts.js";
-import { applyFormattingPlan, type FormattingDecorationPlan } from "../domain/formatting.js";
+import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDecorationPlan } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
@@ -38,6 +38,37 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
   ) {
     if (!input.model.trim()) throw new Error("A formatting model must be configured.");
     this.maxOperations = input.maxOperations ?? 30;
+  }
+
+  async formatOption2Segments(params: { projectId: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: Option2SegmentDirective[] }>> {
+    const logger = this.input.logger ?? noopLogger;
+    const segmentIds = params.segments.map((segment) => segment.id);
+    logger.info(
+      { event: "formatting_segment_request_started", projectId: params.projectId, modelLabel: this.input.model, segmentCount: segmentIds.length },
+      "formatting segment request started"
+    );
+    try {
+      const interaction = await this.input.client.create({
+        model: this.input.model,
+        input: buildOption2SegmentPrompt(segmentIds),
+        response_format: { type: "text", mime_type: "application/json", schema: option2SegmentPlanSchema }
+      });
+      if (typeof interaction.output_text !== "string") {
+        return failure("FORMAT_PLAN_OUTPUT_INVALID", "Formatting provider output was missing JSON text.", false);
+      }
+      const directives = parseOption2SegmentPlan(interaction.output_text, segmentIds, this.maxOperations);
+      logger.info(
+        { event: "formatting_segment_output_validated", projectId: params.projectId, modelLabel: this.input.model, operationCount: directives.length },
+        "formatting segment output validated"
+      );
+      return { ok: true, value: { directives }, meta: { provider: "openrouter", modelLabel: this.input.model } };
+    } catch (error) {
+      logger.warn(
+        { event: "formatting_segment_request_failed", projectId: params.projectId, modelLabel: this.input.model, failureBoundary: failureBoundary(error), validationCode: safeValidationCode(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
+        "formatting segment request failed"
+      );
+      return failure("FORMAT_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
+    }
   }
 
   async formatPost(params: Parameters<ModelAdapters["formatPost"]>[0]): Promise<AdapterResult<{ decorationPlan: FormattingDecorationPlan; formattingNotes?: string[] }>> {
