@@ -28,4 +28,5 @@ class T(unittest.TestCase):
  def test_pre_start_boundary_selects_project_created_by_start(self):
   rows=[{'user':7,'created':4},{'user':7,'created':5},{'user':8,'created':6}]
   self.assertEqual(x.select_scope(rows,7,4)['created'],5)
+ def test_source_audio_send_is_not_voice_or_document_for_mp3_copy(self): self.assertEqual(x.source_audio_send_kwargs(),{'voice_note':False,'force_document':False})
 if __name__=='__main__': unittest.main()

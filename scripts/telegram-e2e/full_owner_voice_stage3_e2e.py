@@ -55,6 +55,9 @@ async def wait_for_scope(fetch, account_id: int, cursor: int, deadline: float = 
 def newer_callback_prefixes(messages, cursor: int) -> list[str]:
     return [getattr(button, "data", b"").decode().split(":", 1)[0] for message in sorted((m for m in messages if m.id > cursor), key=lambda item: item.id) for row in getattr(getattr(message, "reply_markup", None), "rows", []) or [] for button in getattr(row, "buttons", []) or []]
 
+def source_audio_send_kwargs() -> dict[str, bool]:
+    return {"voice_note": False, "force_document": False}
+
 async def receive_until(conversation, bot_id: int, prefix: str, timeout: float):
     deadline = asyncio.get_running_loop().time() + timeout
     while True:
@@ -114,7 +117,7 @@ async def run() -> dict[str, object]:
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             run_started = time.time(); await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
-            outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
+            outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], **source_audio_send_kwargs()); cursor = outgoing.id; report["stages"].append("audio_uploaded")
             scope = await wait_for_scope(persisted_scope, account.id, run_started)
             report["projectScopeFound"] = bool(scope.get("found")); report["projectStateCategory"] = scope.get("state")
             if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")
