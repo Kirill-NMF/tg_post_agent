@@ -9,6 +9,7 @@ import re
 import sys
 import tempfile
 import subprocess
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -32,8 +33,8 @@ def callback(message, prefix: str):
 def recipient_matches(account_id: int, configured_recipient: str | None) -> bool:
     return bool(configured_recipient and configured_recipient.isdigit() and int(configured_recipient) == account_id)
 
-def persisted_scope(account_id: int, cursor: int) -> dict[str, object]:
-    run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env={**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_SOURCE_CURSOR": str(cursor)}, capture_output=True, text=True, check=True)
+def persisted_scope(account_id: int, started_at: float) -> dict[str, object]:
+    run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env={**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_STARTED_AT": str(started_at)}, capture_output=True, text=True, check=True)
     return json.loads(run.stdout)
 
 def scope_is_eligible(scope: dict[str, object], account_id: int) -> bool:
@@ -109,8 +110,8 @@ async def run() -> dict[str, object]:
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
-            outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
-            scope = await wait_for_scope(persisted_scope, account.id, cursor)
+            run_started = time.time(); outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
+            scope = await wait_for_scope(persisted_scope, account.id, run_started)
             report["projectScopeFound"] = bool(scope.get("found")); report["projectStateCategory"] = scope.get("state")
             if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")
             plan, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "plan:", 180); report["planUiObserved"] = True; report["planUiEvidence"] = evidence; await plan.click(data=choice.data); cursor = plan.id; report["stages"].append("plan_clicked")
