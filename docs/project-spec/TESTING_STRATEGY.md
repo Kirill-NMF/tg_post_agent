@@ -104,3 +104,8 @@ Block owner handoff when any applicable item is missing, failed, or acknowledgem
 - [ ] Dashboard evidence is path-specific and labels unrun paths `not tested`, not passed.
 
 Every owner-found delivery, stuck-state, or state-transition defect first becomes a reproducible Tier 1 test and, when transport-facing, Tier 2 evidence before closure.
+
+
+## Draft regeneration terminal inventory
+
+Trigger: draft:regenerate:<draftVersion>; initial state: draft_editing; acknowledgement: regeneration progress; async job: one versioned GENERATE_DRAFT; terminal outcome: exactly one new active draft or one recovery retaining the prior draft. Tier 1 covers exact source inputs, history retention, success swap, failure recovery, stale and duplicate callbacks, button rendering, and callback routing. Tier 2 requires one dedicated Telegram click smoke before owner UX handoff.

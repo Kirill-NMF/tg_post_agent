@@ -91,3 +91,8 @@ This is a path-level register, not a blanket historical pass. Any changed or new
 ## Pre-Owner Block
 
 No owner literary/UX handoff is permitted when a listed changed path lacks Tier 1 plus applicable Tier 2 terminal-delivery evidence, is acknowledgement-only, or has no defined recovery from timeout/permanent failure. The inventory must also cover callback single-flight/stale taps, duplicate terminal output, and restart/reclaim when relevant.
+
+
+## Stage 2 regeneration evidence
+
+Versioned regenerate-from-source is implemented with deterministic Tier 1 coverage. Telegram transport validation is not yet run; it remains a required dedicated-click Tier 2 checkpoint before owner UX acceptance.

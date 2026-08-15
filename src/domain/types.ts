@@ -107,6 +107,7 @@ export type ProjectPost = {
   formattedText?: string;
   finalText?: string;
   formattingOption?: FormattingOption;
+  draftVersion?: number;
 };
 
 export type ProjectMessageKind =

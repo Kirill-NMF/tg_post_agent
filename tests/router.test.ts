@@ -99,6 +99,25 @@ describe("BotRouter", () => {
     expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({ type: "TRANSCRIBE_EDIT_AUDIO" });
   });
 
+  it("routes a versioned draft regeneration callback and rejects its duplicate tap", async () => {
+    const repository = new InMemoryProjectRepository();
+    const jobs = new InMemoryJobRepository();
+    const projectService = new ProjectService(repository, new MockModelAdapters(), jobs, undefined, true);
+    const botRouter = new BotRouter(new TelegramAuthService(new Set(["100"])), projectService);
+    await seedDraftEditingProject(repository);
+
+    const accepted = await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "draft:regenerate:1" });
+    expect(message(accepted[0]).text).toContain("Генерирую новый");
+    expect((await repository.findActiveByTelegramUser("100"))?.state).toBe("draft_generating");
+    expect(await jobs.claimNextDue({ workerId: "worker-1" })).toMatchObject({
+      type: "GENERATE_DRAFT",
+      payload: { generationMode: "regenerate", sourceDraftVersion: 1 }
+    });
+
+    const duplicate = await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "draft:regenerate:1" });
+    expect(message(duplicate[0]).text).toContain("уже");
+  });
+
   it("returns fallback router text without mojibake", async () => {
     const botRouter = router();
     const response = message((await botRouter.handleCallback({ telegramUserId: "100", chatId: "200", action: "unknown:action" }))[0]);

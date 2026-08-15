@@ -27,7 +27,7 @@ describe("REVISE_DRAFT job handler", () => {
     expect(updated?.messages.at(-1)).toMatchObject({ kind: "draft", text: "Updated draft text" });
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]?.text).toBe("Updated draft text");
-    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open"]);
+    expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open", "draft:regenerate:2"]);
   });
 
   it("preserves saved revision and state when notification fails", async () => {

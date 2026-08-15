@@ -114,7 +114,7 @@ export class PgProjectRepository implements ProjectRepository {
             ${post.id}, ${project.id}, ${post.index}, ${toJson(post.planSlice)},
             ${post.currentDraft ?? null}, ${post.formattedText ?? null}, ${post.finalText ?? null},
             ${project.rewriteMode ?? null}, ${post.formattingOption ?? null},
-            ${post.currentDraft ? 1 : 0}, ${post.formattedText ? 1 : 0},
+            ${post.draftVersion ?? (post.currentDraft ? 1 : 0)}, ${post.formattedText ? 1 : 0},
             ${post.finalText ? now : null}, ${project.createdAt}, ${project.updatedAt}
           )
         `);
@@ -276,7 +276,8 @@ function fromPostRow(row: PostRow): ProjectPost {
     currentDraft: row.current_draft ?? undefined,
     formattedText: row.formatted_text ?? undefined,
     finalText: row.final_text ?? undefined,
-    formattingOption: row.formatting_option ?? undefined
+    formattingOption: row.formatting_option ?? undefined,
+    draftVersion: row.draft_version
   };
 }
 

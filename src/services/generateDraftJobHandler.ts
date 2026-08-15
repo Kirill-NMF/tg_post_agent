@@ -29,6 +29,11 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
     if (!project.currentPostIndex) throw new PermanentJobError("DRAFT_POST_INDEX_MISSING", "Current post index is required before draft generation.");
     const post = project.posts.find((candidate) => candidate.index === project.currentPostIndex);
     if (!post) throw new PermanentJobError("DRAFT_POST_MISSING", "Current post is required before draft generation.");
+    const regeneration = regenerationRequest(job.payload);
+    if (regeneration && (!post.currentDraft || currentDraftVersion(post) !== regeneration.sourceDraftVersion)) {
+      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_REGENERATION_STALE", true);
+      throw new PermanentJobError("DRAFT_REGENERATION_STALE", "Draft regeneration source is stale.");
+    }
 
     logger.info({ event: "draft_generation_started", jobId: job.id, projectId: job.projectId, postIndex: post.index }, "draft generation started");
     let result: Awaited<ReturnType<ModelAdapters["generateDraft"]>>;
@@ -39,26 +44,28 @@ export function createGenerateDraftJobHandler(deps: GenerateDraftJobHandlerDeps)
         postIndex: post.index,
         rewriteMode: project.rewriteMode,
         transcript: project.transcript,
-        compactContext: draftContext(project),
+        compactContext: regeneration ? [] : draftContext(project),
         outputLanguage: project.outputLanguage
       });
     } catch {
-      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE");
+      await recoverFromPermanentDraftFailure(deps, project, job.id, "DRAFT_PROVIDER_UNEXPECTED_FAILURE", Boolean(regeneration));
       throw new PermanentJobError("DRAFT_PROVIDER_UNEXPECTED_FAILURE", "Draft provider failed unexpectedly.");
     }
     if (!result.ok) {
       if (result.error.retryable && job.attempts < job.maxAttempts) throw new RetryableJobError(result.error.code, result.error.message);
-      await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code);
+      await recoverFromPermanentDraftFailure(deps, project, job.id, result.error.code, Boolean(regeneration));
       throw new PermanentJobError(result.error.code, result.error.message);
     }
 
+    const draftVersion = nextDraftVersion(post);
     post.currentDraft = result.value.draft.fullText;
+    post.draftVersion = draftVersion;
     project.state = "draft_editing";
     project.messages.push(message("draft", post.currentDraft));
     await deps.projects.save(project);
     logger.info({ event: "draft_generation_saved", jobId: job.id, projectId: job.projectId, postIndex: post.index, draftLength: post.currentDraft.length }, "draft generation saved");
 
-    const notificationStatus = await notifyDraft(deps, project, post.currentDraft, job.id);
+    const notificationStatus = await notifyDraft(deps, project, post.currentDraft, post.draftVersion, job.id);
     return {
       provider: result.meta.provider,
       modelLabel: result.meta.modelLabel,
@@ -73,24 +80,25 @@ async function recoverFromPermanentDraftFailure(
   deps: GenerateDraftJobHandlerDeps,
   project: Project,
   jobId: string,
-  errorCode: string
+  errorCode: string,
+  retainActiveDraft: boolean
 ): Promise<void> {
   if (project.state !== "draft_generating") return;
-  project.state = "rewrite_mode";
+  project.state = retainActiveDraft ? "draft_editing" : "rewrite_mode";
   await deps.projects.save(project);
 
   if (!deps.notifier) return;
   try {
-    await deps.notifier.sendMessage(project.chatId, errorCode === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" ? "Не удалось подготовить черновик на нужном языке. Выберите режим переписывания ещё раз." : "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
+    await deps.notifier.sendMessage(project.chatId, retainActiveDraft ? "Не удалось сгенерировать новый черновик. Текущий черновик сохранён; попробуйте ещё раз." : errorCode === "GEMINI_DRAFT_OUTPUT_LANGUAGE_INVALID" ? "Не удалось подготовить черновик на нужном языке. Выберите режим переписывания ещё раз." : "Не удалось подготовить черновик. Выберите режим переписывания ещё раз.");
   } catch {
     deps.logger?.warn({ event: "draft_generation_failure_notification_failed", jobId, projectId: project.id, errorCode }, "draft generation recovery notification failed");
   }
 }
 
-async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, draft: string, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
+async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, draft: string, draftVersion: number, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled) });
+    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion) });
     return "sent";
   } catch {
     deps.logger?.warn({ event: "draft_generation_notification_failed", jobId, projectId: project.id }, "draft generation notification failed");
@@ -107,4 +115,19 @@ function draftContext(project: Project): string[] {
 
 function message(kind: ProjectMessageKind, text: string) {
   return { kind, text, createdAt: new Date() };
+}
+
+function regenerationRequest(payload: Record<string, unknown>): { sourceDraftVersion: number } | undefined {
+  if (payload.generationMode !== "regenerate") return undefined;
+  const sourceDraftVersion = payload.sourceDraftVersion;
+  if (typeof sourceDraftVersion !== "number" || !Number.isSafeInteger(sourceDraftVersion) || sourceDraftVersion <= 0) throw new PermanentJobError("DRAFT_REGENERATION_INVALID", "Draft regeneration source version is invalid.");
+  return { sourceDraftVersion };
+}
+
+function currentDraftVersion(post: { currentDraft?: string; draftVersion?: number }): number {
+  return post.draftVersion ?? (post.currentDraft ? 1 : 0);
+}
+
+function nextDraftVersion(post: { currentDraft?: string; draftVersion?: number }): number {
+  return currentDraftVersion(post) + 1;
 }

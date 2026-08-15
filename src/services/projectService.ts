@@ -170,7 +170,7 @@ export class ProjectService {
 
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled) }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled, currentPost(project)?.draftVersion) }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
@@ -199,9 +199,30 @@ export class ProjectService {
       this.models.reviseDraft({ projectId: project.id, currentDraft: post.currentDraft, latestUserEdit, compactContext: recentEditMessages(project), outputLanguage: project.outputLanguage })
     );
     post.currentDraft = updated.updatedDraft.fullText;
+    post.draftVersion = nextDraftVersion(post);
     project.messages.push(message("draft", post.currentDraft));
     await this.projects.save(project);
-    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled) }];
+    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled, post.draftVersion) }];
+  }
+
+  async regenerateDraft(telegramUserId: TelegramUserId, sourceDraftVersion: number): Promise<BotResponse[]> {
+    const project = await this.requireActive(telegramUserId);
+    const post = currentPost(project);
+    if (project.state === "draft_generating") return [{ kind: "message", text: "Новый черновик уже генерируется. Дождитесь результата." }];
+    if (project.state !== "draft_editing" || !post?.currentDraft || !project.selectedPlan || !project.transcript || !project.rewriteMode) {
+      return [{ kind: "message", text: "Генерация нового черновика доступна только для текущего черновика." }];
+    }
+    if (currentDraftVersion(post) !== sourceDraftVersion) return [{ kind: "message", text: "Эта кнопка устарела. Используйте кнопку под текущим черновиком." }];
+    project.state = "draft_generating";
+    await this.projects.save(project);
+    try {
+      await this.enqueueDraftRegeneration(project, post, sourceDraftVersion);
+    } catch {
+      project.state = "draft_editing";
+      await this.projects.save(project);
+      return [{ kind: "message", text: "Не удалось запустить новый черновик. Текущий черновик сохранён; попробуйте ещё раз." }];
+    }
+    return [{ kind: "message", text: "Генерирую новый вариант по выбранному плану и исходной расшифровке." }];
   }
 
   async openFormatChoice(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
@@ -392,7 +413,9 @@ export class ProjectService {
         outputLanguage: project.outputLanguage
       })
     );
+    const draftVersion = nextDraftVersion(post);
     post.currentDraft = draft.draft.fullText;
+    post.draftVersion = draftVersion;
     project.state = "draft_editing";
     project.messages.push(message("draft", post.currentDraft));
     return post.currentDraft;
@@ -410,6 +433,15 @@ export class ProjectService {
       postId: post.id,
       dedupeKey: `project:${project.id}:post:${project.currentPostIndex}:draft:${project.rewriteMode}`,
       payload: { postIndex: project.currentPostIndex, rewriteMode: project.rewriteMode }
+    });
+  }
+
+  private async enqueueDraftRegeneration(project: Project, post: NonNullable<ReturnType<typeof currentPost>>, sourceDraftVersion: number): Promise<void> {
+    if (!this.jobs || !project.rewriteMode) throw new Error("Cannot enqueue draft regeneration without job repository and rewrite mode.");
+    await this.jobs.enqueue({
+      type: "GENERATE_DRAFT", projectId: project.id, postId: post.id,
+      dedupeKey: "project:" + project.id + ":post:" + post.index + ":regenerate:" + sourceDraftVersion,
+      payload: { postIndex: post.index, rewriteMode: project.rewriteMode, generationMode: "regenerate", sourceDraftVersion }
     });
   }
 
@@ -459,6 +491,14 @@ async function unwrap<T>(resultPromise: Promise<{ ok: true; value: T } | { ok: f
 
 function currentPost(project: Project) {
   return project.posts.find((post) => post.index === project.currentPostIndex);
+}
+
+function currentDraftVersion(post: NonNullable<ReturnType<typeof currentPost>>): number {
+  return post.draftVersion ?? (post.currentDraft ? 1 : 0);
+}
+
+function nextDraftVersion(post: NonNullable<ReturnType<typeof currentPost>>): number {
+  return currentDraftVersion(post) + 1;
 }
 
 function recentEditMessages(project: Project): string[] {

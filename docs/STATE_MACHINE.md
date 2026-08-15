@@ -244,3 +244,8 @@ The semantic-vs-formatting distinction can start as a conservative rule in later
 When the explicit formatting model is configured, `draft_editing -> format_choice -> formatting -> formatted_editing` is publicly reachable. `formatted_editing` exposes a correction entry point plus final acceptance. Text or voice correction immediately invalidates the formatted result, moves the project into the existing draft-revision busy path, and ends in `draft_editing`; a stale final-accept callback cannot finalize it. Final acceptance sends only the `.txt` artifact and moves the project to `done`.
 
 A FORMAT_POST malformed, terminal provider, or notification failure restores `draft_editing` without accepting the formatting. Telegram Premium/custom emoji remain deferred.
+
+
+## Draft regeneration
+
+In draft_editing, draft:regenerate:<version> is accepted only when the callback version matches the active draft. The project first moves to draft_generating and queues one versioned GENERATE_DRAFT. A double tap gets pending guidance; an old button gets stale guidance. Success appends the new draft to history, swaps the active draft, increments its version, and returns to draft_editing. Terminal failure retains the preceding active draft and returns to draft_editing.

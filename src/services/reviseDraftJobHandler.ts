@@ -49,12 +49,13 @@ export function createReviseDraftJobHandler(deps: ReviseDraftJobHandlerDeps): Jo
     }
 
     post.currentDraft = result.value.updatedDraft.fullText;
+    post.draftVersion = (post.draftVersion ?? 1) + 1;
     project.state = "draft_editing";
     project.messages.push(message("draft", post.currentDraft));
     await deps.projects.save(project);
     logger.info({ event: "draft_revision_saved", jobId: job.id, projectId: job.projectId, postIndex: post.index, draftLength: post.currentDraft.length }, "draft revision saved");
 
-    const notificationStatus = await notifyDraft(deps, project, post.currentDraft, job.id);
+    const notificationStatus = await notifyDraft(deps, project, post.currentDraft, post.draftVersion, job.id);
     return {
       provider: result.meta.provider,
       modelLabel: result.meta.modelLabel,
@@ -94,10 +95,10 @@ function parseLatestUserEdit(payload: Record<string, unknown>): string {
   return latestUserEdit;
 }
 
-async function notifyDraft(deps: ReviseDraftJobHandlerDeps, project: Project, draft: string, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
+async function notifyDraft(deps: ReviseDraftJobHandlerDeps, project: Project, draft: string, draftVersion: number, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled) });
+    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion) });
     return "sent";
   } catch {
     deps.logger?.warn({ event: "draft_revision_notification_failed", jobId, projectId: project.id }, "draft revision notification failed");

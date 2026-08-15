@@ -24,3 +24,8 @@ Map scenario to expected state, job status, message category, and cleanup. Asser
 ## Anti-Patterns
 
 Measuring resilience by test count; checking success only; assuming callbacks are harmless; leaving terminal job failure silent.
+
+
+## Versioned regenerate actions
+
+Bind a regenerate callback to the active draft version, transition to a durable pending state before queueing, and retain the active draft until replacement success. Test double taps, stale callbacks, success swap, terminal recovery, and exclusion of prior output from source inputs.

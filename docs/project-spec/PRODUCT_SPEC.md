@@ -419,3 +419,8 @@ The canonical accepted draft remains the sole lexical source. Formatting accepts
 The public formatting flow presents one formatting action, then exactly `Telegram` (Option 1) and `Telegram + emoji` (Option 2). Premium/custom emoji remain deferred.
 
 A successfully formatted message exposes a correction action and final acceptance. A text or voice correction returns to the canonical draft-revision path, invalidates the formatted result and stale completion action, and requires a new formatting pass. Final acceptance sends the `.txt` artifact once; it does not duplicate the already delivered formatted body.
+
+
+### Draft regeneration
+
+After an editable draft is delivered, the bot also shows Сгенерировать заново beside Оформить. It creates a new initial draft from the same confirmed selected plan, stored transcript, and rewrite mode. Current draft text, prior corrections, and earlier generated drafts stay audit history and are not source inputs. The active draft changes only after successful generation; failure retains the prior editable draft with recovery guidance.

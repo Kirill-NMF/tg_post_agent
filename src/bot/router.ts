@@ -59,6 +59,8 @@ export class BotRouter {
     if (group === "plan" && isPlanOption(value)) return this.projects.choosePlan(event.telegramUserId, value);
     if (group === "rewrite" && isRewriteMode(value)) return this.projects.chooseRewriteMode(event.telegramUserId, value);
     if (event.action === "format:open") return this.projects.openFormatChoice(event.telegramUserId);
+    const regenerationVersion = parseRegenerationAction(event.action);
+    if (regenerationVersion !== undefined) return this.projects.regenerateDraft(event.telegramUserId, regenerationVersion);
     if (event.action === "format:edit") return this.projects.openFormattedCorrection(event.telegramUserId);
     if (group === "format" && (value === "option_1" || value === "option_2")) return this.projects.formatCurrentPost(event.telegramUserId, value);
     if (event.action === "final:accept") return this.projects.finalizeCurrentPost(event.telegramUserId);
@@ -77,4 +79,11 @@ function isPlanOption(value: string | undefined): value is PlanOptionId {
 
 function isRewriteMode(value: string | undefined): value is RewriteMode {
   return value === "clean_up" || value === "make_post";
+}
+
+function parseRegenerationAction(action: string): number | undefined {
+  const match = /^draft:regenerate:(\d+)$/.exec(action);
+  if (!match) return undefined;
+  const version = Number(match[1]);
+  return Number.isSafeInteger(version) && version > 0 ? version : undefined;
 }
