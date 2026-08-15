@@ -23,7 +23,7 @@ describe("OpenRouter provider boundary", () => {
       }
     });
     await expect(client.create({ model: "google/gemini-2.5-pro", input: "SECRET TRANSCRIPT", response_format: { type: "text", mime_type: "application/json", schema: { type: "object" } } })).resolves.toEqual({ output_text: "{\\\"ok\\\":true}" });
-    expect(received).toMatchObject({ model: "google/gemini-2.5-pro", response_format: { type: "json_object" } });
+    expect(received).toMatchObject({ model: "google/gemini-2.5-pro", stream: false, response_format: { type: "json_object" } });
     expect((received?.messages as Array<{ role: string; content: string }>)[0]).toMatchObject({
       role: "system",
       content: expect.stringContaining("\"type\":\"object\"")

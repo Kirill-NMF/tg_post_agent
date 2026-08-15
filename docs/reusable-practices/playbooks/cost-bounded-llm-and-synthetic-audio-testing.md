@@ -28,3 +28,7 @@ Committing user recordings; running paid calls per pull request; logging transcr
 ## Formatting canary accounting
 
 A paid formatting canary ledger key must include a stable non-secret fingerprint of the configured formatting model. Historical attempts for a previous model remain immutable but do not block the first bounded attempt for a newly selected model. Each option/model fingerprint is single-attempt with no fallback. A single bot recovery notification is a terminal result; stale callback controls are not a new final result.
+
+## Explicit non-streaming Claude route
+
+For OpenRouter Claude formatting, set stream false explicitly. Synthetic non-streaming JSON probes and both Telegram formatting options then verified the Anthropic-pinned no-fallback route. Preserve the model-plus-route fingerprint in the bounded ledger.

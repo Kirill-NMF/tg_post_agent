@@ -26,6 +26,7 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
         },
         body: JSON.stringify({
           model: request.model,
+          stream: false,
           messages: [
             {
               role: "system",
