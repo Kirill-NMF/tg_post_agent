@@ -80,10 +80,13 @@ def callback(message, prefix: str):
 def recipient_matches(account_id: int, configured_recipient: str | None) -> bool:
     return bool(configured_recipient and configured_recipient.isdigit() and int(configured_recipient) == account_id)
 
-def persisted_scope(account_id: int, started_at: float) -> dict[str, object]:
+def persisted_scope(account_id: int, started_at: float, expected_job_type: str | None = None) -> dict[str, object]:
     if os.geteuid() == 0:
         raise CanaryError("scope_helper_runtime_user_required")
-    run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env={**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_STARTED_AT": str(started_at)}, capture_output=True, text=True, check=True)
+    environment = {**os.environ, "TG_POST_AGENT_E2E_USER_ID": str(account_id), "TG_POST_AGENT_E2E_STARTED_AT": str(started_at)}
+    if expected_job_type is not None:
+        environment["TG_POST_AGENT_E2E_EXPECT_JOB_TYPE"] = expected_job_type
+    run = subprocess.run(["node", "scripts/telegram-e2e/project_recipient_scope.mjs"], env=environment, capture_output=True, text=True, check=True)
     return json.loads(run.stdout)
 
 def scope_is_eligible(scope: dict[str, object], account_id: int) -> bool:
@@ -99,6 +102,18 @@ async def wait_for_scope(fetch, account_id: int, cursor: int, deadline: float = 
     while True:
         scope = await asyncio.to_thread(fetch, account_id, cursor)
         if scope.get("found") or loop.time() >= end: return scope
+        await asyncio.sleep(interval)
+
+def scope_has_expected_enqueue(scope: dict[str, object]) -> bool:
+    return bool(scope.get("found") and scope.get("expectedJobEnqueued"))
+
+async def wait_for_expected_enqueue(fetch, account_id: int, started_at: float, expected_job_type: str, deadline: float = 15.0, interval: float = 0.5, clock=asyncio.get_running_loop):
+    loop = clock()
+    end = loop.time() + deadline
+    while True:
+        scope = await asyncio.to_thread(fetch, account_id, started_at, expected_job_type)
+        if scope_has_expected_enqueue(scope) or loop.time() >= end:
+            return scope
         await asyncio.sleep(interval)
 
 def newer_callback_prefixes(messages, cursor: int) -> list[str]:
@@ -226,8 +241,14 @@ async def run() -> dict[str, object]:
             if not scope_is_eligible(scope, account.id): raise CanaryError("project_recipient_mismatch")
             plan, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "plan:", 180); report["planUiObserved"] = True; report["planUiEvidence"] = evidence; await plan.click(data=choice.data); cursor = plan.id; report["stages"].append("plan_clicked")
             mode, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "rewrite:", 180); report["rewriteUiObserved"] = True; report["rewriteUiEvidence"] = evidence; await mode.click(data=choice.data); cursor = mode.id; report["stages"].append("mode_clicked")
+            draft_enqueue = await wait_for_expected_enqueue(persisted_scope, account.id, run_started, "GENERATE_DRAFT")
+            report["draftEnqueueObserved"] = scope_has_expected_enqueue(draft_enqueue)
+            if not report["draftEnqueueObserved"]: raise CanaryError("draft_enqueue_timeout")
             draft, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "format:open", 180); report["draftUiObserved"] = True; report["draftUiEvidence"] = evidence; draft_text = draft.raw_text or ""; await draft.click(data=choice.data); cursor = draft.id; report["stages"].append("draft_ready")
             options, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "format:option_2", 60); report["formatUiObserved"] = True; report["formatUiEvidence"] = evidence; await options.click(data=choice.data); cursor = options.id; report["stages"].append("option2_clicked")
+            format_enqueue = await wait_for_expected_enqueue(persisted_scope, account.id, run_started, "FORMAT_POST")
+            report["formatEnqueueObserved"] = scope_has_expected_enqueue(format_enqueue)
+            if not report["formatEnqueueObserved"]: raise CanaryError("format_enqueue_timeout")
             final, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "final:accept", 180); report["finalUiObserved"] = True; report["finalUiEvidence"] = evidence
             draft_nonempty, draft_hash, draft_units = lexical_fingerprint(draft_text)
             final_nonempty, final_hash, final_units = lexical_fingerprint(final.raw_text or "")

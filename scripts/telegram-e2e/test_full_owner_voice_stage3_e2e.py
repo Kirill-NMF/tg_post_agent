@@ -110,6 +110,21 @@ class T(unittest.TestCase):
             self.assertTrue(x.audio_copy_ready(audio))
             self.assertTrue(x.cleanup_audio_copy(audio))
             self.assertFalse(audio.exists())
+    def test_stale_format_callback_cannot_progress_without_current_draft_enqueue(self):
+        self.assertFalse(x.scope_has_expected_enqueue({'found': True, 'expectedJobEnqueued': False}))
+    def test_current_project_draft_enqueue_allows_progress(self):
+        self.assertTrue(x.scope_has_expected_enqueue({'found': True, 'expectedJobEnqueued': True}))
+    def test_enqueue_poll_waits_for_current_project_job_not_any_callback(self):
+        seen = []
+        def fetch(account, started, job_type):
+            seen.append(job_type)
+            return {'found': True, 'expectedJobEnqueued': len(seen) > 1}
+        result = asyncio.run(x.wait_for_expected_enqueue(fetch, 7, 1, 'GENERATE_DRAFT', deadline=1, interval=0))
+        self.assertTrue(x.scope_has_expected_enqueue(result))
+        self.assertEqual(seen, ['GENERATE_DRAFT', 'GENERATE_DRAFT'])
+    def test_missing_current_format_enqueue_fails_closed(self):
+        result = asyncio.run(x.wait_for_expected_enqueue(lambda a, s, j: {'found': True, 'expectedJobEnqueued': False}, 7, 1, 'FORMAT_POST', deadline=0, interval=0))
+        self.assertFalse(x.scope_has_expected_enqueue(result))
     def test_scope_poll_deadline_returns_absent(self): self.assertFalse(asyncio.run(x.wait_for_scope(lambda a, c: {'found': False}, 7, 1, deadline=0, interval=0)).get('found'))
     def test_selector_uses_user_and_run_start_not_source_message(self):
         rows = [{'user': 7, 'created': 4}, {'user': 8, 'created': 9}, {'user': 7, 'created': 6}]
