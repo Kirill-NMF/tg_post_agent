@@ -43,6 +43,17 @@ async def receive_message(conversation, bot_id: int, timeout: float):
     if message.sender_id != bot_id: raise CanaryError("unexpected_sender")
     return message
 
+async def observe_callback(client, target, bot_id: int, after_id: int, prefix: str, timeout: float):
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        messages = await client.get_messages(target, limit=40, min_id=after_id)
+        current = [m for m in messages if m.sender_id == bot_id and m.id > after_id]
+        for message in reversed(current):
+            choice = callback(message, prefix)
+            if choice: return message, choice, {"callbackPrefix": prefix, "newBotMessageCount": len(current), "cursorAdvanced": True}
+        await asyncio.sleep(1)
+    raise CanaryError(prefix.replace(":", "_") + "_timeout")
+
 def lexical_fingerprint(text: str) -> tuple[bool, str, int]:
     """Compare lexical units only; Markdown markers and emoji are decorations."""
     units = re.findall(r"[^\W_]+", text, flags=re.UNICODE)
@@ -70,12 +81,12 @@ async def run() -> dict[str, object]:
         if not await client.is_user_authorized() or not getattr(target, "bot", False) or not target_matches_canonical_identity(target.id, identity): raise CanaryError("target_or_session")
         async with client.conversation(target, timeout=180, exclusive=True) as c:
             await c.send_message("/start"); await receive_message(c, identity.telegram_id, 60); report["stages"].append("start")
-            await client.send_file(target, os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); report["stages"].append("audio_uploaded")
-            plan, choice = await receive_until(c, identity.telegram_id, "plan:", 180); await plan.click(data=choice.data); report["stages"].append("plan_clicked")
-            mode, choice = await receive_until(c, identity.telegram_id, "rewrite:", 180); await mode.click(data=choice.data); report["stages"].append("mode_clicked")
-            draft, choice = await receive_until(c, identity.telegram_id, "format:open", 180); draft_text = draft.raw_text or ""; await draft.click(data=choice.data); report["stages"].append("draft_ready")
-            options, choice = await receive_until(c, identity.telegram_id, "format:option_2", 60); await options.click(data=choice.data); report["stages"].append("option2_clicked")
-            final, choice = await receive_until(c, identity.telegram_id, "final:accept", 180)
+            outgoing = await c.send_file(os.environ["TG_POST_AGENT_OWNER_AUDIO_COPY"], voice_note=True); cursor = outgoing.id; report["stages"].append("audio_uploaded")
+            plan, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "plan:", 180); report["planUiObserved"] = True; report["planUiEvidence"] = evidence; await plan.click(data=choice.data); cursor = plan.id; report["stages"].append("plan_clicked")
+            mode, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "rewrite:", 180); report["rewriteUiObserved"] = True; report["rewriteUiEvidence"] = evidence; await mode.click(data=choice.data); cursor = mode.id; report["stages"].append("mode_clicked")
+            draft, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "format:open", 180); report["draftUiObserved"] = True; report["draftUiEvidence"] = evidence; draft_text = draft.raw_text or ""; await draft.click(data=choice.data); cursor = draft.id; report["stages"].append("draft_ready")
+            options, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "format:option_2", 60); report["formatUiObserved"] = True; report["formatUiEvidence"] = evidence; await options.click(data=choice.data); cursor = options.id; report["stages"].append("option2_clicked")
+            final, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "final:accept", 180); report["finalUiObserved"] = True; report["finalUiEvidence"] = evidence
             draft_nonempty, draft_hash, draft_units = lexical_fingerprint(draft_text)
             final_nonempty, final_hash, final_units = lexical_fingerprint(final.raw_text or "")
             report.update({"lexicalPreserved": draft_nonempty and final_nonempty and draft_hash == final_hash and draft_units == final_units, "draftLexicalHash": draft_hash, "finalLexicalHash": final_hash, "draftLexicalUnits": draft_units, "finalLexicalUnits": final_units, "noDuplicateTerminal": await no_duplicate_terminal(c)})
