@@ -50,7 +50,17 @@ def e2e_preflight_from_environment(environment: dict[str, str]) -> dict[str, obj
             ledger = json.load(handle)
     except (KeyError, OSError, ValueError, json.JSONDecodeError):
         return {"canProceed": False, "category": "ledger_unavailable", "externalCallBound": None}
-    return e2e_preflight(ledger if isinstance(ledger, dict) else {}, environment)
+    result = e2e_preflight(ledger if isinstance(ledger, dict) else {}, environment)
+    if not result["canProceed"]:
+        return result
+    try:
+        audio = Path(environment["TG_POST_AGENT_OWNER_AUDIO_COPY"])
+        audio_ready = audio.is_file() and audio.stat().st_size > 0
+    except (KeyError, OSError):
+        audio_ready = False
+    if not audio_ready:
+        return {"canProceed": False, "category": "source_audio_copy_unavailable", "externalCallBound": 4}
+    return result
 
 def persist_report(path: Path, report: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

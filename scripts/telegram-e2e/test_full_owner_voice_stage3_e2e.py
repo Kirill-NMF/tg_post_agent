@@ -1,4 +1,4 @@
-import sys, unittest
+import json, sys, tempfile, unittest
 from unittest import mock
 from pathlib import Path
 
@@ -56,6 +56,17 @@ class T(unittest.TestCase):
         self.assertIn('chown "$runtime_user":"$runtime_user" "$ledger_path"', runner)
         self.assertIn('install -d -o "$runtime_user" -g "$runtime_user" -m 700 "$report_dir"', runner)
         self.assertIn('TG_POST_AGENT_FULL_E2E_REPORT=', runner)
+    def test_preflight_refuses_missing_audio_copy_before_telegram_actions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger_path = Path(directory) / 'ledger.json'
+            ledger_path.write_text(json.dumps({'dailyBudget': 40, 'attemptedBillableOperations': 28, 'remainingBudget': 12}), encoding='utf-8')
+            environment = dict(x.E2E_ONE_ATTEMPT_OVERLAY)
+            environment['TG_POST_AGENT_FULL_E2E_LEDGER_PATH'] = str(ledger_path)
+            environment['TG_POST_AGENT_OWNER_AUDIO_COPY'] = str(Path(directory) / 'missing-audio-copy')
+            report = x.e2e_preflight_from_environment(environment)
+        self.assertFalse(report['canProceed'])
+        self.assertEqual(report['category'], 'source_audio_copy_unavailable')
+        self.assertEqual(report['externalCallBound'], 4)
     def test_scope_poll_deadline_returns_absent(self): self.assertFalse(asyncio.run(x.wait_for_scope(lambda a, c: {'found': False}, 7, 1, deadline=0, interval=0)).get('found'))
     def test_selector_uses_user_and_run_start_not_source_message(self):
         rows = [{'user': 7, 'created': 4}, {'user': 8, 'created': 9}, {'user': 7, 'created': 6}]
