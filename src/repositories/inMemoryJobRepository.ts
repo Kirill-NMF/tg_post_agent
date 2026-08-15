@@ -55,6 +55,12 @@ export class InMemoryJobRepository implements JobRepository {
     return cloneJob(job);
   }
 
+  async claimDueById(input: { jobId: JobId; workerId: string; now?: Date }): Promise<Job | undefined> {
+    const now = input.now ?? new Date(); const job = this.jobs.get(input.jobId);
+    if (!job || !["queued", "retry_scheduled"].includes(job.status) || job.runAfter > now) return undefined;
+    job.status="running"; job.attempts+=1; job.lockedBy=input.workerId; job.lockedAt=now; job.startedAt=now; job.updatedAt=now; return cloneJob(job);
+  }
+
   async markSucceeded(jobId: JobId, result: Record<string, unknown> = {}): Promise<Job> {
     const job = mustGet(this.jobs, jobId);
     const now = new Date();

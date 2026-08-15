@@ -90,6 +90,10 @@ export class PgJobRepository implements JobRepository {
     return rows[0] ? fromJobRow(rows[0]) : undefined;
   }
 
+  async claimDueById(input: { jobId: JobId; workerId: string; now?: Date }): Promise<Job | undefined> {
+    const now=input.now??new Date(); const rows=rowsOf<JobRow>(await this.db.execute(sql`update jobs set status='running', attempts=attempts+1, locked_by=${input.workerId}, locked_at=${now}, started_at=${now}, updated_at=${now} where id=${input.jobId} and status in ('queued','retry_scheduled') and run_after <= ${now} returning *`)); return rows[0]?fromJobRow(rows[0]):undefined;
+  }
+
   async markSucceeded(jobId: JobId, result: Record<string, unknown> = {}): Promise<Job> {
     const now = new Date();
     const rows = rowsOf<JobRow>(

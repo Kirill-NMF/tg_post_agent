@@ -38,8 +38,8 @@ export class JobWorker {
     private readonly logger: Logger = noopLogger
   ) {}
 
-  async processOne(input: { workerId: string; now?: Date }): Promise<ProcessOneResult> {
-    const job = await this.jobs.claimNextDue(input);
+  async processOne(input: { workerId: string; now?: Date; expectedJobId?: string }): Promise<ProcessOneResult> {
+    const job = input.expectedJobId ? await this.jobs.claimDueById({ ...input, jobId: input.expectedJobId }) : await this.jobs.claimNextDue(input);
     if (!job) return { processed: false, reason: "no_job" };
 
     this.logger.info({ event: "job_claimed", jobId: job.id, type: job.type, attempt: job.attempts, ...redactJobPayload(job.payload) }, "job claimed");

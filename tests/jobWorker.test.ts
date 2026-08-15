@@ -20,6 +20,27 @@ class CapturingLogger implements Logger {
 }
 
 describe("JobWorker", () => {
+  it("claims only the expected due job and leaves an earlier unrelated job untouched", async () => {
+    const jobs=new InMemoryJobRepository(); const earlier=await jobs.enqueue({type:"PLAN_SPLIT",payload:{}}); const exact=await jobs.enqueue({type:"FORMAT_POST",payload:{}});
+    const worker=new JobWorker(jobs,{FORMAT_POST:async()=>({ok:true})});
+    await expect(worker.processOne({workerId:"w",expectedJobId:exact.id})).resolves.toMatchObject({processed:true,jobId:exact.id});
+    expect((await jobs.findById(earlier.id))?.status).toBe("queued");
+  });
+  it("returns no_job when exact id is wrong, not due, or already claimed", async () => {
+    const jobs=new InMemoryJobRepository(); const job=await jobs.enqueue({type:"FORMAT_POST",payload:{},runAfter:new Date("2030-01-01")}); const worker=new JobWorker(jobs,{FORMAT_POST:async()=>({})});
+    await expect(worker.processOne({workerId:"w",expectedJobId:"missing"})).resolves.toEqual({processed:false,reason:"no_job"});
+    await expect(worker.processOne({workerId:"w",expectedJobId:job.id,now:new Date("2029-01-01")})).resolves.toEqual({processed:false,reason:"no_job"});
+  });
+  it("allows only one concurrent exact claim", async () => {
+    const jobs = new InMemoryJobRepository(); const job = await jobs.enqueue({ type: "FORMAT_POST", payload: {} });
+    const [first, second] = await Promise.all([jobs.claimDueById({ jobId: job.id, workerId: "one" }), jobs.claimDueById({ jobId: job.id, workerId: "two" })]);
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+  });
+  it("keeps default processOne oldest-next behavior", async () => {
+    const jobs = new InMemoryJobRepository(); const first = await jobs.enqueue({ type: "PLAN_SPLIT", payload: {} }); await jobs.enqueue({ type: "FORMAT_POST", payload: {} });
+    const worker = new JobWorker(jobs, { PLAN_SPLIT: async () => ({}) });
+    await expect(worker.processOne({ workerId: "w" })).resolves.toMatchObject({ processed: true, jobId: first.id });
+  });
   it("processes one job successfully and logs redacted payload shape", async () => {
     const jobs = new InMemoryJobRepository();
     const logger = new CapturingLogger();
