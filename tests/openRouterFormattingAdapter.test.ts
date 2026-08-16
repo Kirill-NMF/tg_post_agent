@@ -23,8 +23,8 @@ describe("OpenRouterFormattingAdapter", () => {
 
   it("parses ID-only Option 2 directives without exposing canonical segment text", () => {
     const directives = parseOption2SegmentPlan(JSON.stringify({
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
       operations: [
-        { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
         { id: "block_2", kind: "paragraph_break", position: "after" }
       ]
     }), ["block_1", "block_2"]);
@@ -44,21 +44,21 @@ describe("OpenRouterFormattingAdapter", () => {
 
   it("accepts ordinary, ZWJ, and keycap emoji but rejects punctuation and symbols as Option 2 emoji", () => {
     for (const emoji of ["\u{1F4A1}", "\u{1F469}\u200D\u{1F4BB}", "1\uFE0F\u20E3"]) {
-      expect(parseOption2SegmentPlan(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji }] }), ["block_1"])).toHaveLength(1);
+      expect(parseOption2SegmentPlan(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji }, operations: [] }), ["block_1"])).toHaveLength(1);
     }
     for (const emoji of ["\u2014", "\u00AB", "\u20AC", "\u042F", "A"]) {
-      expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji }] }), ["block_1"]), "FORMAT_OPTION2_EMOJI_REQUIRED");
+      expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji }, operations: [] }), ["block_1"]), "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID");
     }
   });
 
-  it("rejects an Option 2 segment plan without an ordinary emoji directive", () => {
+  it("rejects an Option 2 segment plan without its required primary emoji", () => {
     expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({
       operations: [{ id: "block_1", kind: "paragraph_break", position: "after" }]
-    }), ["block_1"]), "FORMAT_OPTION2_EMOJI_REQUIRED");
+    }), ["block_1"]), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
   });
 
   it("requests strict OpenRouter JSON Schema for Option 2 segment directives", async () => {
-    const client = capturingClient(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }] }));
+    const client = capturingClient(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [] }));
     const adapter = new OpenRouterFormattingAdapter({ client, model: "owner-selected-format-model" });
 
     await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] })).resolves.toMatchObject({ ok: true });
@@ -90,10 +90,10 @@ describe("OpenRouterFormattingAdapter", () => {
   });
 
   it.each([
-    [JSON.stringify({ operations: [{ id: "block_9", kind: "paragraph_break", position: "after" }] }), "FORMAT_SEGMENT_ID_INVALID"],
-    [JSON.stringify({ operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
-    [JSON.stringify({ operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
-    [JSON.stringify({ operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
+    [JSON.stringify({ primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [] }), "FORMAT_SEGMENT_ID_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
   ])("rejects non-ID Option 2 directives", (raw, expected) => {
     expectSegmentValidationCode(() => parseOption2SegmentPlan(raw, ["block_1"]), expected);
   });

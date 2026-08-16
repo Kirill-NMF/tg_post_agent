@@ -1,12 +1,12 @@
-# Option 2 schema/parser drift diagnostic
+# Option 2 unified schema contract
 
 ## Scope
 
 This report records only deterministic contract categories. It contains no draft, transcript, prompt, provider response, operation values, segment IDs, or emoji values. No provider or Telegram call was made.
 
-## Result
+## Incident evidence
 
-Schema/parser drift is proven. The current provider JSON Schema accepts operation objects with only `id` and `kind`, while the local parser additionally requires kind-specific fields and rejects cross-kind fields.
+Schema/parser drift was proven: the provider JSON Schema accepted operation objects with only `id` and `kind`, while the local parser additionally required kind-specific fields and rejected cross-kind fields.
 
 The fixture matrix covers:
 
@@ -19,17 +19,24 @@ Rejected-plan telemetry is category-only: response byte-length bucket, operation
 
 ## Anthropic keyword audit
 
-Current schema keywords are:
+The diagnostic schema keywords were:
 
 `additionalProperties`, `enum`, `items`, `maxItems`, `maxLength`, `minLength`, `pattern`, `properties`, `required`, and `type`.
 
 Anthropic documents `minLength` and `maxLength` among constraints removed by its SDK schema transformation because they are unsupported by structured-output grammar. They are listed separately from the proven required-field/discriminator drift; this diagnostic does not change or transform the schema.
 
-## Candidate repairs (not implemented)
+## Decision
 
-1. Replace the flat optional-field item schema with a discriminated `anyOf` union that matches the three parser shapes.
-2. Generate provider JSON Schema and the local parser from one shared typed source.
-3. Apply an Anthropic-compatible schema transform while retaining stricter local validation.
+Use one exported JSON Schema for both the OpenRouter request and local Ajv shape validation. The active response requires:
+
+- one dedicated exact `primaryEmoji` insertion object;
+- an `operations` array whose items are exact closed `anyOf` branches for paragraph break, Markdown span, or emoji insertion.
+
+The provider schema uses only the supported structural keywords needed for this contract. Pattern, string-length, emoji validity, segment allowlist, duplicate, and operation-count constraints remain local semantic checks. Response healing remains syntax repair only.
+
+## Verification lesson
+
+A small one-segment canary did not exercise the mixed-operation shape that failed in production. Contract canaries must match production complexity: include every operation kind and a multi-segment corpus. Provider and runtime shape validation must share one schema source so a provider-valid value cannot drift into a runtime shape rejection.
 
 ## Official sources
 

@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.16.0",
+    "ajv": "^8.20.0",
     "drizzle-orm": "^0.44.7",
     "grammy": "^1.36.3",
     "pg": "^8.16.3"
@@ -28,7 +29,6 @@
   "devDependencies": {
     "@types/node": "^24.2.0",
     "@types/pg": "^8.15.6",
-    "ajv": "^8.17.1",
     "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

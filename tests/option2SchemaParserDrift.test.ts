@@ -10,7 +10,7 @@ import {
 } from "../src/adapters/openRouterFormattingAdapter.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
-describe("Option 2 provider-schema/parser drift diagnostics", () => {
+describe("Option 2 provider-schema/parser alignment diagnostics", () => {
   it.each([
     ["paragraph_missing_position", { id: "block_1", kind: "paragraph_break" }],
     ["markdown_missing_style", { id: "block_1", kind: "markdown_span" }],
@@ -18,12 +18,14 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
     ["paragraph_cross_kind_style", { id: "block_1", kind: "paragraph_break", position: "after", style: "bold" }],
     ["markdown_cross_kind_position", { id: "block_1", kind: "markdown_span", style: "bold", position: "after" }],
     ["emoji_cross_kind_style", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728", style: "bold" }]
-  ])("proves provider-schema/parser drift for %s", (_category, operation) => {
+  ])("rejects former provider-schema/parser drift fixture %s", (_category, operation) => {
     const validate = new Ajv({ strict: false }).compile(option2SegmentPlanSchema);
-    const document = { operations: [operation] };
+    const document = {
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      operations: [operation]
+    };
 
-    expect(validate(document)).toBe(true);
-    expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify(document), ["block_1"]), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+    expect(validate(document)).toBe(false);
   });
 
   it.each([
@@ -32,17 +34,19 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
     ["emoji_insertion", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }]
   ])("keeps provider schema and parser aligned for valid %s form", (kind, operation) => {
     const validate = new Ajv({ strict: false }).compile(option2SegmentPlanSchema);
-    const operations = kind === "emoji_insertion"
-      ? [operation]
-      : [operation, { id: "block_2", kind: "emoji_insertion", position: "after", emoji: "\u2728" }];
-    const document = { operations };
+    const primaryEmoji = kind === "emoji_insertion"
+      ? operation
+      : { id: "block_2", kind: "emoji_insertion", position: "after", emoji: "\u2728" };
+    const operations = kind === "emoji_insertion" ? [] : [operation];
+    const document = { primaryEmoji, operations };
 
     expect(validate(document)).toBe(true);
-    expect(parseOption2SegmentPlan(JSON.stringify(document), ["block_1", "block_2"])).toHaveLength(operations.length);
+    expect(parseOption2SegmentPlan(JSON.stringify(document), ["block_1", "block_2"])).toHaveLength(operations.length + 1);
   });
 
-  it("proves drift in a seven-segment mixed corpus without recording content", () => {
+  it("keeps a seven-segment mixed drift corpus rejected by both validators", () => {
     const document = {
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
       operations: [
         { id: "block_1", kind: "paragraph_break", position: "after" },
         { id: "block_2", kind: "markdown_span", style: "bold" },
@@ -55,7 +59,7 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
     };
     const validate = new Ajv({ strict: false }).compile(option2SegmentPlanSchema);
 
-    expect(validate(document)).toBe(true);
+    expect(validate(document)).toBe(false);
     expectSegmentValidationCode(
       () => parseOption2SegmentPlan(JSON.stringify(document), Array.from({ length: 7 }, (_, index) => `block_${index + 1}`)),
       "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
@@ -64,10 +68,10 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
 
   it("emits category-only rejected segment-plan diagnostics without provider output values", async () => {
     const logger = new CapturingLogger();
-    const output = JSON.stringify({ operations: [
-      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
-      { id: "block_2", kind: "paragraph_break" }
-    ] });
+    const output = JSON.stringify({
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      operations: [{ id: "block_2", kind: "paragraph_break" }]
+    });
     const adapter = new OpenRouterFormattingAdapter({ client: capturingClient(output), model: "owner-selected-format-model", logger });
 
     await adapter.formatOption2Segments({ projectId: "project-safe", segments: [
@@ -78,11 +82,13 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
     expect(logger.entries.at(-1)?.fields).toMatchObject({
       validationCode: "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID",
       responseByteLengthBucket: "128_255",
-      parsedOperationCount: 2,
-      failingOperationIndexBucket: "1_3",
+      parsedOperationCount: 1,
+      failingOperationIndexBucket: "0",
       failingOperationKind: "paragraph_break",
       fieldPresenceMask: 3,
-      anyEmojiDirective: true
+      anyEmojiDirective: true,
+      planValidationStage: "shape",
+      schemaFailureLocation: "operation"
     });
     const serialized = JSON.stringify(logger.entries);
     expect(serialized).not.toContain("block_1");
@@ -91,14 +97,41 @@ describe("Option 2 provider-schema/parser drift diagnostics", () => {
     expect(serialized).not.toContain(output);
   });
 
+  it("emits a distinct category-only primary emoji semantic failure", async () => {
+    const logger = new CapturingLogger();
+    const unsafeValue = "NOT_AN_EMOJI_SENTINEL";
+    const output = JSON.stringify({
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: unsafeValue },
+      operations: []
+    });
+    const adapter = new OpenRouterFormattingAdapter({ client: capturingClient(output), model: "owner-selected-format-model", logger });
+
+    await adapter.formatOption2Segments({
+      projectId: "project-safe",
+      segments: [{ id: "block_1", start: 0, end: 10 }]
+    });
+
+    expect(logger.entries.at(-1)?.fields).toMatchObject({
+      validationCode: "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID",
+      parsedOperationCount: 0,
+      failingOperationIndexBucket: "not_applicable",
+      failingOperationKind: "emoji_insertion",
+      fieldPresenceMask: 23,
+      anyEmojiDirective: true,
+      planValidationStage: "semantic",
+      schemaFailureLocation: "primary_emoji"
+    });
+    expect(JSON.stringify(logger.entries)).not.toContain(unsafeValue);
+  });
+
   it("reports current Anthropic-unsupported schema constraints separately", () => {
     const keywords = collectSchemaKeywords(option2SegmentPlanSchema);
     const documentedUnsupported = new Set(["minimum", "maximum", "minLength", "maxLength"]);
 
     expect([...keywords].sort()).toEqual([
-      "additionalProperties", "enum", "items", "maxItems", "maxLength", "minLength", "pattern", "properties", "required", "type"
+      "additionalProperties", "anyOf", "enum", "items", "properties", "required", "type"
     ]);
-    expect([...keywords].filter((keyword) => documentedUnsupported.has(keyword)).sort()).toEqual(["maxLength", "minLength"]);
+    expect([...keywords].filter((keyword) => documentedUnsupported.has(keyword))).toEqual([]);
   });
 });
 
@@ -132,7 +165,7 @@ class CapturingLogger implements Logger {
 function collectSchemaKeywords(value: unknown, result = new Set<string>()): Set<string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return result;
   for (const [key, child] of Object.entries(value)) {
-    if (!["operations", "id", "kind", "position", "style", "emoji"].includes(key)) result.add(key);
+    if (!["primaryEmoji", "operations", "id", "kind", "position", "style", "emoji"].includes(key)) result.add(key);
     if (key === "properties" && child && typeof child === "object" && !Array.isArray(child)) {
       for (const nested of Object.values(child)) collectSchemaKeywords(nested, result);
     } else {

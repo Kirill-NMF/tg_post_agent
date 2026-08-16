@@ -1,3 +1,4 @@
+import { Ajv, type ErrorObject } from "ajv";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDecorationPlan } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
@@ -19,6 +20,8 @@ export type RejectedSegmentPlanDiagnostics = {
   failingOperationKind: "not_applicable" | "missing" | "paragraph_break" | "markdown_span" | "emoji_insertion" | "unknown";
   fieldPresenceMask: number;
   anyEmojiDirective: boolean;
+  planValidationStage: "json" | "shape" | "semantic";
+  schemaFailureLocation: "not_applicable" | "root" | "primary_emoji" | "operation";
 };
 
 export class FormattingPlanValidationError extends Error {
@@ -53,7 +56,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
     try {
       const interaction = await this.input.client.create({
         model: this.input.model,
-        input: buildOption2SegmentPrompt(segmentIds),
+        input: buildOption2SegmentPrompt(segmentIds, this.maxOperations),
         stream: false,
         provider: { require_parameters: true },
         plugins: [{ id: "response-healing" }],
@@ -216,36 +219,76 @@ export type Option2SegmentDirective =
   | { id: string; kind: "markdown_span"; style: "bold" | "italic" | "code" }
   | { id: string; kind: "emoji_insertion"; position: "before" | "after"; emoji: string };
 
+const paragraphBreakSegmentSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "kind", "position"],
+  properties: {
+    id: { type: "string" },
+    kind: { type: "string", enum: ["paragraph_break"] },
+    position: { type: "string", enum: ["before", "after"] }
+  }
+} as const;
+
+const markdownSpanSegmentSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "kind", "style"],
+  properties: {
+    id: { type: "string" },
+    kind: { type: "string", enum: ["markdown_span"] },
+    style: { type: "string", enum: ["bold", "italic", "code"] }
+  }
+} as const;
+
+const emojiInsertionSegmentSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "kind", "position", "emoji"],
+  properties: {
+    id: { type: "string" },
+    kind: { type: "string", enum: ["emoji_insertion"] },
+    position: { type: "string", enum: ["before", "after"] },
+    emoji: { type: "string" }
+  }
+} as const;
+
 export const option2SegmentPlanSchema: Record<string, unknown> = {
   type: "object",
   additionalProperties: false,
-  required: ["operations"],
+  required: ["primaryEmoji", "operations"],
   properties: {
+    primaryEmoji: emojiInsertionSegmentSchema,
     operations: {
       type: "array",
-      maxItems: 30,
       items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["id", "kind"],
-        properties: {
-          id: { type: "string", pattern: "^block_[1-9][0-9]*$" },
-          kind: { type: "string", enum: ["paragraph_break", "markdown_span", "emoji_insertion"] },
-          position: { type: "string", enum: ["before", "after"] },
-          style: { type: "string", enum: ["bold", "italic", "code"] },
-          emoji: { type: "string", minLength: 1, maxLength: 16 }
-        }
+        anyOf: [
+          paragraphBreakSegmentSchema,
+          markdownSpanSegmentSchema,
+          emojiInsertionSegmentSchema
+        ]
       }
     }
   }
 };
 
-export function buildOption2SegmentPrompt(segmentIds: readonly string[]): string {
+type Option2SegmentPlanDocument = {
+  primaryEmoji: Extract<Option2SegmentDirective, { kind: "emoji_insertion" }>;
+  operations: Option2SegmentDirective[];
+};
+
+const validateOption2SegmentPlanShape = new Ajv({ allErrors: true, strict: true })
+  .compile<Option2SegmentPlanDocument>(option2SegmentPlanSchema);
+
+
+export function buildOption2SegmentPrompt(segmentIds: readonly string[], maxOperations = 30): string {
   validateSegmentIds(segmentIds);
   return [
     "Return exactly one JSON object matching the supplied schema.",
     "Return Option 2 decoration directives keyed only by canonical segment IDs.",
-    "Include at least one ordinary Unicode emoji_insertion directive; do not use custom or Premium emoji.",
+    "primaryEmoji is required and must be one ordinary Unicode emoji_insertion directive; do not use custom or Premium emoji.",
+    "Put every optional paragraph, Markdown, or additional emoji directive in operations; operations may be empty.",
+    "Return no more than " + maxOperations + " total directives including primaryEmoji.",
     "Allowed segment IDs: " + segmentIds.join(", "),
     "Never return anchors, source text, replacement text, or any lexical source words."
   ].join("\n");
@@ -258,78 +301,106 @@ export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
-    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID", emptyRejectedPlanDiagnostics(responseByteLengthBucket));
+    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID", emptyRejectedPlanDiagnostics(responseByteLengthBucket, "json"));
   }
-  if (!isRecord(parsed) || !hasOnlyKeys(parsed, ["operations"]) || !Array.isArray(parsed.operations)) {
+  if (!validateOption2SegmentPlanShape(parsed)) {
+    const failure = locateSchemaFailure(validateOption2SegmentPlanShape.errors);
     throw new FormattingPlanValidationError(
       "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID",
-      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed, failure.index, "shape", failure.location)
     );
   }
-  if (parsed.operations.length > maxOperations) {
+
+  const directives: Option2SegmentDirective[] = [parsed.primaryEmoji, ...parsed.operations];
+  if (directives.length > maxOperations) {
     throw new FormattingPlanValidationError(
       "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
-      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic")
     );
   }
 
   const allowedIds = new Set(segmentIds);
   const seen = new Set<string>();
-  const directives: Option2SegmentDirective[] = [];
-  for (let index = 0; index < parsed.operations.length; index += 1) {
-    const operation = parsed.operations[index];
-    const diagnostics = rejectedPlanDiagnostics(responseByteLengthBucket, parsed, index);
-    if (!isRecord(operation) || typeof operation.id !== "string" || !allowedIds.has(operation.id)) {
+  for (let index = 0; index < directives.length; index += 1) {
+    const operation = directives[index];
+    const additionalIndex = index === 0 ? undefined : index - 1;
+    const diagnostics = rejectedPlanDiagnostics(
+      responseByteLengthBucket,
+      parsed,
+      additionalIndex,
+      "semantic",
+      index === 0 ? "primary_emoji" : "operation"
+    );
+    if (!allowedIds.has(operation.id)) {
       throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID", diagnostics);
     }
-    const duplicateKey = operation.id + ":" + String(operation.kind);
+    const duplicateKey = operation.id + ":" + operation.kind;
     if (seen.has(duplicateKey)) throw new FormattingPlanValidationError("FORMAT_SEGMENT_DUPLICATE", diagnostics);
-
-    if (operation.kind === "paragraph_break" && hasOnlyKeys(operation, ["id", "kind", "position"]) && isSegmentPosition(operation.position)) {
-      directives.push({ id: operation.id, kind: "paragraph_break", position: operation.position });
-    } else if (operation.kind === "markdown_span" && hasOnlyKeys(operation, ["id", "kind", "style"]) && isSegmentStyle(operation.style)) {
-      directives.push({ id: operation.id, kind: "markdown_span", style: operation.style });
-    } else if (operation.kind === "emoji_insertion" && hasOnlyKeys(operation, ["id", "kind", "position", "emoji"]) && isSegmentPosition(operation.position) && typeof operation.emoji === "string" && operation.emoji.length > 0) {
-      directives.push({ id: operation.id, kind: "emoji_insertion", position: operation.position, emoji: operation.emoji });
-    } else {
-      throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID", diagnostics);
+    if (operation.kind === "emoji_insertion" && !isOrdinaryEmoji(operation.emoji)) {
+      throw new FormattingPlanValidationError(
+        index === 0 ? "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID" : "FORMAT_EMOJI_INVALID",
+        diagnostics
+      );
     }
     seen.add(duplicateKey);
-  }
-  if (!directives.some((directive) => directive.kind === "emoji_insertion" && isOrdinaryEmoji(directive.emoji))) {
-    throw new FormattingPlanValidationError(
-      "FORMAT_OPTION2_EMOJI_REQUIRED",
-      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
-    );
   }
   return directives;
 }
 
-function emptyRejectedPlanDiagnostics(responseByteLengthBucket: RejectedSegmentPlanDiagnostics["responseByteLengthBucket"]): RejectedSegmentPlanDiagnostics {
+function emptyRejectedPlanDiagnostics(
+  responseByteLengthBucket: RejectedSegmentPlanDiagnostics["responseByteLengthBucket"],
+  planValidationStage: RejectedSegmentPlanDiagnostics["planValidationStage"]
+): RejectedSegmentPlanDiagnostics {
   return {
     responseByteLengthBucket,
     failingOperationIndexBucket: "not_applicable",
     failingOperationKind: "not_applicable",
     fieldPresenceMask: 0,
-    anyEmojiDirective: false
+    anyEmojiDirective: false,
+    planValidationStage,
+    schemaFailureLocation: "not_applicable"
   };
 }
 
 function rejectedPlanDiagnostics(
   responseByteLengthBucket: RejectedSegmentPlanDiagnostics["responseByteLengthBucket"],
   parsed: unknown,
-  failingIndex?: number
+  failingIndex: number | undefined,
+  planValidationStage: RejectedSegmentPlanDiagnostics["planValidationStage"],
+  schemaFailureLocation: RejectedSegmentPlanDiagnostics["schemaFailureLocation"] = "not_applicable"
 ): RejectedSegmentPlanDiagnostics {
   const operations = isRecord(parsed) && Array.isArray(parsed.operations) ? parsed.operations : undefined;
-  const operation = operations && failingIndex !== undefined ? operations[failingIndex] : undefined;
+  const primaryEmoji = isRecord(parsed) ? parsed.primaryEmoji : undefined;
+  const operation = schemaFailureLocation === "primary_emoji"
+    ? primaryEmoji
+    : operations && failingIndex !== undefined ? operations[failingIndex] : undefined;
   return {
     responseByteLengthBucket,
     parsedOperationCount: operations?.length,
     failingOperationIndexBucket: bucketOperationIndex(failingIndex),
     failingOperationKind: operationKindCategory(operation),
     fieldPresenceMask: operationFieldPresenceMask(operation),
-    anyEmojiDirective: Boolean(operations?.some((candidate) => isRecord(candidate) && candidate.kind === "emoji_insertion"))
+    anyEmojiDirective: Boolean(
+      (isRecord(primaryEmoji) && primaryEmoji.kind === "emoji_insertion")
+      || operations?.some((candidate) => isRecord(candidate) && candidate.kind === "emoji_insertion")
+    ),
+    planValidationStage,
+    schemaFailureLocation
   };
+}
+
+function locateSchemaFailure(errors: ErrorObject[] | null | undefined): {
+  location: RejectedSegmentPlanDiagnostics["schemaFailureLocation"];
+  index?: number;
+} {
+  for (const error of errors ?? []) {
+    const operationMatch = /^\/operations\/(\d+)(?:\/|$)/.exec(error.instancePath);
+    if (operationMatch) return { location: "operation", index: Number(operationMatch[1]) };
+  }
+  if ((errors ?? []).some((error) => error.instancePath === "/primaryEmoji" || error.instancePath.startsWith("/primaryEmoji/"))) {
+    return { location: "primary_emoji" };
+  }
+  return { location: "root" };
 }
 
 function bucketResponseByteLength(byteLength: number): RejectedSegmentPlanDiagnostics["responseByteLengthBucket"] {
@@ -368,14 +439,6 @@ function validateSegmentIds(segmentIds: readonly string[]): void {
   if (segmentIds.length === 0 || segmentIds.some((id) => !/^block_[1-9][0-9]*$/.test(id)) || new Set(segmentIds).size !== segmentIds.length) {
     throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
   }
-}
-
-function isSegmentPosition(value: unknown): value is "before" | "after" {
-  return value === "before" || value === "after";
-}
-
-function isSegmentStyle(value: unknown): value is "bold" | "italic" | "code" {
-  return value === "bold" || value === "italic" || value === "code";
 }
 
 function buildFormattingPrompt(params: Parameters<ModelAdapters["formatPost"]>[0]): string {
