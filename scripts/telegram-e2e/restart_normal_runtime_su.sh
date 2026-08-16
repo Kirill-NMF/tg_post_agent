@@ -15,6 +15,7 @@ stop_exact_runtime() {
     kill -TERM "$pid"
     for _ in $(seq 1 30); do
       kill -0 "$pid" 2>/dev/null || return
+      [[ "$(awk '/^State:/{print $2}' "/proc/$pid/status" 2>/dev/null || true)" = Z ]] && return
       sleep 1
     done
     return 1
@@ -23,6 +24,7 @@ stop_exact_runtime() {
 
 stop_exact_runtime
 install -o shorttalk -g shorttalk -m 600 /dev/null "$runtime_log"
+install -o shorttalk -g shorttalk -m 600 /dev/null "$pid_file"
 su -s /bin/bash shorttalk -c 'cd /opt/tg_post_agent; set -a; . .runtime/bot.env; export USER=shorttalk LOGNAME=shorttalk HOME=/home/shorttalk; nohup node dist/src/index.js >> .runtime/bot-current.log 2>&1 & echo $! > .runtime/bot.pid'
 
 for _ in $(seq 1 20); do
