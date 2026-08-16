@@ -71,7 +71,7 @@ test("report is atomically published", async () => {
 
 test("normal claim cannot see held format job while exact controlled claim gets it without unrelated due work", async () => {
  const jobs=new InMemoryJobRepository(), now=new Date();
- const unrelated=await jobs.enqueue({type:"GENERATE_DRAFT",projectId:"other",payload:{},maxAttempts:1});
+ const unrelated=await jobs.enqueue({type:"GENERATE_DRAFT",projectId:"other",payload:{},maxAttempts:1,runAfter:now});
  const held=await jobs.enqueue({type:"FORMAT_POST",projectId:"project",postId:"post",payload:{postIndex:1,formattingOption:"option_2"},maxAttempts:1,runAfter:new Date(now.getTime()+900000)});
  const normal=await jobs.claimNextDue({workerId:"normal",now});
  assert.equal(normal?.id,unrelated.id);

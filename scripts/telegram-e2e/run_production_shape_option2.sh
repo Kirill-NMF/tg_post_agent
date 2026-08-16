@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd /opt/tg_post_agent
-delivery_report=/tmp/tg-post-agent-e2e-reports/production-shape-option2-79b62f8.json
-runner_report=/tmp/tg-post-agent-e2e-reports/production-shape-option2-runner-79b62f8.json
+mode="${1:-run}"
+[[ "$mode" = run || "$mode" = preflight ]] || exit 2
+delivery_report="/tmp/tg-post-agent-e2e-reports/production-shape-option2-${mode}-be682cd.json"
+runner_report="/tmp/tg-post-agent-e2e-reports/production-shape-option2-runner-${mode}-be682cd.json"
 test ! -e "$delivery_report"
 test ! -e "$runner_report"
 set -a
@@ -30,4 +32,5 @@ exec runuser -u shorttalk -- env \
   TG_POST_AGENT_FORMAT_FIXTURE_STATE_PATH=/tmp/tg-post-agent-production-shape-format-state.json \
   TG_POST_AGENT_SINGLE_STAGE_FORMAT_REPORT="$runner_report" \
   TG_POST_AGENT_FAILED_DECORATION_DELIVERY_REPORT="$delivery_report" \
+  TG_POST_AGENT_FAILED_DECORATION_PREFLIGHT_ONLY="$([[ "$mode" = preflight ]] && echo true || echo false)" \
   python3 scripts/telegram-e2e/failed_decoration_delivery.py

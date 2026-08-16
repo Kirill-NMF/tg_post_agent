@@ -20,6 +20,9 @@ from tg_post_agent_smoke import fetch_runtime_bot_identity, target_matches_canon
 def document_is_nonempty(message: object) -> bool:
     return bool(getattr(getattr(message, "document", None), "size", 0) > 0)
 
+def identity_preflight(authorized: bool, target_is_bot: bool, target_matches: bool, recipient_matches: bool) -> bool:
+    return authorized and target_is_bot and target_matches and recipient_matches
+
 def isolated_runner_ready(report: dict[str, object]) -> bool:
     return bool(
         report.get("processed")
@@ -54,6 +57,8 @@ async def run() -> dict[str, object]:
         "permittedEmojiCount": 0,
         "decorationPresent": False,
         "txtArtifactNonempty": False,
+        "recipientMatched": False,
+        "botTargetMatched": False,
     }
     report_path = Path(os.environ.get("TG_POST_AGENT_FAILED_DECORATION_DELIVERY_REPORT", "/tmp/tg-post-agent-failed-decoration-delivery-report.json"))
     client = None
@@ -67,13 +72,16 @@ async def run() -> dict[str, object]:
         identity = await asyncio.to_thread(fetch_runtime_bot_identity, os.environ["TG_POST_AGENT_REAL_TG_BOT_TOKEN"])
         target = await client.get_entity(identity.username)
         account = await client.get_me()
-        if (
-            not await client.is_user_authorized()
-            or not getattr(target, "bot", False)
-            or not target_matches_canonical_identity(target.id, identity)
-            or str(account.id) != os.environ.get("TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID")
-        ):
+        authorized = await client.is_user_authorized()
+        target_matched = target_matches_canonical_identity(target.id, identity)
+        recipient_matched = str(account.id) == os.environ.get("TG_POST_AGENT_REAL_TG_TEST_RECIPIENT_ID")
+        if not identity_preflight(authorized, getattr(target, "bot", False), target_matched, recipient_matched):
             raise CanaryError("delivery_identity_mismatch")
+        report["recipientMatched"] = True
+        report["botTargetMatched"] = True
+        if os.environ.get("TG_POST_AGENT_FAILED_DECORATION_PREFLIGHT_ONLY") == "true":
+            report["terminal"] = "identity_preflight_passed"
+            return report
         before = await client.get_messages(target, limit=40)
         format_cursor = max((message.id for message in before), default=0)
         runner = await asyncio.to_thread(

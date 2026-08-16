@@ -7,6 +7,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 import failed_decoration_delivery as delivery
 
 class DeliveryContractTests(unittest.TestCase):
+    def test_identity_preflight_requires_all_four_invariants(self):
+        self.assertTrue(delivery.identity_preflight(True, True, True, True))
+        for index in range(4):
+            values = [True, True, True, True]
+            values[index] = False
+            self.assertFalse(delivery.identity_preflight(*values))
+
     def test_txt_artifact_must_be_nonempty(self):
         self.assertTrue(delivery.document_is_nonempty(SimpleNamespace(document=SimpleNamespace(size=1))))
         self.assertFalse(delivery.document_is_nonempty(SimpleNamespace(document=SimpleNamespace(size=0))))
