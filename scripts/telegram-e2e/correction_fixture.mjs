@@ -29,9 +29,9 @@ export function draftEnqueueGuard({ fixture, accountId, activeDraftJobCount }) {
 export function heldDraftEnqueue(now = new Date()) { return { runAfter: new Date(now.getTime() + 15 * 60_000), maxAttempts: 1 }; }
 export function rollbackMatches(job, fixture) { return Boolean(job && fixture && job.projectId === fixture.id && job.dedupeKey === "fixture:" + fixture.id + ":generate_draft"); }
 
-export function formatEnqueueGuard({ fixture, accountId, expectedDraftVersion, activeFormatJobCount }) {
+export function formatEnqueueGuard({ fixture, accountId, expectedDraftVersion, activeFormatJobCount, fixtureMarker = marker }) {
  const post=fixture?.posts?.find((item)=>item.index===fixture.currentPostIndex);
- if (!fixture || fixture.telegramUserId!==accountId || fixture.state!=="draft_editing" || !fixture.selectedPlan || fixture.messages?.some((item)=>item.kind==="command"&&item.text===marker)!==true || !post?.currentDraft?.trim()) return "fixture_invalid";
+ if (!fixture || fixture.telegramUserId!==accountId || fixture.state!=="draft_editing" || !fixture.selectedPlan || fixture.messages?.some((item)=>item.kind==="command"&&item.text===fixtureMarker)!==true || !post?.currentDraft?.trim()) return "fixture_invalid";
  if (!Number.isInteger(expectedDraftVersion) || expectedDraftVersion < 1 || post.draftVersion!==expectedDraftVersion) return "draft_version_stale";
  if (activeFormatJobCount!==0) return "format_job_already_active";
  return null;
@@ -42,8 +42,8 @@ export async function atomicPrivateState(path, value) {
  const temporary=path+".tmp-"+process.pid;
  await writeFile(temporary,JSON.stringify(value)+"\n",{mode:0o600}); await chmod(temporary,0o600); await rename(temporary,path); await chmod(path,0o600);
 }
-export async function prepareHeldOption2({projects,jobs,fixture,accountId,expectedDraftVersion,activeFormatJobCount,now=new Date(),writePrivateState,cancelExactJob}) {
- const category=formatEnqueueGuard({fixture,accountId,expectedDraftVersion,activeFormatJobCount}); if(category) throw new Error(category);
+export async function prepareHeldOption2({projects,jobs,fixture,accountId,fixtureMarker=marker,expectedDraftVersion,activeFormatJobCount,now=new Date(),writePrivateState,cancelExactJob}) {
+ const category=formatEnqueueGuard({fixture,accountId,fixtureMarker,expectedDraftVersion,activeFormatJobCount}); if(category) throw new Error(category);
  const originalState=fixture.state, originalPost=fixture.posts.find((item)=>item.index===fixture.currentPostIndex), originalFormattingOption=originalPost?.formattingOption;
  const hold=heldFormatEnqueue(now); let createdJob;
  const guardedJobs={enqueue:async(input)=>{
@@ -54,7 +54,7 @@ export async function prepareHeldOption2({projects,jobs,fixture,accountId,expect
    const service=new ProjectService(projects,{},guardedJobs,{formatting:1},true);
    await service.openFormatChoice(accountId); await service.formatCurrentPost(accountId,"option_2");
    if(!createdJob) throw new Error("format_job_not_enqueued");
-   await writePrivateState({projectId:fixture.id,accountId,marker,jobId:createdJob.id,runAfter:hold.runAfter.toISOString(),draftVersion:expectedDraftVersion,formattingOption:"option_2"});
+   await writePrivateState({projectId:fixture.id,accountId,marker:fixtureMarker,jobId:createdJob.id,runAfter:hold.runAfter.toISOString(),draftVersion:expectedDraftVersion,formattingOption:"option_2"});
    return {job:createdJob,runAfter:hold.runAfter};
  } catch(error) {
    let rollbackFailed=false;

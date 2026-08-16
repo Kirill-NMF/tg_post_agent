@@ -64,6 +64,13 @@ test("format hold requires the current editable version and produces a future on
  assert.equal(formatEnqueueGuard({fixture,accountId:"7",expectedDraftVersion:2,activeFormatJobCount:1}),"format_job_already_active");
  const hold=heldFormatEnqueue(now); assert.equal(hold.maxAttempts,1); assert.equal(hold.runAfter.getTime()-now.getTime(),900000);
 });
+test("format hold accepts only the explicitly scoped custom marker", () => {
+ const fixture=draftFixture(), customMarker="tier2-production-shape-option2-v1";
+ fixture.messages=[{kind:"command",text:customMarker,createdAt:new Date("2026-01-01")}];
+ assert.equal(formatEnqueueGuard({fixture,accountId:"7",fixtureMarker:customMarker,expectedDraftVersion:2,activeFormatJobCount:0}),null);
+ assert.equal(formatEnqueueGuard({fixture,accountId:"7",expectedDraftVersion:2,activeFormatJobCount:0}),"fixture_invalid");
+});
+
 test("format rollback scope cannot match an unrelated marker job", () => {
  const fixture=draftFixture();
  assert.equal(formatRollbackMatches({projectId:fixture.id,dedupeKey:"fixture:"+fixture.id+":format:option_2"},fixture),true);
