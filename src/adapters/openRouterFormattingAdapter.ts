@@ -284,7 +284,11 @@ export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string
 }
 
 function isOrdinaryEmoji(value: string): boolean {
-  return value.length <= 16 && /[^\p{ASCII}]/u.test(value) && !/[\p{L}\p{N}\s]/u.test(value);
+  if (!value || value.length > 16) return false;
+  if (/^[0-9#*]️?⃣$/u.test(value)) return true;
+  if (/^(?:\p{Regional_Indicator}){2}$/u.test(value)) return true;
+  return /\p{Extended_Pictographic}/u.test(value)
+    && /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|‍|︎|️)+$/u.test(value);
 }
 
 function validateSegmentIds(segmentIds: readonly string[]): void {

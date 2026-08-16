@@ -42,6 +42,15 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(schema).not.toContain("text");
   });
 
+  it("accepts ordinary, ZWJ, and keycap emoji but rejects punctuation and symbols as Option 2 emoji", () => {
+    for (const emoji of ["\u{1F4A1}", "\u{1F469}\u200D\u{1F4BB}", "1\uFE0F\u20E3"]) {
+      expect(parseOption2SegmentPlan(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji }] }), ["block_1"])).toHaveLength(1);
+    }
+    for (const emoji of ["\u2014", "\u00AB", "\u20AC", "\u042F", "A"]) {
+      expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji }] }), ["block_1"]), "FORMAT_OPTION2_EMOJI_REQUIRED");
+    }
+  });
+
   it("rejects an Option 2 segment plan without an ordinary emoji directive", () => {
     expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({
       operations: [{ id: "block_1", kind: "paragraph_break", position: "after" }]
