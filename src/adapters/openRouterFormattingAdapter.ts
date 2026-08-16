@@ -12,8 +12,17 @@ export type FormattingInteractionClient = {
   create(request: FormattingInteractionRequest): Promise<{ output_text?: unknown }>;
 };
 
+export type RejectedSegmentPlanDiagnostics = {
+  responseByteLengthBucket: "empty" | "1_127" | "128_255" | "256_1023" | "1024_4095" | "4096_plus";
+  parsedOperationCount?: number;
+  failingOperationIndexBucket: "not_applicable" | "0" | "1_3" | "4_7" | "8_15" | "16_plus";
+  failingOperationKind: "not_applicable" | "missing" | "paragraph_break" | "markdown_span" | "emoji_insertion" | "unknown";
+  fieldPresenceMask: number;
+  anyEmojiDirective: boolean;
+};
+
 export class FormattingPlanValidationError extends Error {
-  constructor(readonly code: string) {
+  constructor(readonly code: string, readonly rejectedPlanDiagnostics?: RejectedSegmentPlanDiagnostics) {
     super("Formatting plan validation failed.");
     this.name = "FormattingPlanValidationError";
   }
@@ -68,7 +77,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
       return { ok: true, value: { directives }, meta: { provider: "openrouter", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn(
-        { event: "formatting_segment_request_failed", projectId: params.projectId, modelLabel: this.input.model, failureBoundary: failureBoundary(error), validationCode: safeValidationCode(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
+        { event: "formatting_segment_request_failed", projectId: params.projectId, modelLabel: this.input.model, failureBoundary: failureBoundary(error), validationCode: safeValidationCode(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength, ...safeRejectedPlanDiagnostics(error) },
         "formatting segment request failed"
       );
       return failure("FORMAT_PLAN_OUTPUT_INVALID", safeMessage(error), isRetryableProviderError(error));
@@ -244,28 +253,37 @@ export function buildOption2SegmentPrompt(segmentIds: readonly string[]): string
 
 export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string[], maxOperations = 30): Option2SegmentDirective[] {
   validateSegmentIds(segmentIds);
+  const responseByteLengthBucket = bucketResponseByteLength(Buffer.byteLength(raw, "utf8"));
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
   } catch {
-    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID");
+    throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID", emptyRejectedPlanDiagnostics(responseByteLengthBucket));
   }
   if (!isRecord(parsed) || !hasOnlyKeys(parsed, ["operations"]) || !Array.isArray(parsed.operations)) {
-    throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+    throw new FormattingPlanValidationError(
+      "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID",
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
+    );
   }
   if (parsed.operations.length > maxOperations) {
-    throw new FormattingPlanValidationError("FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED");
+    throw new FormattingPlanValidationError(
+      "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
+    );
   }
 
   const allowedIds = new Set(segmentIds);
   const seen = new Set<string>();
   const directives: Option2SegmentDirective[] = [];
-  for (const operation of parsed.operations) {
+  for (let index = 0; index < parsed.operations.length; index += 1) {
+    const operation = parsed.operations[index];
+    const diagnostics = rejectedPlanDiagnostics(responseByteLengthBucket, parsed, index);
     if (!isRecord(operation) || typeof operation.id !== "string" || !allowedIds.has(operation.id)) {
-      throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
+      throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID", diagnostics);
     }
     const duplicateKey = operation.id + ":" + String(operation.kind);
-    if (seen.has(duplicateKey)) throw new FormattingPlanValidationError("FORMAT_SEGMENT_DUPLICATE");
+    if (seen.has(duplicateKey)) throw new FormattingPlanValidationError("FORMAT_SEGMENT_DUPLICATE", diagnostics);
 
     if (operation.kind === "paragraph_break" && hasOnlyKeys(operation, ["id", "kind", "position"]) && isSegmentPosition(operation.position)) {
       directives.push({ id: operation.id, kind: "paragraph_break", position: operation.position });
@@ -274,14 +292,76 @@ export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string
     } else if (operation.kind === "emoji_insertion" && hasOnlyKeys(operation, ["id", "kind", "position", "emoji"]) && isSegmentPosition(operation.position) && typeof operation.emoji === "string" && operation.emoji.length > 0) {
       directives.push({ id: operation.id, kind: "emoji_insertion", position: operation.position, emoji: operation.emoji });
     } else {
-      throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+      throw new FormattingPlanValidationError("FORMAT_SEGMENT_PLAN_SCHEMA_INVALID", diagnostics);
     }
     seen.add(duplicateKey);
   }
   if (!directives.some((directive) => directive.kind === "emoji_insertion" && isOrdinaryEmoji(directive.emoji))) {
-    throw new FormattingPlanValidationError("FORMAT_OPTION2_EMOJI_REQUIRED");
+    throw new FormattingPlanValidationError(
+      "FORMAT_OPTION2_EMOJI_REQUIRED",
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed)
+    );
   }
   return directives;
+}
+
+function emptyRejectedPlanDiagnostics(responseByteLengthBucket: RejectedSegmentPlanDiagnostics["responseByteLengthBucket"]): RejectedSegmentPlanDiagnostics {
+  return {
+    responseByteLengthBucket,
+    failingOperationIndexBucket: "not_applicable",
+    failingOperationKind: "not_applicable",
+    fieldPresenceMask: 0,
+    anyEmojiDirective: false
+  };
+}
+
+function rejectedPlanDiagnostics(
+  responseByteLengthBucket: RejectedSegmentPlanDiagnostics["responseByteLengthBucket"],
+  parsed: unknown,
+  failingIndex?: number
+): RejectedSegmentPlanDiagnostics {
+  const operations = isRecord(parsed) && Array.isArray(parsed.operations) ? parsed.operations : undefined;
+  const operation = operations && failingIndex !== undefined ? operations[failingIndex] : undefined;
+  return {
+    responseByteLengthBucket,
+    parsedOperationCount: operations?.length,
+    failingOperationIndexBucket: bucketOperationIndex(failingIndex),
+    failingOperationKind: operationKindCategory(operation),
+    fieldPresenceMask: operationFieldPresenceMask(operation),
+    anyEmojiDirective: Boolean(operations?.some((candidate) => isRecord(candidate) && candidate.kind === "emoji_insertion"))
+  };
+}
+
+function bucketResponseByteLength(byteLength: number): RejectedSegmentPlanDiagnostics["responseByteLengthBucket"] {
+  if (byteLength === 0) return "empty";
+  if (byteLength <= 127) return "1_127";
+  if (byteLength <= 255) return "128_255";
+  if (byteLength <= 1023) return "256_1023";
+  if (byteLength <= 4095) return "1024_4095";
+  return "4096_plus";
+}
+
+function bucketOperationIndex(index: number | undefined): RejectedSegmentPlanDiagnostics["failingOperationIndexBucket"] {
+  if (index === undefined) return "not_applicable";
+  if (index === 0) return "0";
+  if (index <= 3) return "1_3";
+  if (index <= 7) return "4_7";
+  if (index <= 15) return "8_15";
+  return "16_plus";
+}
+
+function operationKindCategory(operation: unknown): RejectedSegmentPlanDiagnostics["failingOperationKind"] {
+  if (!isRecord(operation) || !Object.prototype.hasOwnProperty.call(operation, "kind")) return operation === undefined ? "not_applicable" : "missing";
+  if (operation.kind === "paragraph_break" || operation.kind === "markdown_span" || operation.kind === "emoji_insertion") return operation.kind;
+  return "unknown";
+}
+
+function operationFieldPresenceMask(operation: unknown): number {
+  if (!isRecord(operation)) return 0;
+  const keys = ["id", "kind", "position", "style", "emoji"] as const;
+  return keys.reduce((mask, key, index) => (
+    Object.prototype.hasOwnProperty.call(operation, key) ? mask | (1 << index) : mask
+  ), 0);
 }
 
 function validateSegmentIds(segmentIds: readonly string[]): void {
@@ -348,6 +428,10 @@ function failureBoundary(error: unknown): "formatting_plan_validation" | "provid
 
 function safeValidationCode(error: unknown): string | undefined {
   return error instanceof FormattingPlanValidationError ? error.code : undefined;
+}
+
+function safeRejectedPlanDiagnostics(error: unknown): RejectedSegmentPlanDiagnostics | Record<string, never> {
+  return error instanceof FormattingPlanValidationError && error.rejectedPlanDiagnostics ? error.rejectedPlanDiagnostics : {};
 }
 
 function safeResponseMetadata(error: unknown): ProviderResponseError["metadata"] | undefined {
