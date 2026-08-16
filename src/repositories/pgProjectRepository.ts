@@ -101,8 +101,6 @@ export class PgProjectRepository implements ProjectRepository {
 
       await tx.execute(sql`delete from artifacts where project_id = ${project.id}`);
       await tx.execute(sql`delete from project_messages where project_id = ${project.id}`);
-      await tx.execute(sql`delete from project_posts where project_id = ${project.id}`);
-
       for (const post of project.posts) {
         await tx.execute(sql`
           insert into project_posts (
@@ -117,6 +115,19 @@ export class PgProjectRepository implements ProjectRepository {
             ${post.draftVersion ?? (post.currentDraft ? 1 : 0)}, ${post.formattedText ? 1 : 0},
             ${post.finalText ? now : null}, ${project.createdAt}, ${project.updatedAt}
           )
+          on conflict (id) do update set
+            index = excluded.index,
+            plan_slice_json = excluded.plan_slice_json,
+            current_draft = excluded.current_draft,
+            formatted_text = excluded.formatted_text,
+            final_text = excluded.final_text,
+            rewrite_mode = excluded.rewrite_mode,
+            formatting_option = excluded.formatting_option,
+            draft_version = excluded.draft_version,
+            formatted_version = excluded.formatted_version,
+            finalized_at = excluded.finalized_at,
+            updated_at = excluded.updated_at
+          where project_posts.project_id = excluded.project_id
         `);
 
         if (post.finalText) {
@@ -133,6 +144,8 @@ export class PgProjectRepository implements ProjectRepository {
           `);
         }
       }
+
+      await deleteStalePosts(tx, project.id, project.posts.map((post) => post.id));
 
       for (const item of project.messages) {
         await tx.execute(sql`
@@ -224,6 +237,19 @@ export class PgProjectRepository implements ProjectRepository {
       updatedAt: row.updated_at
     };
   }
+}
+
+async function deleteStalePosts(tx: SqlExecutor, projectId: ProjectId, retainedPostIds: string[]): Promise<void> {
+  if (retainedPostIds.length === 0) {
+    await tx.execute(sql`delete from project_posts where project_id = ${projectId}`);
+    return;
+  }
+
+  await tx.execute(sql`
+    delete from project_posts
+    where project_id = ${projectId}
+      and id not in (${sql.join(retainedPostIds.map((id) => sql`${id}`), sql`, `)})
+  `);
 }
 
 async function upsertUser(tx: SqlExecutor, telegramUserId: TelegramUserId): Promise<string> {

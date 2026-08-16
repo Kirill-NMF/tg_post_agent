@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MockModelAdapters } from "../src/adapters/mockModelAdapters.js";
+import { PgJobRepository } from "../src/repositories/pgJobRepository.js";
 import { PgProjectRepository } from "../src/repositories/pgProjectRepository.js";
 import { ProjectService } from "../src/services/projectService.js";
+import { JobWorker } from "../src/services/jobWorker.js";
 import { openTestDatabase, type TestDatabaseHandle } from "./helpers/postgres.js";
 
 const describeWithPostgres = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -77,4 +79,62 @@ describeWithPostgres("PgProjectRepository", () => {
     expect(secondProject?.state).toBe("awaiting_audio");
     expect(await repository.findById(firstProject?.id ?? "")).toMatchObject({ isActive: false, state: "cancelled" });
   });
+  it("keeps a running job linked to a retained post when its handler saves the project", async () => {
+    const projects = new PgProjectRepository(database.db);
+    const jobs = new PgJobRepository(database.db);
+    const service = new ProjectService(projects, new MockModelAdapters());
+    await service.start("100", "200");
+    await service.submitSourceAudio("100", { kind: "voice", telegramFileId: "fixture-voice" });
+    await service.choosePlan("100", "recommended");
+    const project = await service.getActiveProject("100");
+    if (!project) throw new Error("Expected project.");
+    project.state = "draft_generating";
+    await projects.save(project);
+    const post = project.posts[0];
+    if (!post) throw new Error("Expected post.");
+    const job = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, postId: post.id, payload: {} });
+
+    const worker = new JobWorker(jobs, {
+      GENERATE_DRAFT: async () => {
+        const current = await projects.findById(project.id);
+        if (!current?.posts[0]) throw new Error("Expected retained project post.");
+        current.state = "draft_editing";
+        current.posts[0].currentDraft = "deterministic draft";
+        await projects.save(current);
+      }
+    });
+
+    await expect(worker.processOne({ workerId: "worker" })).resolves.toMatchObject({ processed: true, status: "succeeded" });
+    expect(await jobs.findById(job.id)).toMatchObject({ status: "succeeded", projectId: project.id, postId: post.id });
+  });
+
+  it("removes only stale posts while preserving jobs for retained posts and unrelated projects", async () => {
+    const projects = new PgProjectRepository(database.db);
+    const jobs = new PgJobRepository(database.db);
+    const service = new ProjectService(projects, new MockModelAdapters());
+    await service.start("100", "200");
+    await service.submitSourceAudio("100", { kind: "voice", telegramFileId: "fixture-voice" });
+    await service.choosePlan("100", "recommended");
+    const project = await service.getActiveProject("100");
+    if (!project?.posts[0]) throw new Error("Expected project post.");
+    const retained = project.posts[0];
+    project.posts.push({ ...retained, id: crypto.randomUUID(), index: 2 });
+    await projects.save(project);
+    const retainedJob = await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, postId: retained.id, payload: {} });
+
+    await service.start("101", "201");
+    await service.submitSourceAudio("101", { kind: "voice", telegramFileId: "other-fixture-voice" });
+    await service.choosePlan("101", "recommended");
+    const unrelated = await service.getActiveProject("101");
+    if (!unrelated?.posts[0]) throw new Error("Expected unrelated project post.");
+    const unrelatedJob = await jobs.enqueue({ type: "PLAN_SPLIT", projectId: unrelated.id, postId: unrelated.posts[0].id, payload: {} });
+
+    project.posts = [retained];
+    await projects.save(project);
+
+    expect((await projects.findById(project.id))?.posts).toHaveLength(1);
+    expect(await jobs.findById(retainedJob.id)).toMatchObject({ projectId: project.id, postId: retained.id });
+    expect(await jobs.findById(unrelatedJob.id)).toMatchObject({ projectId: unrelated.id, postId: unrelated.posts[0].id });
+  });
+
 });
