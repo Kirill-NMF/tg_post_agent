@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isOrdinaryEmoji } from "../../dist/src/domain/emoji.js";
 import { Bot } from "grammy";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { createDb, createDbPool } from "../../dist/src/db/connection.js";
@@ -42,14 +43,31 @@ export function providerBoundaryReport(report) {
   return { ...report, providerAttempted: true };
 }
 
+function lexicalUnits(value) {
+  return typeof value === "string" ? value.match(/[\p{L}\p{N}]+/gu) ?? [] : [];
+}
+
+function permittedEmojiCount(value) {
+  if (typeof value !== "string") return 0;
+  return [...new Intl.Segmenter("und", { granularity: "grapheme" }).segment(value)].filter(({ segment }) => isOrdinaryEmoji(segment)).length;
+}
+
 export function terminalEvidence({ job, project, expectedVersion }) {
   const post = project?.posts?.find((entry) => entry.index === project.currentPostIndex);
+  const canonicalUnits = lexicalUnits(post?.currentDraft);
+  const formattedUnits = lexicalUnits(post?.formattedText);
+  const lexicalPreserved = canonicalUnits.length === formattedUnits.length && canonicalUnits.every((unit, index) => unit === formattedUnits[index]);
+  const emojiCount = permittedEmojiCount(post?.formattedText);
   return {
     jobSucceeded: job?.status === "succeeded",
     finalState: project?.state === "formatted_editing",
     formattedNonempty: Boolean(post?.formattedText?.trim()),
     draftVersionMatched: post?.draftVersion === expectedVersion,
-    notificationSent: job?.result?.notificationStatus === "sent"
+    notificationSent: job?.result?.notificationStatus === "sent",
+    lexicalPreserved,
+    lexicalUnitCount: canonicalUnits.length,
+    permittedEmojiCount: emojiCount,
+    decorationPresent: lexicalPreserved && emojiCount > 0 && post?.formattedText !== post?.currentDraft
   };
 }
 
@@ -57,7 +75,7 @@ async function main() {
   const reportPath = process.env.TG_POST_AGENT_SINGLE_STAGE_FORMAT_REPORT;
   const statePath = process.env.TG_POST_AGENT_FORMAT_FIXTURE_STATE_PATH ?? defaultStatePath;
   if (!reportPath) throw new Error("configuration");
-  let report = { markerFingerprint: undefined, processed: false, category: null, preflightMaxProviderAttempts: 1, providerAttempted: false, jobSucceeded: false, finalState: false, formattedNonempty: false, draftVersionMatched: false, notificationSent: false };
+  let report = { markerFingerprint: undefined, processed: false, category: null, preflightMaxProviderAttempts: 1, providerAttempted: false, jobSucceeded: false, finalState: false, formattedNonempty: false, draftVersionMatched: false, notificationSent: false, lexicalPreserved: false, lexicalUnitCount: 0, permittedEmojiCount: 0, decorationPresent: false };
   let pool;
   try {
     const state = JSON.parse(await readFile(statePath, "utf8"));
@@ -83,7 +101,7 @@ async function main() {
     const finalJob = await jobs.findById(state.jobId);
     const finalProject = await projects.findById(state.projectId);
     Object.assign(report, terminalEvidence({ job: finalJob, project: finalProject, expectedVersion: state.draftVersion }));
-    if (!report.jobSucceeded || !report.finalState || !report.formattedNonempty || !report.draftVersionMatched || !report.notificationSent) report.category = "terminal_verification_failed";
+    if (!report.jobSucceeded || !report.finalState || !report.formattedNonempty || !report.draftVersionMatched || !report.notificationSent || !report.lexicalPreserved || report.permittedEmojiCount < 1 || !report.decorationPresent) report.category = "terminal_verification_failed";
   } catch (error) {
     report.category = error instanceof Error ? error.message : "runner_failure";
   } finally {

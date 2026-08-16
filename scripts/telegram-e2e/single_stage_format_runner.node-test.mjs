@@ -37,8 +37,30 @@ test("preflight scope excludes unrelated due job", () => {
 
 test("provider attempt is recorded before processing and terminal evidence rejects false success", () => {
  assert.equal(providerBoundaryReport({providerAttempted:false}).providerAttempted,true);
- const {project}=sample(); project.posts[0].formattedText="decorated";
- assert.deepEqual(terminalEvidence({job:{status:"succeeded",result:{notificationStatus:"sent"}},project,expectedVersion:2}),{jobSucceeded:true,finalState:false,formattedNonempty:true,draftVersionMatched:true,notificationSent:true});
+ const {project}=sample();
+ project.posts[0].currentDraft="Первый блок.\n\nВторой блок.";
+ project.posts[0].formattedText="✨ Первый блок.\n\n**Второй блок.**";
+ assert.deepEqual(terminalEvidence({job:{status:"succeeded",result:{notificationStatus:"sent"}},project,expectedVersion:2}),{
+  jobSucceeded:true,
+  finalState:false,
+  formattedNonempty:true,
+  draftVersionMatched:true,
+  notificationSent:true,
+  lexicalPreserved:true,
+  lexicalUnitCount:4,
+  permittedEmojiCount:1,
+  decorationPresent:true
+ });
+});
+
+test("terminal evidence rejects lexical mutation and zero emoji", () => {
+ const {project}=sample();
+ project.posts[0].currentDraft="Первый блок.";
+ project.posts[0].formattedText="Первый текст.";
+ const evidence=terminalEvidence({job:{status:"succeeded",result:{notificationStatus:"sent"}},project,expectedVersion:2});
+ assert.equal(evidence.lexicalPreserved,false);
+ assert.equal(evidence.permittedEmojiCount,0);
+ assert.equal(evidence.decorationPresent,false);
 });
 
 test("report is atomically published", async () => {

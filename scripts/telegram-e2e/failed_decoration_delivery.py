@@ -17,6 +17,9 @@ from full_owner_voice_stage3_e2e import (
 )
 from tg_post_agent_smoke import fetch_runtime_bot_identity, target_matches_canonical_identity
 
+def document_is_nonempty(message: object) -> bool:
+    return bool(getattr(getattr(message, "document", None), "size", 0) > 0)
+
 def isolated_runner_ready(report: dict[str, object]) -> bool:
     return bool(
         report.get("processed")
@@ -25,6 +28,9 @@ def isolated_runner_ready(report: dict[str, object]) -> bool:
         and report.get("formattedNonempty")
         and report.get("draftVersionMatched")
         and report.get("notificationSent")
+        and report.get("lexicalPreserved")
+        and int(report.get("permittedEmojiCount") or 0) >= 1
+        and report.get("decorationPresent")
         and report.get("providerAttempted")
         and report.get("preflightMaxProviderAttempts") == 1
     )
@@ -44,6 +50,10 @@ async def run() -> dict[str, object]:
         "doneClicked": False,
         "providerAttempts": 0,
         "exportProviderAttempts": 0,
+        "lexicalPreserved": False,
+        "permittedEmojiCount": 0,
+        "decorationPresent": False,
+        "txtArtifactNonempty": False,
     }
     report_path = Path(os.environ.get("TG_POST_AGENT_FAILED_DECORATION_DELIVERY_REPORT", "/tmp/tg-post-agent-failed-decoration-delivery-report.json"))
     client = None
@@ -80,6 +90,9 @@ async def run() -> dict[str, object]:
         runner_report = json.loads(runner_path.read_text(encoding="utf-8"))
         report["providerAttempts"] = 1 if runner_report.get("providerAttempted") else 0
         report["notificationSent"] = bool(runner_report.get("notificationSent"))
+        report["lexicalPreserved"] = bool(runner_report.get("lexicalPreserved"))
+        report["permittedEmojiCount"] = int(runner_report.get("permittedEmojiCount") or 0)
+        report["decorationPresent"] = bool(runner_report.get("decorationPresent"))
         if not isolated_runner_ready(runner_report):
             raise CanaryError("isolated_runner_terminal_invalid")
         report["isolatedJobSucceeded"] = True
@@ -87,6 +100,7 @@ async def run() -> dict[str, object]:
         final, done, _ = await observe_callback(client, target, identity.telegram_id, format_cursor, "final:accept", 90)
         after_final = await client.get_messages(target, limit=40)
         pre_export = version_scoped_delivery_evidence(after_final, identity.telegram_id, format_cursor, final.id)
+        report.update(pre_export)
         if pre_export["currentFinalCount"] != 1:
             raise CanaryError("version_scoped_final_count_invalid")
         await final.click(data=done.data)
@@ -94,7 +108,8 @@ async def run() -> dict[str, object]:
         await observe_document(client, target, identity.telegram_id, final.id, 60)
         after_export = await client.get_messages(target, limit=40)
         report.update(version_scoped_delivery_evidence(after_export, identity.telegram_id, format_cursor, final.id))
-        if not report["noDuplicateFinal"] or not report["txtArtifactObserved"]:
+        report["txtArtifactNonempty"] = any(document_is_nonempty(message) for message in after_export if message.id > final.id)
+        if not report["noDuplicateFinal"] or not report["txtArtifactObserved"] or not report["txtArtifactNonempty"]:
             raise CanaryError("version_scoped_export_invalid")
         report["terminal"] = "final_exported"
     except CanaryError as error:
