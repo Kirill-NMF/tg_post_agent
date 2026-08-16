@@ -191,6 +191,16 @@ def lexical_fingerprint(text: str) -> tuple[bool, str, int]:
     units = re.findall(r"[^\W_]+", text, flags=re.UNICODE)
     return bool(units), hashlib.sha256("\u001f".join(units).encode()).hexdigest()[:16], len(units)
 
+async def observe_document(client, target, bot_id: int, after_id: int, timeout: float):
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        messages = await client.get_messages(target, limit=40)
+        current = [message for message in messages if message.sender_id == bot_id and message.id > after_id]
+        if any(getattr(message, "document", None) is not None for message in current):
+            return True
+        await asyncio.sleep(0.5)
+    raise CanaryError("txt_artifact_timeout")
+
 async def no_duplicate_terminal(client, target, bot_id: int, final_id: int, timeout: float = 3.0) -> bool:
     deadline = asyncio.get_running_loop().time() + timeout
     while asyncio.get_running_loop().time() < deadline:
@@ -252,8 +262,11 @@ async def run() -> dict[str, object]:
             final, choice, evidence = await observe_callback(client, target, identity.telegram_id, cursor, "final:accept", 180); report["finalUiObserved"] = True; report["finalUiEvidence"] = evidence
             draft_nonempty, draft_hash, draft_units = lexical_fingerprint(draft_text)
             final_nonempty, final_hash, final_units = lexical_fingerprint(final.raw_text or "")
-            report.update({"lexicalPreserved": draft_nonempty and final_nonempty and draft_hash == final_hash and draft_units == final_units, "draftLexicalHash": draft_hash, "finalLexicalHash": final_hash, "draftLexicalUnits": draft_units, "finalLexicalUnits": final_units, "noDuplicateTerminal": await no_duplicate_terminal(client, target, identity.telegram_id, final.id)})
-            report["terminal"] = "final"; report["stages"].append("option2_final")
+            report.update({"lexicalPreserved": draft_nonempty and final_nonempty and draft_hash == final_hash and draft_units == final_units, "draftLexicalHash": draft_hash, "finalLexicalHash": final_hash, "draftLexicalUnits": draft_units, "finalLexicalUnits": final_units})
+            await final.click(data=choice.data); report["doneClicked"] = True
+            report["txtArtifactObserved"] = await observe_document(client, target, identity.telegram_id, final.id, 60)
+            report["noDuplicateTerminal"] = await no_duplicate_terminal(client, target, identity.telegram_id, final.id)
+            report["terminal"] = "final"; report["stages"].append("option2_final"); report["stages"].append("done_exported")
     except CanaryError as error: report["terminal"] = "failed"; report["category"] = error.category
     except Exception as error: report["terminal"] = "failed"; report["category"] = type(error).__name__
     finally:
