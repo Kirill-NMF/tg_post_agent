@@ -24,13 +24,13 @@ describe("OpenRouterFormattingAdapter", () => {
   it("parses ID-only Option 2 directives without exposing canonical segment text", () => {
     const directives = parseOption2SegmentPlan(JSON.stringify({
       operations: [
-        { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\\u2728" },
+        { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
         { id: "block_2", kind: "paragraph_break", position: "after" }
       ]
     }), ["block_1", "block_2"]);
 
     expect(directives).toEqual([
-      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\\u2728" },
+      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
       { id: "block_2", kind: "paragraph_break", position: "after" }
     ]);
     const prompt = buildOption2SegmentPrompt(["block_1", "block_2"]);
@@ -42,8 +42,14 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(schema).not.toContain("text");
   });
 
+  it("rejects an Option 2 segment plan without an ordinary emoji directive", () => {
+    expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({
+      operations: [{ id: "block_1", kind: "paragraph_break", position: "after" }]
+    }), ["block_1"]), "FORMAT_OPTION2_EMOJI_REQUIRED");
+  });
+
   it("requests strict OpenRouter JSON Schema for Option 2 segment directives", async () => {
-    const client = capturingClient(JSON.stringify({ operations: [] }));
+    const client = capturingClient(JSON.stringify({ operations: [{ id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }] }));
     const adapter = new OpenRouterFormattingAdapter({ client, model: "owner-selected-format-model" });
 
     await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] })).resolves.toMatchObject({ ok: true });

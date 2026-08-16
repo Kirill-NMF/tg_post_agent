@@ -162,7 +162,20 @@ export const formattingPlanSchema: Record<string, unknown> = {
     option: { type: "string", enum: ["option_1", "option_2"] },
     operations: {
       type: "array",
+      minItems: 1,
       maxItems: 30,
+      contains: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "kind", "position", "emoji"],
+        properties: {
+          id: { type: "string", pattern: "^block_[1-9][0-9]*$" },
+          kind: { const: "emoji_insertion" },
+          position: { type: "string", enum: ["before", "after"] },
+          emoji: { type: "string", minLength: 1, maxLength: 16 }
+        }
+      },
+      minContains: 1,
       items: {
         type: "object",
         additionalProperties: false,
@@ -222,6 +235,7 @@ export function buildOption2SegmentPrompt(segmentIds: readonly string[]): string
   return [
     "Return exactly one JSON object matching the supplied schema.",
     "Return Option 2 decoration directives keyed only by canonical segment IDs.",
+    "Include at least one ordinary Unicode emoji_insertion directive; do not use custom or Premium emoji.",
     "Allowed segment IDs: " + segmentIds.join(", "),
     "Never return anchors, source text, replacement text, or any lexical source words."
   ].join("\n");
@@ -263,7 +277,14 @@ export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string
     }
     seen.add(duplicateKey);
   }
+  if (!directives.some((directive) => directive.kind === "emoji_insertion" && isOrdinaryEmoji(directive.emoji))) {
+    throw new FormattingPlanValidationError("FORMAT_OPTION2_EMOJI_REQUIRED");
+  }
   return directives;
+}
+
+function isOrdinaryEmoji(value: string): boolean {
+  return value.length <= 16 && /[^\p{ASCII}]/u.test(value) && !/[\p{L}\p{N}\s]/u.test(value);
 }
 
 function validateSegmentIds(segmentIds: readonly string[]): void {
