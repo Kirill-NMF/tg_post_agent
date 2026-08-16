@@ -1,6 +1,6 @@
 # Dashboard Roadmap
 
-Date: 2026-08-13
+Date: 2026-08-16
 
 ## Term Map
 
@@ -24,8 +24,8 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | --- | --- | --- | --- | --- |
 | Stage 1: Transcription | core implementation built; real acceptance pending | Audio intake, temporary processing, transcription, and persisted transcript are built. | Tier 2 intake-contract repair | Re-run guarded transport validation after the coordinator repair. |
 | Stage 2: Plan/draft/revision | core implementation built; real acceptance pending | Planning, draft generation, text and edit-audio correction paths are built. | Tier 2 intake-contract repair | Validate delivery and corrections after the coordinator repair. |
-| Stage 3: Formatting | Phase 12 public flow implemented; Tier 1 green, Tier 2 not tested | Preservation-first FORMAT_POST, two public options, correction return-to-draft, and one .txt final artifact are implemented. Premium emoji remain deferred. | Controlled deploy plus two bounded option canaries | not tested in Telegram until Tier 2 evidence exists. |
-| Packaging/deploy | later | Runtime operations continue only through controlled authorized work. | as scoped | Controlled runtime checks only. |
+| Stage 3: Formatting | Option 2 technical gate proven on production-shaped seven-segment case; owner 3/3 pending | Shared provider/runtime schema, preservation-first FORMAT_POST, current-version final delivery, permitted emoji, and one non-empty .txt are proven. Premium emoji remain deferred. | Literary quality, emoji density, and UX judgement only | Review the preserved Telegram result; do not repeat technical provider validation unless behavior changes. |
+| Packaging/deploy | Stage 3 controlled launch gate proven; broader packaging later | Runtime operations remain controlled and authorized; the Stage 3 gate proved runtime-user/env identity, DB peer auth, one healthy worker, and rollback. | as scoped | Broader production operations remain a later phase. |
 
 ## Engineering Phase Roadmap
 
@@ -44,10 +44,10 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
 | Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | Tier 2 technical paths complete; owner 3/3 pending | 3/3 | dedicated transport, source-audio, planning correction, and draft-delivery evidence recorded | Owner evaluates literary/product/UX only. |
 | Phase 11: Formatting Foundation | Stage 3 | done | 2/3 | deterministic decoration-plan validation and lexical-preservation tests | Foundation only; no public UI. |
-| Phase 12: Real Formatting Adapter | Stage 3 | in progress; public flow Tier 1 green, Tier 2 pending | 3/3 after Tier 2 | Two options, preservation renderer, correction loop, recovery, and artifact tests | Deploy approved model, run exactly two bounded option canaries, then review no-rewrite/emoji quality. |
+| Phase 12: Real Formatting Adapter | Stage 3 | Option 2 Tier 1 and isolated Tier 2 technical gate green; owner 3/3 pending | 3/3 | Shared-schema contract tests, seven-segment exact-job canary, lexical/emoji/final/export checks | Judge literary quality, emoji density, readability, and first-click UX in the preserved result. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
-| Phase 14: Telethon E2E Harness | all | later | 3/3 | Telethon real account smoke | Validate full Telegram click-through. |
-| Phase 15: VPS Deployment/Operations | all | later | 3/3 | systemd/logs/env/smoke | Approve production-like bot run. |
+| Phase 14: Telethon E2E Harness | all | focused Option 2 harness complete; full cross-stage flow later | 3/3 | current-version cursor, duplicate/stale, lexical/emoji, Done/.txt evidence | Validate future full-series click-through separately. |
+| Phase 15: VPS Deployment/Operations | all | Stage 3 controlled deploy gate proven; broader operations later | 3/3 | runtime OS/env identity, DB peer auth, zombie-aware single process, healthy worker tick | Approve broader production-like operations separately. |
 
 ## Telethon Plan
 
@@ -61,20 +61,24 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 ## Current Gate
 
-Phase 12 is the active engineering gate. The public Stage 3 code path has Tier 1 evidence, while every Telegram transport terminal path remains explicitly not tested until the two bounded Option 1/Option 2 canaries run.
+Phase 12 Option 2 has completed its technical gate. The accepted seven-segment run used one exact FORMAT_POST attempt with fallback disabled, delivered one current-version final on the first click, preserved 112 lexical units in order, added permitted ordinary emoji, and produced exactly one non-empty .txt after one Done click. The marker fixture was cleaned and the prior active project was restored.
 
-Before any formatting owner review: configure the approved explicit OpenRouter formatting model in VPS runtime, controlled-deploy the code, run the two bounded dedicated-chat option canaries, then complete owner 3/3 Option 1/Option 2 quality review.
+The category-only ledger is 46/50. No further technical provider call is required for this checkpoint.
+
+The remaining gate is owner 3/3 literary/product/UX judgement only: assess readability, emoji density, and whether the first-click Telegram experience feels right. This does not claim all Stage 3 quality or future changed paths are accepted.
+
+Owner review may now assess the preserved Option 2 result. Option 1 and any future changed or broader cross-stage path retain their own path-specific evidence requirements.
 
 ## Provider Configuration Update
 
 OpenRouter routing is implemented as the primary Stage 1/2 gateway. Production credentials and one controlled worker-enabled restart are in place; the Phase 10 owner acceptance gate remains mandatory.
 # P0 Draft-Generation Regression
 
-Phase 10 owner 3/3 is blocked pending a fresh Tier 2 validation of the repaired rewrite-mode to draft-delivery path. The P0 deployment persists busy state before `GENERATE_DRAFT` enqueueing, compensates a failed enqueue, and delivers safe terminal recovery instead of leaving `draft_generating` silent.
+Historical regression: the P0 deployment persisted busy state before `GENERATE_DRAFT` enqueueing, compensated failed enqueue, and delivered safe terminal recovery instead of leaving `draft_generating` silent. The subsequent Tier 2 draft-delivery check passed; no technical block remains for that recorded path, while owner quality acceptance remains separate.
 
 ## P0 Draft Delivery
 
-Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. The daily bounded canary budget is exhausted (15/15); next gate is owner 3/3 acceptance.
+Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. Its historical Stage 2 bounded ledger closed at 15/15; the current cross-stage ledger is 46/50. The remaining Stage 2 gate is owner 3/3 acceptance.
 
 ## Terminal-Path Evidence Register
 
@@ -84,7 +88,7 @@ Tier 2 draft-generation delivery passed with one terminal draft result and clean
 | source audio to planning | plan result/recovery delivery | evidence recorded | plan quality only |
 | planning text/voice correction | revised-plan result/recovery delivery | evidence recorded | correction quality only |
 | rewrite mode to draft | draft result/recovery delivery | evidence recorded | draft quality only |
-| Stage 3 formatting/finalization | Tier 1 terminal/recovery coverage only | not tested in Telegram; deploy and Tier 2 Option 1/2 canaries pending | Option 1/2 literary and UX review after Tier 2 |
+| Stage 3 Option 2 formatting/finalization | Tier 1 plus production-shaped isolated Tier 2 terminal/export evidence | technically accepted for the seven-segment current-version path | Literary quality, emoji density, readability, and UX only |
 
 This is a path-level register, not a blanket historical pass. Any changed or newly discovered neighboring transition must be added with `not tested`, `failed`, or concrete evidence before owner handoff.
 

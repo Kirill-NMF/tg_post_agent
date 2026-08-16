@@ -1,16 +1,16 @@
 # Current Checkpoint
 
-Date: 2026-08-13
+Date: 2026-08-16
 
 ## Current Product Stage
 
 - Stage 1 core implementation is built; Tier 2 dedicated-test-chat technical validation is complete and owner 3/3 acceptance is pending.
 - Stage 2 core planning, draft, and revision implementation is built. The owner accepted the initial result only; remaining correction-path acceptance is not blanket-closed.
-- Stage 3 Phase 12 public flow is implemented with Tier 1 deterministic evidence; Telegram Tier 2 remains not tested.
+- Stage 3 Phase 12 Option 2 is technically accepted on a production-shaped seven-segment case; owner literary/UX acceptance remains pending.
 
 ## Current Engineering Phase
 
-Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 plan or draft revision. Its implementation and recorded Tier 2 technical validation are complete for the listed paths. The owner accepted the initial Stage 2 result only; this does not blanket-close later correction paths. Phase 12 now owns the public Stage 3 flow; its Telegram transport evidence remains not tested.
+Phase 12 is the current checkpoint. Tier 1 covers the shared provider/runtime schema, semantic preservation gates, recovery, and export behavior. The isolated Tier 2 Option 2 path is green for the recorded seven-segment case; this does not blanket-accept Option 1, series continuation, future changed paths, or literary quality.
 
 ## Branch And GitHub
 
@@ -20,9 +20,9 @@ Phase 10 is a cross-stage validation slice: Stage 1 edit-audio input to Stage 2 
 
 ## Next Step
 
-Phase 12 has a public Stage 3 implementation but no Telegram Tier 2 evidence yet. Before owner review, configure the approved model through VPS runtime, controlled-deploy one poller/worker, and run the dedicated-chat Tier 2 Option 1/Option 2 terminal paths. Only after that is owner 3/3 literary/UX review applicable.
+Owner reviews the preserved Option 2 Telegram result for literary quality, readability, emoji density, and first-click UX. No additional technical provider validation is required for this checkpoint unless behavior changes.
 
-The existing Stage 1/2 canary ledger is exhausted at 15/15. It records categories only and retains no transcript, audio, credential, or user content.
+The category-only provider ledger is 46/50. It retains no transcript, draft, prompt, provider response, credential, or user content.
 
 ## Owner Focus
 
@@ -63,13 +63,13 @@ OpenRouter is the primary Stage 1/2 gateway when `OPENROUTER_API_KEY` is configu
 
 ## P0 Draft Smoke
 
-The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delivery and draft_editing; the marker-scoped fixture and jobs were removed. Tier 2 technical draft-delivery evidence is restored. The category-only daily canary ledger is exhausted at 15/15. Owner 3/3 literary/product/UX acceptance remains pending.
+The repaired synthetic GENERATE_DRAFT callback reached one terminal draft delivery and draft_editing; the marker-scoped fixture and jobs were removed. Tier 2 technical draft-delivery evidence is restored. At that historical Stage 2 checkpoint its bounded ledger was 15/15; the current cross-stage ledger is recorded at the top of this document. Owner 3/3 literary/product/UX acceptance remains pending.
 
 ## Terminal Transition Evidence
 
 Before owner 3/3, the active changed-flow inventory records trigger, durable initial state, acknowledgement, job, exactly-one terminal delivery or safe recovery, terminal state, Tier 1 evidence, Tier 2 evidence, and the owner-only question. An acknowledgement alone is never evidence of completion.
 
-Current recorded terminal paths: `/start` intake, source-audio to planning, planning text/voice correction, and rewrite-mode to draft. Stage 3 formatting/finalization is implemented with Tier 1 terminal coverage but remains `not tested` in Telegram. This is path-specific evidence, not a claim that every historical button has passed; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
+Current recorded terminal paths include `/start` intake, source-audio to planning, planning text/voice correction, rewrite-mode to draft, and the isolated production-shaped Stage 3 Option 2 current-version final/export path. Evidence remains path-specific; any changed neighboring path must be explicitly tested or labelled `not tested` before handoff.
 
 The remaining owner focus is literary, product, and UX judgement only after the applicable path-level technical inventory remains green. A future owner-found delivery or stuck-state defect returns the affected flow to Tier 1 and, when transport-facing, Tier 2 before it can close.
 
@@ -79,17 +79,23 @@ The remaining owner focus is literary, product, and UX judgement only after the 
 
 ## Phase 11 Formatting Foundation
 
-Only the initial Stage 2 owner result is accepted; this does not blanket-accept every Stage 2 correction path. Phase 11 is in progress. The Stage 3 foundation provides deterministic, preservation-first decoration-plan validation and rendering only. No Stage 3 Telegram button, job, provider adapter, or user-facing flow exists yet, so all Stage 3 transport/UI paths are not tested. Owner evaluation for formatting is deferred until a complete, technically verified Stage 3 path exists.
+Historical milestone: Phase 11 introduced deterministic preservation-first decoration-plan validation and rendering before any Stage 3 Telegram path existed. That boundary is superseded by the current Phase 12 evidence above; it remains useful as implementation history, not current status.
 
 
 ## Phase 12 Formatting Adapter Boundary
 
-Phase 11 preservation-first rendering is complete. Phase 12 adds an internal FORMAT_POST worker handler and OpenRouter decoration-plan adapter only: the model can return operations, never a replacement body, and the application applies those operations to the canonical draft. OPENROUTER_FORMATTING_MODEL is intentionally unset by default; there is no formatting fallback or default model. No Stage 3 Telegram button/callback is exposed, so Stage 3 transport/UI remains not tested.
+Historical boundary: Phase 12 first added the internal FORMAT_POST handler and OpenRouter decoration-plan adapter while formatting configuration and Telegram transport were still gated. The current runtime configuration, public path, and technical evidence are described in the following status section.
 
-Remaining external gates: configure the owner-approved model through the VPS-only runtime environment, controlled-deploy one poller/worker, run the dedicated-chat Tier 2 Option 1/Option 2 transport test, then perform owner 3/3 literary/UX review. Premium emoji remain deferred; formatted text/voice corrections return to draft revision.
+That configuration/deployment boundary is now satisfied for the recorded Option 2 path. Option 1, full-series behavior, and future changed paths retain separate evidence gates. Premium emoji remain deferred; formatted text/voice corrections return to draft revision.
 
 ## Phase 12 Public Flow Status
 
-The public Stage 3 flow is implemented behind the explicit OpenRouter formatting configuration: formatting action -> Telegram | Telegram + emoji -> FORMAT_POST -> formatted result -> correction action | final acceptance. Tier 1 deterministic coverage verifies durable enqueue ordering, stale/duplicate callback rejection, preservation renderer handoff, final buttons, recovery to `draft_editing`, text/voice correction routing, stale-final invalidation, and single `.txt` artifact delivery. It has not yet received Tier 2 Telegram/Telethon evidence.
+The public Stage 3 flow is implemented behind the explicit OpenRouter formatting configuration: formatting action -> Telegram | Telegram + emoji -> FORMAT_POST -> formatted result -> correction action | final acceptance. Tier 1 deterministic coverage verifies durable enqueue ordering, stale/duplicate callback rejection, the shared provider/runtime schema, semantic preservation, recovery to `draft_editing`, stale-final invalidation, and single-artifact delivery. Option 2 now has isolated Tier 2 evidence on a seven-segment long-form fixture: one FORMAT_POST attempt, first-click current-version final, exact 112-unit lexical order, permitted emoji, no duplicate/stale final, and exactly one non-empty `.txt` after Done. Commits 3080e5e and 7dcd2be contain the incident evidence and root fix; 79b62f8, 56f93b9, and 70645d5 provide the controlled fixture/launch path.
 
-The approved initial model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The owner-approved daily cap is 30; the planned Tier 2 scope remains exactly two single-attempt/no-fallback model calls, one per formatting option. No paid formatting call has been made by this implementation slice. Premium/custom emoji remain deferred.
+The approved model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The current owner-approved cap is 50 and the category-only ledger is 46/50. The accepted Option 2 validation used one single-attempt/no-fallback formatting call. Premium/custom emoji remain deferred.
+
+## Stage 3 Option 2 Owner Checkpoint
+
+Technical acceptance is complete for the recorded seven-segment path. The fixture was marker-scoped and recipient-aligned, its job was future-held with maxAttempts=1 and fallback disabled, and cleanup transactionally restored the prior active project. Deployment preflight proved runtime OS and USER/HOME identity, DB peer authentication, a zombie-aware single-runtime state, and a healthy completed worker tick before provider work.
+
+Remaining owner action: judge literary quality, readability, emoji density, and overall Telegram UX in the preserved result. This checkpoint does not claim that all Stage 3/manual quality is accepted.

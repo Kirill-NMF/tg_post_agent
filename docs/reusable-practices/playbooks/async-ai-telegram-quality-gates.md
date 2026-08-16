@@ -47,3 +47,11 @@ Treating acknowledgement as completion; asking owners to discover delivery/state
 ## Formatting-plan diagnostic procedure
 
 When Stage 3 sends a safe recovery after a provider response, record only a boundary category and a bounded validation code. A valid JSON plan rejected by the lexical or emoji renderer is formatting_plan_validation; a non-JSON or malformed provider envelope is provider_response; transport failures are provider_transport. Keep draft text, prompt, response body, credentials, and headers out of logs. Reproduce the selected category with a fixture, assert that the active draft returns to draft_editing, and require exactly one recovery notification before a controlled transport check.
+
+## Structured-output and production-shaped canary gate
+
+1. Define one JSON Schema object and use that exact source for both the provider contract and local runtime shape validation.
+2. Run semantic gates only after shape validation: identifier allowlists, duplicates, operation bounds, Unicode emoji validity, and lexical/order preservation remain local decisions.
+3. Emit rejected-output telemetry by category only. It must identify provider envelope, JSON parsing, shape validation, or semantic validation plus bounded structural counts; it must never include content.
+4. Match the canary to production segment count, length, and mixed-operation complexity. A one-block success cannot close a long-form gate.
+5. Require current-version transport evidence: first-click terminal delivery, exact canonical lexical order, required decoration, one Done action, and exactly one non-empty artifact. A succeeded job row alone is insufficient.

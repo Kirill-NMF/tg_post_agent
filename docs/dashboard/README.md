@@ -25,7 +25,7 @@ The first version is repo-native and documentation-backed. It answers:
 
 ## Current Status
 
-Stage 2 is active. Phase 9 is implemented but not accepted until the pending draft-revision busy-state race is fixed.
+Stage 3 Phase 12 Option 2 has passed its production-shaped technical delivery/export gate. Owner literary quality and UX acceptance remain pending.
 
 ## Telethon Rule
 
@@ -34,3 +34,7 @@ Do not run full Telethon E2E too early. Useful checkpoints are:
 - light Telegram smoke after bot wiring and deployment-sensitive changes;
 - focused Telegram smoke after real edit-audio transcription;
 - full Telethon click-through after Stage 3 formatting and final .txt output exist.
+
+## Interaction Rule
+
+Dashboard status remains ordinary selectable and copyable repository text. Do not introduce modal-only status, selection blockers, or interaction behavior that hides the source-of-truth Markdown.

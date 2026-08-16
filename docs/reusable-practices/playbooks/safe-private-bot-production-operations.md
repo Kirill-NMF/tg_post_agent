@@ -25,3 +25,14 @@ Keep operation scope, rollback target, database/process/worker/transport/temp ou
 ## Anti-Patterns
 
 Two pollers; blind restart loops; secret output; treating liveness as delivery proof; defaulting live tests to an owner chat.
+
+## Launch identity and controlled-fixture gate
+
+Before any Telegram mutation or provider boundary:
+
+1. Launch through the established runtime-user mechanism and verify both the process OS user and the inherited USER, LOGNAME, and HOME identity categories.
+2. Prove database peer authentication from that same runtime identity.
+3. Treat a zombie PID as stopped, then require exactly one live poller/worker and at least one completed healthy worker tick with no failure event.
+4. Use only a marker-scoped fixture owned by the authorized recipient. Hold its exact job in the future, set maxAttempts=1, disable fallback, and process it only through an exact-job runner with controlled time.
+5. Suspend and restore the prior active project transactionally. Cleanup may delete only the exact marker fixture/job/private state; never use destructive ad-hoc SQL or broad user/project cleanup.
+6. Fail before provider work when identity, recipient, DB, process-count, hold, or cleanup guards are not green.

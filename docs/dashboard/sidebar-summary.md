@@ -1,37 +1,35 @@
 # Dashboard Sidebar Summary
 
-Updated: 2026-08-12
+Updated: 2026-08-16
 
 ## Now
 
-- Product stage: Stage 2, Gemini rewrite/draft editing.
-- Engineering phase: Phase 10 Real Edit-Audio Transcription and planning recommendation quality are awaiting acceptance.
-- Status: Credential Gate passed.
+- Product stage: Stage 3 formatting.
+- Engineering phase: Phase 12 Option 2 technical gate complete on a production-shaped seven-segment case.
+- Status: owner 3/3 literary/UX acceptance pending.
 - Branch: codex/phase-1-architecture-data-model.
 
 ## Next Required Owner Action
 
-After controlled deployment, complete mandatory 3/3 real-Telegram acceptance for voice corrections and recommendation-first planning quality.
+Review the preserved Telegram Option 2 result for literary quality, readability, emoji density, and first-click UX. No technical rerun is required unless behavior changes.
 
 ## Owner Focus
 
-Current: 3/3 for Phase 10.
-
-Credential Gate is passed. Phase 10 requires manual acceptance after preflight; then Stage 3 formatting will require its own review.
+Current: 3/3 literary/product/UX judgement only. The seven-segment technical path already proved exact lexical order, permitted emoji, one current final, and one non-empty .txt.
 
 ## Upcoming Owner Testing Windows
 
-1. Phase 10 voice corrections and planning quality: test voice-first UX, single-plan recommendations, meaningful alternatives, and planning corrections in Telegram.
-2. Stage 3 formatting: inspect Option 1/Option 2, emoji density, and word preservation.
-3. Full Telethon E2E: source audio to final Telegram text and .txt artifact.
+1. Inspect the preserved Option 2 output for style and Telegram readability.
+2. Later changed Stage 3 paths must repeat their own path-specific Tier 1/Tier 2 gate.
+3. Full series continuation remains a separate future acceptance window.
 
 ## Short Answer
 
-Do not spend heavy owner testing time on backend/job phases. Save it for real voice correction, formatting quality, and final Telegram click-through.
+Technical Option 2 acceptance is complete. Owner attention is now limited to whether the result reads and feels right.
 
 ## Verification Status
 
 - Technical handoff requires a path-level terminal-transition inventory: acknowledgement, job, exactly-one result or recovery, durable terminal state, Tier 1, and applicable Tier 2.
-- Recorded Stage 1/2 paths have evidence; Stage 3 buttons are `not tested` because Stage 3 has not started.
+- Option 2 has current-version first-click final/export evidence on a seven-segment fixture; the safe ledger is 46/50.
 - Owner 3/3 is only for literary/product/UX judgement after the applicable technical path inventory is complete.
 - Any owner-found delivery/stuck/state defect becomes a reproducible Tier 1 test and applicable Tier 2 regression before closure.
