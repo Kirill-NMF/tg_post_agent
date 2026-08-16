@@ -9,6 +9,10 @@ import { ProjectService } from "../../dist/src/services/projectService.js";
 const marker = "tier2-correction-canary-v1";
 const statePath = "/tmp/tg-post-agent-correction-canary-state.json";
 const formatStatePath = "/tmp/tg-post-agent-correction-format-state.json";
+
+export const correctionFixtureMarker = marker;
+export const correctionFixtureStatePath = statePath;
+export const correctionFormatStatePath = formatStatePath;
 const syntheticTranscript = "Тестовый абзац: punctuation, mixed English.\n\nВторой абзац — only fixture data.";
 
 export function buildRewriteFixture({ accountId, transcript, marker: fixtureMarker, now }) {

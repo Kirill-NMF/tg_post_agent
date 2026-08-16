@@ -212,6 +212,20 @@ async def no_duplicate_terminal(client, target, bot_id: int, final_id: int, time
 def has_new_final_callback(messages, bot_id: int, final_id: int) -> bool:
     return any(m.sender_id == bot_id and m.id > final_id and callback(m, "final:") for m in messages)
 
+def version_scoped_delivery_evidence(messages, bot_id: int, format_cursor: int, export_cursor: int) -> dict[str, object]:
+    current_final_count = sum(
+        1 for message in messages
+        if message.sender_id == bot_id and message.id > format_cursor and callback(message, "final:")
+    )
+    current_txt_count = sum(
+        1 for message in messages
+        if message.sender_id == bot_id and message.id > export_cursor and getattr(message, "document", None) is not None
+    )
+    return {
+        "currentFinalCount": current_final_count, "currentTxtCount": current_txt_count,
+        "noDuplicateFinal": current_final_count == 1, "txtArtifactObserved": current_txt_count == 1,
+    }
+
 async def run() -> dict[str, object]:
     """Execute /start→owner voice→plan→mode→draft→format option 2 once."""
     from telethon import TelegramClient

@@ -1,6 +1,7 @@
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDecorationPlan } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
+import { isOrdinaryEmoji } from "../domain/emoji.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
 import type { OpenRouterInteractionRequest } from "./openRouterInteractionClient.js";
@@ -281,14 +282,6 @@ export function parseOption2SegmentPlan(raw: string, segmentIds: readonly string
     throw new FormattingPlanValidationError("FORMAT_OPTION2_EMOJI_REQUIRED");
   }
   return directives;
-}
-
-function isOrdinaryEmoji(value: string): boolean {
-  if (!value || value.length > 16) return false;
-  if (/^[0-9#*]️?⃣$/u.test(value)) return true;
-  if (/^(?:\p{Regional_Indicator}){2}$/u.test(value)) return true;
-  return /\p{Extended_Pictographic}/u.test(value)
-    && /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|‍|︎|️)+$/u.test(value);
 }
 
 function validateSegmentIds(segmentIds: readonly string[]): void {

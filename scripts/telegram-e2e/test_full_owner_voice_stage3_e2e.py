@@ -136,6 +136,15 @@ class T(unittest.TestCase):
     def test_source_audio_send_is_not_voice_or_document_for_mp3_copy(self): self.assertEqual(x.source_audio_send_kwargs(), {'voice_note': False, 'force_document': False})
     def test_duplicate_classifier_ignores_stale_and_progress(self): self.assertFalse(x.has_new_final_callback([M(1, 'final:accept'), M(3, 'format:open')], 1, 2))
     def test_duplicate_classifier_detects_new_final(self): self.assertTrue(x.has_new_final_callback([M(3, 'final:accept')], 1, 2))
+    def test_version_scoped_delivery_ignores_stale_final_and_counts_one_current_txt(self):
+        messages = [M(1, 'final:accept'), M(5, 'final:accept')]
+        messages.append(type('D', (), {'id': 7, 'sender_id': 1, 'document': object(), 'reply_markup': None})())
+        evidence = x.version_scoped_delivery_evidence(messages, bot_id=1, format_cursor=3, export_cursor=5)
+        self.assertEqual(evidence, {'currentFinalCount': 1, 'currentTxtCount': 1, 'noDuplicateFinal': True, 'txtArtifactObserved': True})
+    def test_version_scoped_delivery_rejects_duplicate_current_final(self):
+        evidence = x.version_scoped_delivery_evidence([M(5, 'final:accept'), M(6, 'final:accept')], bot_id=1, format_cursor=3, export_cursor=6)
+        self.assertFalse(evidence['noDuplicateFinal'])
+        self.assertEqual(evidence['currentFinalCount'], 2)
 
 
 if __name__ == '__main__': unittest.main()

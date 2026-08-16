@@ -38,7 +38,7 @@ test("preflight scope excludes unrelated due job", () => {
 test("provider attempt is recorded before processing and terminal evidence rejects false success", () => {
  assert.equal(providerBoundaryReport({providerAttempted:false}).providerAttempted,true);
  const {project}=sample(); project.posts[0].formattedText="decorated";
- assert.deepEqual(terminalEvidence({job:{status:"succeeded"},project,expectedVersion:2}),{jobSucceeded:true,finalState:false,formattedNonempty:true,draftVersionMatched:true});
+ assert.deepEqual(terminalEvidence({job:{status:"succeeded",result:{notificationStatus:"sent"}},project,expectedVersion:2}),{jobSucceeded:true,finalState:false,formattedNonempty:true,draftVersionMatched:true,notificationSent:true});
 });
 
 test("report is atomically published", async () => {

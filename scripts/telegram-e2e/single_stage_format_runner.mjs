@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Bot } from "grammy";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { createDb, createDbPool } from "../../dist/src/db/connection.js";
 import { loadConfig } from "../../dist/src/config/env.js";
@@ -6,6 +7,7 @@ import { PgJobRepository } from "../../dist/src/repositories/pgJobRepository.js"
 import { PgProjectRepository } from "../../dist/src/repositories/pgProjectRepository.js";
 import { createAudioPipelineHandlers } from "../../dist/src/services/audioPipelineFactory.js";
 import { JobWorker } from "../../dist/src/services/jobWorker.js";
+import { GrammyTelegramNotifier } from "../../dist/src/telegram/telegramNotifier.js";
 
 const defaultStatePath = "/tmp/tg-post-agent-correction-format-state.json";
 
@@ -46,7 +48,8 @@ export function terminalEvidence({ job, project, expectedVersion }) {
     jobSucceeded: job?.status === "succeeded",
     finalState: project?.state === "formatted_editing",
     formattedNonempty: Boolean(post?.formattedText?.trim()),
-    draftVersionMatched: post?.draftVersion === expectedVersion
+    draftVersionMatched: post?.draftVersion === expectedVersion,
+    notificationSent: job?.result?.notificationStatus === "sent"
   };
 }
 
@@ -54,7 +57,7 @@ async function main() {
   const reportPath = process.env.TG_POST_AGENT_SINGLE_STAGE_FORMAT_REPORT;
   const statePath = process.env.TG_POST_AGENT_FORMAT_FIXTURE_STATE_PATH ?? defaultStatePath;
   if (!reportPath) throw new Error("configuration");
-  let report = { markerFingerprint: undefined, processed: false, category: null, preflightMaxProviderAttempts: 1, providerAttempted: false, jobSucceeded: false, finalState: false, formattedNonempty: false, draftVersionMatched: false };
+  let report = { markerFingerprint: undefined, processed: false, category: null, preflightMaxProviderAttempts: 1, providerAttempted: false, jobSucceeded: false, finalState: false, formattedNonempty: false, draftVersionMatched: false, notificationSent: false };
   let pool;
   try {
     const state = JSON.parse(await readFile(statePath, "utf8"));
@@ -70,7 +73,8 @@ async function main() {
     const job = await jobs.findById(state.jobId);
     const category = formatExactPreflight({ state, project, job });
     if (category) throw new Error(category);
-    const handlers = createAudioPipelineHandlers({ config, projects, jobs });
+    const notifier = new GrammyTelegramNotifier(new Bot(config.botToken).api);
+    const handlers = createAudioPipelineHandlers({ config, projects, jobs, notifier });
     if (!handlers.FORMAT_POST) throw new Error("format_handler_unavailable");
     report = providerBoundaryReport(report);
     const result = await new JobWorker(jobs, { FORMAT_POST: handlers.FORMAT_POST }).processOne({ workerId: "single-stage-format-runner", expectedJobId: state.jobId, now: controlledNow });
@@ -79,7 +83,7 @@ async function main() {
     const finalJob = await jobs.findById(state.jobId);
     const finalProject = await projects.findById(state.projectId);
     Object.assign(report, terminalEvidence({ job: finalJob, project: finalProject, expectedVersion: state.draftVersion }));
-    if (!report.jobSucceeded || !report.finalState || !report.formattedNonempty || !report.draftVersionMatched) report.category = "terminal_verification_failed";
+    if (!report.jobSucceeded || !report.finalState || !report.formattedNonempty || !report.draftVersionMatched || !report.notificationSent) report.category = "terminal_verification_failed";
   } catch (error) {
     report.category = error instanceof Error ? error.message : "runner_failure";
   } finally {

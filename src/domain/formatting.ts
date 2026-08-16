@@ -1,4 +1,5 @@
 import type { FormattingOption } from "./types.js";
+import { isOrdinaryEmoji } from "./emoji.js";
 
 export type FormattingAnchor = {
   text: string;
@@ -121,7 +122,7 @@ function resolveOperation(
     const anchor = resolveAnchor(originalText, operation.anchor);
     if (!anchor.ok) return anchor;
     if (operation.position !== "before" && operation.position !== "after") return invalidOperation("Emoji position is invalid.");
-    if (typeof operation.emoji !== "string" || !isExpressiveEmoji(operation.emoji)) {
+    if (typeof operation.emoji !== "string" || !isOrdinaryEmoji(operation.emoji)) {
       return { ok: false, code: "FORMAT_EMOJI_INVALID", message: "Emoji insertion must contain only a bounded expressive emoji token." };
     }
     return { ok: true, value: { kind: "emoji_insertion", sourceIndex: operation.position === "before" ? anchor.value.start : anchor.value.end, text: operation.emoji, position: operation.position } };
@@ -166,10 +167,6 @@ function markerForStyle(style: unknown): string | undefined {
   if (style === "italic") return "_";
   if (style === "code") return String.fromCharCode(96);
   return undefined;
-}
-
-function isExpressiveEmoji(value: string): boolean {
-  return value.length <= 16 && /[^\p{ASCII}]/u.test(value) && !/[\p{L}\p{N}\s]/u.test(value);
 }
 
 function invalidOperation(message: string): Invalid {
