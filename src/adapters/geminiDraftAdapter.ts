@@ -10,11 +10,12 @@ export type DraftAdapter = Pick<ModelAdapters, "generateDraft" | "reviseDraft">;
 export type GeminiDraftInteractionRequest = {
   model: string;
   input: string;
-  response_format: {
-    type: "text";
-    mime_type: "application/json";
-    schema: Record<string, unknown>;
-  };
+  response_format:
+    | { type: "text"; mime_type: "application/json"; schema: Record<string, unknown> }
+    | { type: "json_schema"; json_schema: { name: string; strict: true; schema: Record<string, unknown> } };
+  stream?: false;
+  provider?: { require_parameters: true };
+  plugins?: readonly [{ id: "response-healing" }];
 };
 
 export type GeminiDraftClient = {
@@ -48,11 +49,7 @@ export class GeminiDraftAdapter implements DraftAdapter {
       const interaction = await this.input.client.create({
         model: this.input.model,
         input: buildDraftPrompt({ ...params, slice }),
-        response_format: {
-          type: "text",
-          mime_type: "application/json",
-          schema: draftSchema
-        }
+        ...draftResponseContract(this.input.provider)
       });
       if (typeof interaction.output_text !== "string") {
         return failure("GEMINI_DRAFT_OUTPUT_INVALID", "Gemini draft output was missing text.", false);
@@ -89,11 +86,7 @@ export class GeminiDraftAdapter implements DraftAdapter {
       const interaction = await this.input.client.create({
         model: this.input.model,
         input: buildDraftRevisionPrompt(params),
-        response_format: {
-          type: "text",
-          mime_type: "application/json",
-          schema: draftSchema
-        }
+        ...draftResponseContract(this.input.provider)
       });
       if (typeof interaction.output_text !== "string") {
         return failure("GEMINI_DRAFT_REVISION_OUTPUT_INVALID", "Gemini draft revision output was missing text.", false);
@@ -175,6 +168,18 @@ function buildDraftRevisionPrompt(params: Parameters<ModelAdapters["reviseDraft"
     `\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a:\n${params.currentDraft}`,
     `\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f \u043f\u0440\u0430\u0432\u043a\u0430:\n${params.latestUserEdit}`
   ].join("\n\n");
+}
+
+function draftResponseContract(provider: "gemini" | "openrouter" | undefined): Pick<GeminiDraftInteractionRequest, "response_format" | "stream" | "provider" | "plugins"> {
+  if (provider === "openrouter") {
+    return {
+      stream: false,
+      response_format: { type: "json_schema", json_schema: { name: "stage2_draft", strict: true, schema: draftSchema } },
+      provider: { require_parameters: true },
+      plugins: [{ id: "response-healing" }]
+    };
+  }
+  return { response_format: { type: "text", mime_type: "application/json", schema: draftSchema } };
 }
 
 const draftSchema = {

@@ -48,6 +48,22 @@ describe("GeminiDraftAdapter", () => {
     expect(result.value.draft.notes).toEqual(["safe note"]);
   });
 
+  it("uses strict OpenRouter JSON Schema for draft generation", async () => {
+    let request: unknown;
+    const adapter = new GeminiDraftAdapter({
+      client: { async create(value) { request = value; return { output_text: validOutput() }; } },
+      model: "configured-model",
+      provider: "openrouter"
+    });
+    await adapter.generateDraft(baseInput());
+    expect(request).toMatchObject({
+      stream: false,
+      response_format: { type: "json_schema", json_schema: { strict: true, schema: { additionalProperties: false } } },
+      provider: { require_parameters: true },
+      plugins: [{ id: "response-healing" }]
+    });
+  });
+
   it("rejects malformed JSON", async () => {
     const adapter = new GeminiDraftAdapter({ client: fakeClient("{not json"), model: "gemini-2.5-pro" });
 
