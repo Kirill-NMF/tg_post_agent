@@ -59,5 +59,5 @@ grep -q '"event":"worker_runtime_tick_failed"' "$runtime_log" && worker_failure=
 if [[ "$runtime_count" = 1 && "$os_identity" = true && "$env_identity" = true && "$db_peer" = true && "$worker_tick" = true && "$worker_failure" = false ]]; then
   health=true
 fi
-printf '{"runtimeCount":%s,"osIdentityMatched":%s,"environmentIdentityMatched":%s,"dbPeerAuth":%s,"workerTickCompleted":%s,"workerFailureObserved":%s,"healthy":%s}\n' +  "$runtime_count" "$os_identity" "$env_identity" "$db_peer" "$worker_tick" "$worker_failure" "$health"
+printf '{"runtimeCount":%s,"osIdentityMatched":%s,"environmentIdentityMatched":%s,"dbPeerAuth":%s,"workerTickCompleted":%s,"workerFailureObserved":%s,"healthy":%s}\n' "$runtime_count" "$os_identity" "$env_identity" "$db_peer" "$worker_tick" "$worker_failure" "$health"
 [[ "$health" = true ]]
