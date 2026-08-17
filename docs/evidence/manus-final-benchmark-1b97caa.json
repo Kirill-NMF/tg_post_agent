@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "scope": "owner_authorized_primary_then_conditional_holdout",
+  "implementationCommit": "1b97caa",
+  "implementationChangedBetweenCalls": "not_applicable_holdout_not_run",
+  "ledger": {
+    "capBefore": 52,
+    "spentBefore": 52,
+    "capAfterAuthorization": 60,
+    "spentAfter": 53,
+    "remainingAfter": 7,
+    "historyPreserved": true
+  },
+  "attempts": {
+    "primaryProviderAttempts": 1,
+    "holdoutProviderAttempts": 0,
+    "retryCount": 0,
+    "fallbackUsed": false
+  },
+  "primary": {
+    "preflightCategory": "ready",
+    "corpusHashMatched": true,
+    "structuredOutputContract": true,
+    "providerResponseReceived": true,
+    "jsonShapeGatePassed": true,
+    "semanticGatePassed": false,
+    "terminalCategory": "FORMAT_OPTION2_LIST_ROLE_INVALID",
+    "failingLayer": "local_semantic_validator",
+    "failingOperationKind": "list_marker",
+    "failingOperationIndexBucket": "8_15",
+    "parsedOperationCount": 19,
+    "anyEmojiDirective": true,
+    "responseByteLengthBucket": "1024_4095",
+    "candidateWritten": false,
+    "evaluationReached": false,
+    "hardGatesReached": false,
+    "weightedStyleScore": null
+  },
+  "deterministicDiagnosis": {
+    "providerSchemaAcceptedSyntheticNonNestedListMarker": true,
+    "runtimeParserRejectedCategory": "FORMAT_OPTION2_LIST_ROLE_INVALID",
+    "rootCause": "dynamic_schema_list_marker_role_drift",
+    "candidateAbsent": true,
+    "primaryPassGateAbsent": true
+  },
+  "holdout": {
+    "sealedUntilPrimaryPass": true,
+    "opened": false,
+    "providerAttempted": false,
+    "evaluationReached": false
+  },
+  "nextAction": "constrain_list_marker_schema_to_nested_list_ids_and_source_marker_variants_with_tdd_then_request_one_new_primary_verification"
+}

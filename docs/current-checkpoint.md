@@ -20,9 +20,9 @@ Phase 12 is the current checkpoint. Tier 1 covers the shared provider/runtime sc
 
 ## Next Step
 
-Owner/product review and a new provider budget are required before any further model operation. The immutable primary candidate remains a failed model-quality result, but its style gaps are now diagnosed and corrected offline with deterministic tests. The sealed holdout remains unopened.
+The owner raised the provider cap to 60, but the renewed primary protocol stopped after its single authorized attempt. Another provider operation requires a new coordinator instruction after the deterministic list-marker schema fix. The sealed holdout remains unopened.
 
-The category-only provider ledger remains 52/52. The immutable primary score is 0.3874. Offline diagnosis found 14 valid Telegram single-star bold pairs misclassified by the evaluator, nine false section headings, a wrong intro anchor, and paragraph-only segmentation that hid line-level list roles. After evaluator correction the same old candidate rescores to 0.5811 but retains a two-symbol punctuation ambiguity and remains failed. A final tuning-only calibration classified two existing colon-terminated group leads as deterministic primary-list anchors; this raised generalization-7 from 0.6360 to 0.6930 without changing primary or generalization-9. Semicolon and ordinary group leads remain provider-classified. The provider-free server-directive floor now passes every hard gate and threshold at 0.7970/0.6930/0.7917. These are capability floors, not model-quality claims. The private candidate/diff remain owner-only, and `holdout_10` was not read.
+The category-only provider ledger is 53/60. The provider-free server-directive floor remains green at 0.7970/0.6930/0.7917, but the renewed primary model attempt produced no candidate or score: JSON shape passed and local semantics rejected a non-role-valid `list_marker` with `FORMAT_OPTION2_LIST_ROLE_INVALID`. A synthetic reproduction proves the dynamic provider schema accepts a non-`nested_list` ID that the runtime correctly rejects. No retry or fallback occurred. The holdout stayed sealed, no primary pass gate was written, and private output was not committed.
 
 ## Owner Focus
 
