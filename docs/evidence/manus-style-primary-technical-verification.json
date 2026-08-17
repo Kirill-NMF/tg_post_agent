@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "cumulativePrimaryAttemptCount": 4,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE",
+    "failureBoundary": "formatting_plan_validation",
+    "validationStage": "semantic",
+    "schemaFailureLocation": "not_applicable",
+    "failingOperationIndexBucket": "not_applicable",
+    "operationKind": "not_applicable",
+    "fieldPresenceMask": 0,
+    "parsedOperationCount": 28,
+    "anyEmojiDirective": true,
+    "responseByteLengthBucket": "1024_4095"
+  },
+  "rootCause": {
+    "category": "provider_schema_required_role_completeness_not_enforced",
+    "deterministicReproduction": true,
+    "fixCategory": "server_owned_required_role_directives",
+    "semanticGateRelaxed": false
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": false,
+    "privateDiffWritten": false,
+    "hardGateResultAvailable": false,
+    "perRoleMetricsAvailable": false,
+    "weightedStyleScoreAvailable": false,
+    "threshold": 0.65,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT"
+  },
+  "ledger": {
+    "spent": 50,
+    "cap": 50
+  },
+  "nextAction": "owner_budget_approval_required_before_any_provider_or_holdout_operation"
+}

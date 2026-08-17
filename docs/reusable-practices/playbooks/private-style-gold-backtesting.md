@@ -19,6 +19,12 @@ The deformatter removes presentation-only Markdown, emoji anchors, list markers,
 - idempotent neutralization;
 - exact case-insensitive lexical token sequence and explicit punctuation policy.
 
+## Deterministic required-role ownership
+
+If a style role always implies a fixed decoration, the server owns that directive. Provider JSON Schema constrains individual optional operations, and runtime semantic validation rejects every invalid provider directive before merging. The server then replaces only deterministic `segment-id:operation-kind` slots with canonical role directives, retains valid optional directives, and rechecks the total operation bound and lexical invariants. Requiring the model to repeat all fixed role directives creates a completeness contract that JSON Schema cannot reliably express and must not be mistaken for model-quality evidence.
+
+An accepted provider transport with `FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE` produces no candidate and therefore no hard-gate or style score. Record the safe operation count/category, preserve the holdout seal, and use a synthetic RED fixture for the no-call repair. Never spend a holdout call until a primary candidate passes, and never exceed the owner-approved ledger.
+
 ## Evaluator gate
 
 Hard failures precede similarity scoring: lexical addition/removal/reorder, punctuation mutation outside declared decoration markers, unbalanced Markdown, forbidden styles or emoji categories, and invented hashtag/CTA/question roles.

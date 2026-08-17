@@ -1,21 +1,21 @@
 # Dashboard Sidebar Summary
 
-Updated: 2026-08-16
+Updated: 2026-08-18
 
 ## Now
 
 - Product stage: Stage 3 formatting.
 - Engineering phase: Phase 12 Option 2 technical gate complete on a production-shaped seven-segment case.
-- Status: owner 3/3 literary/UX acceptance pending.
+- Status: delivery gate complete; Manus-style benchmark pending after an offline contract fix and exhausted provider budget.
 - Branch: codex/phase-1-architecture-data-model.
 
 ## Next Required Owner Action
 
-Review the preserved Telegram Option 2 result for literary quality, readability, emoji density, and first-click UX. No technical rerun is required unless behavior changes.
+Approve additional provider budget for one renewed primary benchmark verification, or pause the benchmark. The sealed holdout remains unavailable until primary passes.
 
 ## Owner Focus
 
-Current: 3/3 literary/product/UX judgement only. The seven-segment technical path already proved exact lexical order, permitted emoji, one current final, and one non-empty .txt.
+Current: the seven-segment Telegram delivery path remains technically proven, but Manus-style model quality is not. No candidate/score exists from the final authorized primary call.
 
 ## Upcoming Owner Testing Windows
 
@@ -25,11 +25,11 @@ Current: 3/3 literary/product/UX judgement only. The seven-segment technical pat
 
 ## Short Answer
 
-Technical Option 2 acceptance is complete. Owner attention is now limited to whether the result reads and feels right.
+Telegram delivery acceptance is complete. Manus-style benchmark acceptance is not; the ledger is 50/50 and requires owner approval before another primary verification.
 
 ## Verification Status
 
 - Technical handoff requires a path-level terminal-transition inventory: acknowledgement, job, exactly-one result or recovery, durable terminal state, Tier 1, and applicable Tier 2.
-- Option 2 has current-version first-click final/export evidence on a seven-segment fixture; authoritative post-fix primary style verification failed closed on a role-to-emoji schema gap now fixed offline, no quality score exists, and the safe ledger is 49/50.
+- Option 2 has current-version first-click final/export evidence on a seven-segment fixture; the final authorized primary style verification failed closed on required-role completeness now fixed offline, no quality score exists, the holdout is sealed, and the safe ledger is 50/50.
 - Owner 3/3 is only for literary/product/UX judgement after the applicable technical path inventory is complete.
 - Any owner-found delivery/stuck/state defect becomes a reproducible Tier 1 test and applicable Tier 2 regression before closure.

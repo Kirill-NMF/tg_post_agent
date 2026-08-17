@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 
-Status: offline evaluator and role-constrained Option 2 contract implemented; authoritative post-fix primary verification failed closed before candidate rendering; holdout remains sealed
+Status: offline evaluator and role-constrained Option 2 contract implemented; final authorized primary technical verification failed closed before candidate rendering; deterministic no-call fix applied; holdout remains sealed
 
 ## Context
 
@@ -86,6 +86,14 @@ The authorized verification used exactly one further provider attempt with no re
 The deterministic defect was a second schema-precision gap: canonical IDs were enumerated, but the provider schema did not encode the allowed role-to-emoji pairs. The request-specific shared schema now replaces the generic emoji branch with exact closed variants grouped by canonical segment role, allowed IDs, `before` position, and evidenced emoji enum. The unchanged semantic role validator remains defense in depth. A RED fixture reproduces the role-incompatible pair; focused tests prove it is now provider-schema-invalid while valid role pairs remain reversible.
 
 The ledger is 49/50. No candidate, readable diff, hard-gate result, per-role metric, or weighted style score exists. No further primary tuning call is authorized, and `holdout_10` remains sealed because the primary gate did not pass.
+
+## Final authorized primary technical verification
+
+The last approved provider operation reached transport success with no retry or fallback. The shared dynamic schema parsed 28 operations, including an emoji directive, then the semantic completeness gate rejected the plan as `FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE`. No candidate, private diff, hard-gate result, per-role metric, or weighted style score exists.
+
+The deterministic root cause was a remaining completeness split: the provider schema constrained every individual role/ID/emoji operation, while only runtime validation required the full set of deterministic role decorations. Required role decorations are now generated canonically by the server from segment roles. Every provider directive is still shape- and semantic-validated first; only required `id:kind` slots are replaced with canonical server-owned directives, optional valid directives are retained, and the merged plan is checked against the unchanged operation bound and lexical safety gates. This is not a semantic-gate relaxation.
+
+The ledger is exhausted at 50/50. `holdout_10` was not read or executed. Any further provider operation, including a renewed primary verification or the sealed holdout, requires explicit owner budget approval; a primary candidate must pass before holdout execution.
 
 ## Consequences
 

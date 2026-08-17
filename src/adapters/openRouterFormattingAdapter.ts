@@ -337,7 +337,8 @@ export function buildOption2SegmentPrompt(segments: readonly CanonicalFormatting
     "Return exactly one JSON object matching the supplied schema.",
     "Apply the Manus/CRYPTUS Option 2 contract with primary-gold-first precedence.",
     "Preserve every word, punctuation mark, and order. The only surface change is the explicit reversible uppercase heading_case operation for main_heading.",
-    "Use role-constrained directives keyed only by canonical segment IDs: main_heading=uppercase+bold; section_heading=bold+leading pause; intro=leading scroll; primary_list=leading orange circle; nested_list=declare the existing contextual dash marker without inserting or replacing punctuation; prompt_code=leading low-brightness symbol+code; cta=leading fire only for an existing CTA line; audience_question=leading arrow only for an existing question; preserve hashtag_footer without invention.",
+    "The server deterministically applies required role decorations: main_heading=uppercase+bold; section_heading=bold+leading pause; intro=leading scroll; primary_list=leading orange circle; prompt_code=leading low-brightness symbol+code; cta=leading fire; audience_question=leading arrow. Return only role-valid optional directives; required slots are canonicalized server-side.",
+    "For nested_list, declare only an existing contextual dash marker without inserting or replacing punctuation. Preserve hashtag_footer without invention.",
     "Bold is dominant. Never use italic, strike, spoiler, custom/Premium emoji, arbitrary emoji soup, or monospace outside prompt_code.",
     "Never invent CTA, audience-question, or hashtag words; those roles only decorate lexical content already present in the canonical segment.",
     "semantic_accent is optional only on section_heading, uses the evidenced allowlist, and is density-bounded.",
@@ -406,8 +407,15 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
   }
   const semanticBudget = Math.min(2, Math.ceil(segments.filter((segment) => segment.role === "section_heading").length / 3));
   if (semanticAccentCount > semanticBudget) throw new FormattingPlanValidationError("FORMAT_OPTION2_SEMANTIC_ACCENT_DENSITY_EXCEEDED", rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic"));
-  validateRequiredRoleContract(directives, segments, responseByteLengthBucket, parsed);
-  return directives;
+  const completedDirectives = completeRequiredRoleContract(directives, segments);
+  if (completedDirectives.length > maxOperations) {
+    throw new FormattingPlanValidationError(
+      "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
+      rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic")
+    );
+  }
+  validateRequiredRoleContract(completedDirectives, segments, responseByteLengthBucket, parsed);
+  return completedDirectives;
 }
 
 function constrainSegmentIdSchemas(value: unknown, segmentIds: readonly string[]): void {
@@ -564,6 +572,42 @@ const roleAnchorEmoji: Partial<Record<CanonicalFormattingSegment["role"], readon
   audience_question: ["\u27A1", "\u27A1\uFE0F"]
 };
 const semanticAccentEmoji = new Set(["\u2709", "\u2709\uFE0F"]);
+
+function completeRequiredRoleContract(
+  directives: readonly Option2SegmentDirective[],
+  segments: readonly CanonicalFormattingSegment[]
+): Option2SegmentDirective[] {
+  const required = segments.flatMap(requiredRoleDirectives);
+  const requiredSlots = new Set(required.map(directiveSlot));
+  const optional = directives.filter((directive) => !requiredSlots.has(directiveSlot(directive)));
+  return [...required, ...optional];
+}
+
+function requiredRoleDirectives(segment: CanonicalFormattingSegment): Option2SegmentDirective[] {
+  if (segment.role === "main_heading") {
+    return [
+      { id: segment.id, kind: "heading_case", mode: "uppercase" },
+      { id: segment.id, kind: "markdown_span", style: "bold" }
+    ];
+  }
+  if (segment.role === "section_heading") {
+    return [
+      { id: segment.id, kind: "markdown_span", style: "bold" },
+      { id: segment.id, kind: "emoji_insertion", position: "before", emoji: roleAnchorEmoji.section_heading![0]! }
+    ];
+  }
+  const emojis = roleAnchorEmoji[segment.role];
+  if (!emojis) return [];
+  const result: Option2SegmentDirective[] = [
+    { id: segment.id, kind: "emoji_insertion", position: "before", emoji: emojis[0]! }
+  ];
+  if (segment.role === "prompt_code") result.push({ id: segment.id, kind: "markdown_span", style: "code" });
+  return result;
+}
+
+function directiveSlot(directive: Option2SegmentDirective): string {
+  return `${directive.id}:${directive.kind}`;
+}
 
 function validateRoleDirective(operation: Option2SegmentDirective, segment: CanonicalFormattingSegment, diagnostics: RejectedSegmentPlanDiagnostics): void {
   if (operation.kind === "heading_case" && segment.role !== "main_heading") throw new FormattingPlanValidationError("FORMAT_OPTION2_HEADING_CASE_ROLE_INVALID", diagnostics);

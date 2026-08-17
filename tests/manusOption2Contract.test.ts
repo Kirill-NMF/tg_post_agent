@@ -84,9 +84,31 @@ describe("Manus Option2 role contract", () => {
     expect(rendered.text).toContain("⏸");
     expect(rendered.text).toContain("🟠");
     expect(rendered.text).toContain("🔅");
-    expect(rendered.text).toContain("➡️");
+    expect(rendered.text).toContain("➡");
     expect(validateTelegramMarkdownFormatting(rendered.text)).toBe(true);
     expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(longDraft);
+  });
+
+  it("server-completes deterministic required role decorations omitted by the provider", () => {
+    const segments = deriveCanonicalSegments(longDraft);
+    const directives = parseOption2SegmentPlan(JSON.stringify({
+      primaryEmoji: { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "📜" },
+      operations: [],
+    }), segments);
+
+    expect(directives).toHaveLength(9);
+    expect(directives).toEqual(expect.arrayContaining([
+      { id: "block_1", kind: "heading_case", mode: "uppercase" },
+      { id: "block_1", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "⏸" },
+      { id: "block_4", kind: "emoji_insertion", position: "before", emoji: "🟠" },
+      { id: "block_6", kind: "markdown_span", style: "code" },
+      { id: "block_7", kind: "emoji_insertion", position: "before", emoji: "➡" },
+    ]));
+    const rendered = applySegmentFormattingPlan(longDraft, "option_2", directives, segments);
+    expect(rendered.ok).toBe(true);
+    if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(longDraft);
   });
 
   it("treats list-marker metadata as a declaration and never duplicates punctuation", () => {
@@ -157,7 +179,7 @@ describe("Manus Option2 role contract", () => {
     ["missing required heading case", { removeKind: "heading_case" }],
     ["missing section pause", { removeId: "block_3", removeKind: "emoji_insertion" }],
     ["missing intro anchor", { replacePrimary: { id: "block_4", kind: "emoji_insertion", position: "before", emoji: "🟠" } }],
-  ])("fails closed on incomplete role contract: %s", (_label, mutation) => {
+  ])("server-completes an incomplete deterministic role contract: %s", (_label, mutation) => {
     const plan = validPlan();
     if ("removeKind" in mutation && mutation.removeKind) plan.operations = plan.operations.filter((operation) => operation.kind !== mutation.removeKind) as typeof plan.operations;
     if ("removeId" in mutation && mutation.removeId) plan.operations = plan.operations.filter((operation) => operation.id !== mutation.removeId || operation.kind !== mutation.removeKind) as typeof plan.operations;
@@ -165,7 +187,18 @@ describe("Manus Option2 role contract", () => {
       plan.primaryEmoji = mutation.replacePrimary;
       plan.operations = plan.operations.filter((operation) => operation.id !== mutation.replacePrimary.id || operation.kind !== mutation.replacePrimary.kind) as typeof plan.operations;
     }
-    expectCode(() => parseOption2SegmentPlan(JSON.stringify(plan), deriveCanonicalSegments(longDraft)), "FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE");
+    const directives = parseOption2SegmentPlan(JSON.stringify(plan), deriveCanonicalSegments(longDraft));
+    expect(directives).toEqual(expect.arrayContaining([
+      { id: "block_1", kind: "heading_case", mode: "uppercase" },
+      { id: "block_1", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "⏸" },
+      { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "📜" },
+      { id: "block_4", kind: "emoji_insertion", position: "before", emoji: "🟠" },
+      { id: "block_6", kind: "emoji_insertion", position: "before", emoji: "🔅" },
+      { id: "block_6", kind: "markdown_span", style: "code" },
+      { id: "block_7", kind: "emoji_insertion", position: "before", emoji: "➡" },
+    ]));
   });
 
   it.each([
