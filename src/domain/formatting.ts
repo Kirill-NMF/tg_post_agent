@@ -235,6 +235,7 @@ export function deriveCanonicalSegments(text: string): CanonicalFormattingSegmen
     else if (/^\s*(?:-|\u2022|\d+[.)])\s+/u.test(segment.text)) role = "primary_list";
     else if (isSectionHeadingCandidate(segment.text)) role = "section_heading";
     else if (index === introIndex) role = "intro";
+    else if (isEnumerationLead(raw, index)) role = "primary_list";
     else if (isLineGroupMember(raw, index)) role = "list_candidate";
     else role = "paragraph";
     return { id: "block_" + (index + 1), ...segment, role };
@@ -265,6 +266,12 @@ function isLineGroupMember(raw: readonly { start: number; end: number; text: str
   const previousGap = index > 0 ? raw[index].start - raw[index - 1].end : 0;
   const nextGap = index < raw.length - 1 ? raw[index + 1].start - raw[index].end : 0;
   return previousGap === 1 || nextGap === 1;
+}
+
+function isEnumerationLead(raw: readonly { start: number; end: number; text: string }[], index: number): boolean {
+  const previousGap = index > 0 ? raw[index].start - raw[index - 1].end : 0;
+  const nextGap = index < raw.length - 1 ? raw[index + 1].start - raw[index].end : 0;
+  return previousGap !== 1 && nextGap === 1 && /:\s*$/u.test(raw[index].text);
 }
 
 function isSectionHeadingCandidate(value: string): boolean {

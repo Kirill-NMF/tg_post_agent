@@ -57,15 +57,52 @@
     "lineScopedCanonicalSegments": true,
     "uppercaseOnlySectionInference": true,
     "longProseIntroSelection": true,
+    "colonTerminatedEnumerationLead": true,
     "ctaLexicalGuardPreserved": true,
     "typedListCandidateDecoration": true,
     "wordOrPunctuationReplacementAllowed": false
   },
   "deterministicFloor": [
     { "goldId": "primary_option2_final", "hardGatesPass": true, "weightedStyleScore": 0.797, "baselineDelta": 0.4096, "headingF1": 1, "sectionF1": 1, "listF1": 0, "boldF1": 1, "paragraphF1": 1, "emojiRoleF1": 0.7 },
-    { "goldId": "generalization_7", "hardGatesPass": true, "weightedStyleScore": 0.636, "baselineDelta": 0.234, "headingF1": 1, "sectionF1": 1, "listF1": 0, "boldF1": 0.3077, "paragraphF1": 1, "emojiRoleF1": 0.4348 },
+    { "goldId": "generalization_7", "hardGatesPass": true, "weightedStyleScore": 0.693, "baselineDelta": 0.291, "headingF1": 1, "sectionF1": 1, "listF1": 0.2105, "boldF1": 0.3077, "paragraphF1": 1, "emojiRoleF1": 0.56 },
     { "goldId": "generalization_9", "hardGatesPass": true, "weightedStyleScore": 0.7917, "baselineDelta": 0.2871, "headingF1": 1, "sectionF1": 1, "listF1": 0.5854, "boldF1": 0.2222, "paragraphF1": 1, "emojiRoleF1": 0.8095 }
   ],
+  "post7Calibration": {
+    "rootCause": "deterministic_role_inference_missing_colon_terminated_enumeration_lead",
+    "evaluatorChanged": false,
+    "structuralEvidence": {
+      "post7EligibleGroupLeads": 2,
+      "post7EligibleExpectedPrimaryList": 2,
+      "post7EligibleTerminalCategory": "colon",
+      "primaryEligibleGroupLeads": 0,
+      "post9EligibleGroupLeads": 0
+    },
+    "anchorCounts": {
+      "main_heading": { "expected": 1, "actualAfter": 1, "tpAfter": 1, "fpAfter": 0, "fnAfter": 0 },
+      "section_heading": { "expected": 3, "actualAfter": 3, "tpAfter": 3, "fpAfter": 0, "fnAfter": 0 },
+      "intro": { "expected": 1, "actualAfter": 1, "tpAfter": 1, "fpAfter": 0, "fnAfter": 0 },
+      "primary_list": { "expected": 10, "actualBefore": 0, "actualAfter": 2, "tpAfter": 2, "fpAfter": 0, "fnAfter": 8 },
+      "nested_list": { "expected": 7, "actualAfter": 0, "tpAfter": 0, "fpAfter": 0, "fnAfter": 7 },
+      "bold_span": { "expected": 22, "actualAfter": 4, "tpAfter": 4, "fpAfter": 0, "fnAfter": 18 },
+      "prompt_code": { "expected": 1, "actualAfter": 0, "tpAfter": 0, "fpAfter": 0, "fnAfter": 1 },
+      "cta": { "expected": 1, "actualAfter": 0, "tpAfter": 0, "fpAfter": 0, "fnAfter": 1 },
+      "audience_question": { "expected": 1, "actualAfter": 1, "tpAfter": 1, "fpAfter": 0, "fnAfter": 0 },
+      "paragraph_boundary": { "expected": 32, "actualAfter": 32, "tpAfter": 32, "fpAfter": 0, "fnAfter": 0 },
+      "semantic_accent": { "expected": 1, "actualAfter": 0, "tpAfter": 0, "fpAfter": 0, "fnAfter": 1 }
+    },
+    "metricDelta": {
+      "weightedStyleScore": { "before": 0.636, "after": 0.693, "delta": 0.057 },
+      "listF1": { "before": 0, "after": 0.2105 },
+      "primaryListF1": { "before": 0, "after": 0.3333 },
+      "emojiRoleF1": { "before": 0.4348, "after": 0.56 },
+      "emojiDensityDeviationPer100Words": { "before": 2.0747, "after": 1.6598 },
+      "weightedContributions": {
+        "list": { "before": 0, "after": 0.0316, "delta": 0.0316 },
+        "emojiRole": { "before": 0.0696, "after": 0.0896, "delta": 0.02 },
+        "emojiDensity": { "before": 0.0533, "after": 0.0587, "delta": 0.0054 }
+      }
+    }
+  },
   "nextProviderPlan": {
     "recommendedNewCalls": 2,
     "sequence": ["one_primary_verification", "one_sealed_holdout_only_after_primary_pass"]

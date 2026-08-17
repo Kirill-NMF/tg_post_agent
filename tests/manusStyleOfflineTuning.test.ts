@@ -77,6 +77,42 @@ describe("Manus offline tuning regressions", () => {
     ]);
   });
 
+  it("classifies only a colon-terminated group lead as a deterministic primary list anchor", () => {
+    const draft = [
+      "MAIN TITLE",
+      "This deliberately long introductory paragraph contains more than fourteen lexical words and ends as a sentence.",
+      "Available paths:\nFirst path keeps the current approach.\nSecond path changes the approach.",
+      "Ordinary lead line\nOrdinary continuation line.",
+      "Ambiguous lead;\nAmbiguous continuation line.",
+      "What will you choose?",
+    ].join("\n\n");
+
+    const segments = deriveCanonicalSegments(draft);
+    expect(segments.map((segment) => segment.role)).toEqual([
+      "main_heading",
+      "intro",
+      "primary_list",
+      "list_candidate",
+      "list_candidate",
+      "list_candidate",
+      "list_candidate",
+      "list_candidate",
+      "list_candidate",
+      "audience_question",
+    ]);
+    const intro = segments.find((segment) => segment.role === "intro")!;
+    const directives = parseOption2SegmentPlan(JSON.stringify({
+      primaryEmoji: { id: intro.id, kind: "emoji_insertion", position: "before", emoji: "📜" },
+      operations: [],
+    }), segments);
+    expect(directives).toEqual(expect.arrayContaining([
+      { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "🟠" },
+    ]));
+    const rendered = applySegmentFormattingPlan(draft, "option_2", directives, segments);
+    expect(rendered.ok).toBe(true);
+    if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(draft);
+  });
+
   it("applies typed primary and nested list decorations without lexical or punctuation mutation", () => {
     const draft = [
       "MAIN TITLE",
