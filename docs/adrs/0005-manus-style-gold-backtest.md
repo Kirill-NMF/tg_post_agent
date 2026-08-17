@@ -108,3 +108,11 @@ The ledger is 51/52. Slot 52 remains unused and cannot be spent on holdout becau
 ## Consequences
 
 The benchmark can reject lexical mutation, invalid Markdown, emoji soup, misplaced anchors, and invented structural content without exposing private references. It does not prove universal style quality, and the roadmap must not mark the owner literary/UX checkpoint complete.
+
+## Offline primary style-gap correction
+
+The immutable primary candidate scored 0.3874. Content-free analysis proved two independent faults. First, the evaluator treated 14 valid Telegram single-star bold pairs as italic/punctuation because the gold uses double-star Markdown notation; no underscore italic, strike, or spoiler was present. The evaluator now recognizes both bold dialects, still rejects underscore italic and unbalanced markers, and reports individual role metrics plus weighted contributions. The old candidate rescores to 0.5811; its remaining punctuation failure is two formatter-generated symbol codepoints under one recorded hash class, so it remains fail-closed rather than being silently accepted.
+
+Second, canonical paragraph blocks hid line-level list structure and the former short-open-line heuristic produced four true and nine false section headings in the primary. Canonical segmentation is now line-scoped. Section inference requires strong uppercase evidence, intro selection prefers the first long prose sentence, and CTA remains lexical-only. Multi-line groups become `list_candidate`; a closed `list_decoration` operation may choose only `primary_list` or `nested_list`, and the server inserts the corresponding presentation anchor as a recorded reversible insertion. It cannot return or replace words or source punctuation.
+
+The no-provider command `npm run benchmark:manus-floor` applies only server-owned required directives to the three authorized tuning references. All hard gates pass. Scores changed from the pre-fix diagnostic floors 0.3874/0.4020/0.5046 to 0.7970/0.6360/0.7917 for primary/generalization-7/generalization-9. This is a deterministic capability floor, not a model-quality result. Generalization-7 remains below 0.65 because optional list/code/bold semantics are intentionally not fabricated by the server. `holdout_10` was not read; the ledger remains 52/52.

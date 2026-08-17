@@ -57,7 +57,7 @@ describe("Option 2 unified provider/runtime schema", () => {
     const serialized = JSON.stringify(schema);
 
     expect(schema.required).toEqual(["primaryEmoji", "operations"]);
-    expect(schema.properties?.operations?.items?.anyOf).toHaveLength(6);
+    expect(schema.properties?.operations?.items?.anyOf).toHaveLength(7);
     expect(serialized).not.toMatch(/"pattern"|"minLength"|"maxLength"|"contains"|"minContains"/);
     expectEveryObjectClosed(schema);
   });
@@ -84,7 +84,8 @@ describe("Option 2 unified provider/runtime schema", () => {
   it.each([
     ["paragraph_break", { id: "block_2", kind: "paragraph_break", position: "after" }],
     ["markdown_span", { id: "block_2", kind: "markdown_span", style: "bold" }],
-    ["emoji_insertion", { id: "block_2", kind: "emoji_insertion", position: "after", emoji: "\u{1F4A1}" }]
+    ["emoji_insertion", { id: "block_2", kind: "emoji_insertion", position: "after", emoji: "\u{1F4A1}" }],
+    ["list_decoration", { id: "block_2", kind: "list_decoration", role: "primary_list" }]
   ])("accepts provider-schema-valid %s and passes local shape validation", (_category, operation) => {
     const document = { primaryEmoji: primaryEmoji(), operations: [operation] };
     const validate = compileProviderSchema();

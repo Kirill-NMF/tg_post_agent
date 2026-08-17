@@ -18,7 +18,8 @@
     "smoke:telegram": "python3 scripts/telegram-e2e/tg_post_agent_smoke.py",
     "smoke:telegram-audio": "python3 -B scripts/telegram-e2e/tg_post_agent_audio_canary.py",
     "smoke:telegram-correction": "python3 -B scripts/telegram-e2e/tg_post_agent_correction_canary.py",
-    "benchmark:manus": "node scripts/style-gold/evaluate-private-candidate.mjs"
+    "benchmark:manus": "node scripts/style-gold/evaluate-private-candidate.mjs",
+    "benchmark:manus-floor": "node scripts/style-gold/evaluate-deterministic-floor.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

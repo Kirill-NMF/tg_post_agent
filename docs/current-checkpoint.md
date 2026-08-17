@@ -20,9 +20,9 @@ Phase 12 is the current checkpoint. Tier 1 covers the shared provider/runtime sc
 
 ## Next Step
 
-Owner/product review is required before any further provider operation. The post-fix primary candidate passed the shared provider/runtime shape gate and semantic preservation gate, but it failed the benchmark hard gates and the 0.65 style threshold. The sealed holdout remains unopened and must not run without a new owner decision and budget.
+Owner/product review and a new provider budget are required before any further model operation. The immutable primary candidate remains a failed model-quality result, but its style gaps are now diagnosed and corrected offline with deterministic tests. The sealed holdout remains unopened.
 
-The category-only provider ledger is 52/52. The single post-fix primary verification used one Claude Sonnet/OpenRouter attempt, no retry, and no fallback. It rendered a private 38-segment candidate with lexical preservation, then the offline evaluator recorded exact lexical sequence, balanced Markdown, and no invented hashtag/CTA/question, but failed punctuation preservation and forbidden-style gates. Weighted style score was 0.3874; section F1 was 0.4706, paragraph F1 1.0, emoji-role F1 0.4138, heading/list/bold F1 0, and heading-case accuracy 1. The private candidate and diff remain gitignored and owner-only. The ledger and committed evidence retain no transcript, draft, prompt, provider response, credential, or user content.
+The category-only provider ledger remains 52/52. The immutable primary score is 0.3874. Offline diagnosis found 14 valid Telegram single-star bold pairs misclassified by the evaluator, nine false section headings, a wrong intro anchor, and paragraph-only segmentation that hid line-level list roles. After evaluator correction the same old candidate rescores to 0.5811 but retains a two-symbol punctuation ambiguity and remains failed. The new provider-free server-directive floor passes every hard gate and scores 0.7970 on primary, 0.6360 on generalization-7, and 0.7917 on generalization-9. These are capability floors, not model-quality claims. The private candidate/diff remain owner-only, and `holdout_10` was not read.
 
 ## Owner Focus
 

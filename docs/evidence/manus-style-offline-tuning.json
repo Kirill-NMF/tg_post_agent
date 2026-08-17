@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "scope": "offline_primary_and_authorized_tuning_only",
+  "holdoutRead": false,
+  "providerAttemptCount": 0,
+  "ledger": { "spent": 52, "cap": 52 },
+  "immutablePrimaryBaseline": {
+    "weightedStyleScore": 0.3874,
+    "threshold": 0.65,
+    "punctuationGate": false,
+    "forbiddenStyleGate": false,
+    "punctuationMismatchClasses": {
+      "telegramBoldMarkerCodepoints": 28,
+      "residualFormatterSymbolCodepoints": 2,
+      "residualSymbolFingerprint": "8d33f520a3c4"
+    },
+    "forbiddenStyleClasses": {
+      "telegramSingleStarBoldPairsMisclassified": 14,
+      "underscoreItalicPairs": 0,
+      "strikePairs": 0,
+      "spoilerPairs": 0
+    },
+    "roles": {
+      "main_heading": { "precision": 0, "recall": 0, "f1": 0 },
+      "section_heading": { "precision": 0.3077, "recall": 1, "f1": 0.4706 },
+      "intro": { "precision": 0, "recall": 0, "f1": 0 },
+      "primary_list": { "precision": 0, "recall": 0, "f1": 0 },
+      "nested_list": { "precision": 0, "recall": 0, "f1": 0 },
+      "bold_span": { "precision": 0, "recall": 0, "f1": 0 },
+      "prompt_code": { "precision": 1, "recall": 0.5, "f1": 0.6667 },
+      "cta": { "precision": 0, "recall": 0, "f1": 0 },
+      "audience_question": { "precision": 1, "recall": 1, "f1": 1 },
+      "hashtag_footer": { "precision": 1, "recall": 1, "f1": 1 },
+      "paragraph_boundary": { "precision": 1, "recall": 1, "f1": 1 },
+      "semantic_accent": { "precision": 1, "recall": 1, "f1": 1 }
+    },
+    "emojiRoleF1": 0.4138,
+    "emojiDensityDeviationPer100Words": 2.2923,
+    "headingCaseAccuracy": 1
+  },
+  "rootCausesRanked": [
+    { "rank": 1, "category": "evaluator_telegram_bold_dialect_false_positive", "evidence": "28_marker_codepoints_14_valid_bold_pairs_zero_real_forbidden_pairs" },
+    { "rank": 2, "category": "deterministic_role_inference_overclassified_short_open_lines", "evidence": "section_tp_4_fp_9_intro_wrong_anchor" },
+    { "rank": 3, "category": "paragraph_segmentation_cannot_address_nested_lines", "evidence": "38_blocks_contained_51_addressable_lines_and_16_nested_gold_roles" },
+    { "rank": 4, "category": "provider_optional_operations_did_not_close_role_gaps", "evidence": "accepted_candidate_and_old_server_floor_shared_32_completed_directives_and_metrics" }
+  ],
+  "evaluatorFix": {
+    "telegramSingleStarBoldAccepted": true,
+    "underscoreItalicStillForbidden": true,
+    "unbalancedMarkdownStillRejected": true,
+    "oldCandidateRescore": 0.5811,
+    "oldCandidateForbiddenStyleGate": true,
+    "oldCandidatePunctuationGate": false,
+    "residualAmbiguousSymbolCount": 2
+  },
+  "productionFix": {
+    "lineScopedCanonicalSegments": true,
+    "uppercaseOnlySectionInference": true,
+    "longProseIntroSelection": true,
+    "ctaLexicalGuardPreserved": true,
+    "typedListCandidateDecoration": true,
+    "wordOrPunctuationReplacementAllowed": false
+  },
+  "deterministicFloor": [
+    { "goldId": "primary_option2_final", "hardGatesPass": true, "weightedStyleScore": 0.797, "baselineDelta": 0.4096, "headingF1": 1, "sectionF1": 1, "listF1": 0, "boldF1": 1, "paragraphF1": 1, "emojiRoleF1": 0.7 },
+    { "goldId": "generalization_7", "hardGatesPass": true, "weightedStyleScore": 0.636, "baselineDelta": 0.234, "headingF1": 1, "sectionF1": 1, "listF1": 0, "boldF1": 0.3077, "paragraphF1": 1, "emojiRoleF1": 0.4348 },
+    { "goldId": "generalization_9", "hardGatesPass": true, "weightedStyleScore": 0.7917, "baselineDelta": 0.2871, "headingF1": 1, "sectionF1": 1, "listF1": 0.5854, "boldF1": 0.2222, "paragraphF1": 1, "emojiRoleF1": 0.8095 }
+  ],
+  "nextProviderPlan": {
+    "recommendedNewCalls": 2,
+    "sequence": ["one_primary_verification", "one_sealed_holdout_only_after_primary_pass"]
+  }
+}

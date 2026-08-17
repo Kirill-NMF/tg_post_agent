@@ -38,7 +38,7 @@ type ResolvedOperation =
 type PendingInsertion = {
   sourceIndex: number;
   text: string;
-  category: "paragraph_break" | "emoji_insertion" | "markdown_open" | "markdown_close";
+  category: "paragraph_break" | "emoji_insertion" | "list_marker" | "markdown_open" | "markdown_close";
   position?: "before" | "after";
 };
 
@@ -198,6 +198,7 @@ export type CanonicalFormattingRole =
   | "intro"
   | "primary_list"
   | "nested_list"
+  | "list_candidate"
   | "prompt_code"
   | "cta"
   | "audience_question"
@@ -211,16 +212,17 @@ export type SegmentFormattingOperation =
   | { id: string; kind: "semantic_accent"; position: "before" | "after"; emoji: string }
   | { id: string; kind: "markdown_span"; style: "bold" | "code" }
   | { id: string; kind: "heading_case"; mode: "uppercase" }
-  | { id: string; kind: "list_marker"; marker: "dash" | "em_dash" };
+  | { id: string; kind: "list_marker"; marker: "dash" | "em_dash" }
+  | { id: string; kind: "list_decoration"; role: "primary_list" | "nested_list" };
 
 export function deriveCanonicalSegments(text: string): CanonicalFormattingSegment[] {
   if (!text) return [];
   const raw: Array<{ start: number; end: number; text: string }> = [];
-  const matcher = /[^\n](?:[\s\S]*?[^\n])?(?=\n{2,}|$)/g;
+  const matcher = /[^\n]+/g;
   for (const match of text.matchAll(matcher)) raw.push({ start: match.index ?? 0, end: (match.index ?? 0) + match[0].length, text: match[0] });
   const title = raw.length > 1 && isHeadingCandidate(raw[0].text);
-  const audienceIndex = raw.length > 1 && /\?\s*$/u.test(raw.at(-1)?.text ?? "") ? raw.length - 1 : -1;
-  let introAssigned = false;
+  const audienceIndex = findAudienceQuestionIndex(raw);
+  const introIndex = findIntroIndex(raw, title ? 1 : 0, audienceIndex);
   return raw.map((segment, index) => {
     let role: CanonicalFormattingRole;
     const trimmed = segment.text.trim();
@@ -231,11 +233,47 @@ export function deriveCanonicalSegments(text: string): CanonicalFormattingSegmen
     else if (isCtaCandidate(trimmed)) role = "cta";
     else if (/^\s*(?:\u2014|\u2013)\s+/u.test(segment.text)) role = "nested_list";
     else if (/^\s*(?:-|\u2022|\d+[.)])\s+/u.test(segment.text)) role = "primary_list";
-    else if (isHeadingCandidate(segment.text)) role = "section_heading";
-    else if (!introAssigned) { role = "intro"; introAssigned = true; }
+    else if (isSectionHeadingCandidate(segment.text)) role = "section_heading";
+    else if (index === introIndex) role = "intro";
+    else if (isLineGroupMember(raw, index)) role = "list_candidate";
     else role = "paragraph";
     return { id: "block_" + (index + 1), ...segment, role };
   });
+}
+
+function findAudienceQuestionIndex(raw: readonly { text: string }[]): number {
+  for (let index = raw.length - 1; index >= 0; index -= 1) {
+    const trimmed = raw[index].text.trim();
+    if (/^(?:#[\p{L}\p{N}_-]+\s*)+$/u.test(trimmed)) continue;
+    return /\?\s*$/u.test(trimmed) ? index : -1;
+  }
+  return -1;
+}
+
+function findIntroIndex(raw: readonly { start: number; end: number; text: string }[], start: number, audienceIndex: number): number {
+  const end = audienceIndex >= 0 ? audienceIndex : raw.length;
+  const preferred = raw.findIndex((segment, index) => index >= start && index < end
+    && lexicalWordCount(segment.text) > 14
+    && /[.!?]\s*$/u.test(segment.text)
+    && upperCaseRatio(segment.text) <= 0.1
+    && !isLineGroupMember(raw, index));
+  if (preferred >= 0) return preferred;
+  return raw.findIndex((segment, index) => index >= start && index < end && !isSectionHeadingCandidate(segment.text) && !isLineGroupMember(raw, index));
+}
+
+function isLineGroupMember(raw: readonly { start: number; end: number; text: string }[], index: number): boolean {
+  const previousGap = index > 0 ? raw[index].start - raw[index - 1].end : 0;
+  const nextGap = index < raw.length - 1 ? raw[index + 1].start - raw[index].end : 0;
+  return previousGap === 1 || nextGap === 1;
+}
+
+function isSectionHeadingCandidate(value: string): boolean {
+  return lexicalWordCount(value) > 0 && lexicalWordCount(value) <= 14 && upperCaseRatio(value) >= 0.7;
+}
+
+function upperCaseRatio(value: string): number {
+  const letters = [...value].filter((character) => /\p{L}/u.test(character));
+  return letters.length ? letters.filter((character) => character === character.toLocaleUpperCase("ru") && character !== character.toLocaleLowerCase("ru")).length / letters.length : 0;
 }
 
 export function applySegmentFormattingPlan(text: string, option: FormattingOption, operations: SegmentFormattingOperation[], suppliedSegments?: readonly CanonicalFormattingSegment[]): FormattingApplyResult {
@@ -296,6 +334,9 @@ function buildSegmentInsertions(segments: readonly CanonicalFormattingSegment[],
     } else if (operation.kind === "list_marker") {
       const marker = operation.marker === "em_dash" ? "\u2014 " : "- ";
       if (!segment.text.trimStart().startsWith(marker)) return { ok: false, code: "FORMAT_OPTION2_LIST_MARKER_SOURCE_MISMATCH", message: "List marker metadata must match existing canonical punctuation." };
+    } else if (operation.kind === "list_decoration") {
+      const marker = operation.role === "primary_list" ? "\uD83D\uDFE0 " : "\u2014 ";
+      insertions.push({ sourceIndex: segment.start, text: marker, category: operation.role === "primary_list" ? "emoji_insertion" : "list_marker", position: "before" });
     } else {
       const sourceIndex = operation.position === "before" ? segment.start : segment.end;
       const boundary = sourceIndex + ":" + operation.position;

@@ -50,3 +50,12 @@ The single-call runner must reserve its ledger immediately before the provider b
 When canonical IDs are known only at request time, build their enum into every provider-schema operation branch and compile the local shape validator from that exact same schema instance. A generic string ID plus a later runtime allowlist creates avoidable provider-valid/runtime-invalid output. Keep the semantic allowlist as defense in depth; never relax it to recover a benchmark candidate.
 
 When an operation value depends on segment metadata, encode the valid pair in that same request-specific schema rather than enumerating each field independently. For role-bound emoji, use closed variants that bind role-eligible segment IDs to the evidenced emoji enum and position, then keep the local semantic role validator as defense in depth.
+
+## Markdown dialect and deterministic-floor discipline
+
+- Normalize the transport Markdown dialect before punctuation and forbidden-style gates. Telegram single-star bold and gold double-star bold are equivalent presentation delimiters; underscore remains italic and forbidden.
+- Reject unmatched delimiters after removing only complete known spans. Counting marker parity alone misses an unmatched double marker.
+- Segment at the smallest safely reversible presentation unit. If a gold role addresses individual lines, paragraph-only IDs create an expressibility gap.
+- Infer deterministic roles conservatively from stable structure. Uppercase headings and long prose intros may be server-owned; CTA remains lexical-only. Ambiguous list groups receive an explicit candidate role and a closed semantic decoration operation rather than hardcoded token indices.
+- Run a provider-free server-directive floor on every authorized tuning reference. Report hard gates, per-role F1, weighted contributions, and score deltas. A floor is capability evidence, never a model-quality or holdout claim.
+- Keep holdout IDs out of the floor command entirely. A failed or incomplete primary cannot unlock holdout access.

@@ -17,7 +17,7 @@ export type RejectedSegmentPlanDiagnostics = {
   responseByteLengthBucket: "empty" | "1_127" | "128_255" | "256_1023" | "1024_4095" | "4096_plus";
   parsedOperationCount?: number;
   failingOperationIndexBucket: "not_applicable" | "0" | "1_3" | "4_7" | "8_15" | "16_plus";
-  failingOperationKind: "not_applicable" | "missing" | "paragraph_break" | "markdown_span" | "emoji_insertion" | "semantic_accent" | "heading_case" | "list_marker" | "unknown";
+  failingOperationKind: "not_applicable" | "missing" | "paragraph_break" | "markdown_span" | "emoji_insertion" | "semantic_accent" | "heading_case" | "list_marker" | "list_decoration" | "unknown";
   fieldPresenceMask: number;
   anyEmojiDirective: boolean;
   planValidationStage: "json" | "shape" | "semantic";
@@ -272,6 +272,17 @@ const listMarkerSegmentSchema = {
   }
 } as const;
 
+const listDecorationSegmentSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "kind", "role"],
+  properties: {
+    id: { type: "string" },
+    kind: { type: "string", enum: ["list_decoration"] },
+    role: { type: "string", enum: ["primary_list", "nested_list"] }
+  }
+} as const;
+
 const emojiInsertionSegmentSchema = {
   type: "object",
   additionalProperties: false,
@@ -299,7 +310,8 @@ const option2SegmentPlanSchemaBase: Record<string, unknown> = {
           emojiInsertionSegmentSchema,
           semanticAccentSegmentSchema,
           headingCaseSegmentSchema,
-          listMarkerSegmentSchema
+          listMarkerSegmentSchema,
+          listDecorationSegmentSchema
         ]
       }
     }
@@ -338,7 +350,7 @@ export function buildOption2SegmentPrompt(segments: readonly CanonicalFormatting
     "Apply the Manus/CRYPTUS Option 2 contract with primary-gold-first precedence.",
     "Preserve every word, punctuation mark, and order. The only surface change is the explicit reversible uppercase heading_case operation for main_heading.",
     "The server deterministically applies required role decorations: main_heading=uppercase+bold; section_heading=bold+leading pause; intro=leading scroll; primary_list=leading orange circle; prompt_code=leading low-brightness symbol+code; cta=leading fire; audience_question=leading arrow. Return only role-valid optional directives; required slots are canonicalized server-side.",
-    "For nested_list, declare only an existing contextual dash marker without inserting or replacing punctuation. Preserve hashtag_footer without invention.",
+    "For existing nested_list, declare only its contextual dash marker. For list_candidate, list_decoration may choose primary_list or nested_list; the server inserts only the typed presentation anchor and never rewrites punctuation. Preserve hashtag_footer without invention.",
     "Bold is dominant. Never use italic, strike, spoiler, custom/Premium emoji, arbitrary emoji soup, or monospace outside prompt_code.",
     "Never invent CTA, audience-question, or hashtag words; those roles only decorate lexical content already present in the canonical segment.",
     "semantic_accent is optional only on section_heading, uses the evidenced allowlist, and is density-bounded.",
@@ -545,13 +557,13 @@ function bucketOperationIndex(index: number | undefined): RejectedSegmentPlanDia
 
 function operationKindCategory(operation: unknown): RejectedSegmentPlanDiagnostics["failingOperationKind"] {
   if (!isRecord(operation) || !Object.prototype.hasOwnProperty.call(operation, "kind")) return operation === undefined ? "not_applicable" : "missing";
-  if (operation.kind === "paragraph_break" || operation.kind === "markdown_span" || operation.kind === "emoji_insertion" || operation.kind === "semantic_accent" || operation.kind === "heading_case" || operation.kind === "list_marker") return operation.kind;
+  if (operation.kind === "paragraph_break" || operation.kind === "markdown_span" || operation.kind === "emoji_insertion" || operation.kind === "semantic_accent" || operation.kind === "heading_case" || operation.kind === "list_marker" || operation.kind === "list_decoration") return operation.kind;
   return "unknown";
 }
 
 function operationFieldPresenceMask(operation: unknown): number {
   if (!isRecord(operation)) return 0;
-  const keys = ["id", "kind", "position", "style", "emoji", "mode", "marker"] as const;
+  const keys = ["id", "kind", "position", "style", "emoji", "mode", "marker", "role"] as const;
   return keys.reduce((mask, key, index) => (
     Object.prototype.hasOwnProperty.call(operation, key) ? mask | (1 << index) : mask
   ), 0);
@@ -618,6 +630,7 @@ function validateRoleDirective(operation: Option2SegmentDirective, segment: Cano
     const marker = operation.marker === "em_dash" ? "\u2014 " : "- ";
     if (!segment.text.trimStart().startsWith(marker)) throw new FormattingPlanValidationError("FORMAT_OPTION2_LIST_MARKER_SOURCE_MISMATCH", diagnostics);
   }
+  if (operation.kind === "list_decoration" && segment.role !== "list_candidate") throw new FormattingPlanValidationError("FORMAT_OPTION2_LIST_ROLE_INVALID", diagnostics);
   if (operation.kind === "emoji_insertion") {
     const allowed = roleAnchorEmoji[segment.role];
     if (!allowed?.includes(operation.emoji) || operation.position !== "before") throw new FormattingPlanValidationError("FORMAT_OPTION2_EMOJI_ROLE_INVALID", diagnostics);

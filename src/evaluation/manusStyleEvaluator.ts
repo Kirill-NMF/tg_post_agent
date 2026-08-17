@@ -66,6 +66,18 @@ export type ManusEvaluation = {
     semanticAccentCount: number;
     semanticAccentBudgetExceeded: boolean;
     headingCaseAccuracy: number;
+    roles: Record<ManusAnchorRole, RoleMetrics>;
+    weightedContributions: {
+      heading: number;
+      section: number;
+      list: number;
+      bold: number;
+      paragraph: number;
+      emojiRole: number;
+      emojiDensity: number;
+      semanticAccent: number;
+      headingCase: number;
+    };
   };
   weightedStyleScore: number;
   diagnostics: {
@@ -167,7 +179,8 @@ export function annotateGold(formattedText: string): ManusAnchor[] {
     else if (prefix && isOrdinaryEmoji(prefix)) anchors.push({ role: "semantic_accent", startToken, endToken, lineIndex });
     if (/^(?:—|–|-)\s/u.test(trimmed)) anchors.push({ role: "nested_list", startToken, endToken, lineIndex });
     if (/^#\p{L}/u.test(trimmed)) anchors.push({ role: "hashtag_footer", startToken, endToken, lineIndex });
-    const fullBold = /^\*\*[^*]+\*\*$/u.test(trimmed.replace(/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200D|\uFE0F)+\s*/u, ""));
+    const withoutLeadingEmoji = trimmed.replace(/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200D|\uFE0F)+\s*/u, "");
+    const fullBold = /^(?:\*\*[^*]+\*\*|\*[^*\n]+\*)$/u.test(withoutLeadingEmoji);
     if (fullBold && !mainHeadingAssigned && lineIndex <= 2) {
       anchors.push({ role: "main_heading", startToken, endToken, lineIndex });
       mainHeadingAssigned = true;
@@ -176,9 +189,9 @@ export function annotateGold(formattedText: string): ManusAnchor[] {
     } else if (fullBold && count > 0 && upperCaseRatio(plainLine) >= 0.7) {
       anchors.push({ role: "section_heading", startToken, endToken, lineIndex });
     }
-    for (const match of line.matchAll(/\*\*([^*]+)\*\*/gu)) {
-      const before = tokenizeLexical(deformatLine(line.slice(0, match.index ?? 0))).length;
-      const inside = tokenizeLexical(match[1]).length;
+    for (const match of markdownBoldSpans(line)) {
+      const before = tokenizeLexical(deformatLine(line.slice(0, match.index))).length;
+      const inside = tokenizeLexical(match.text).length;
       anchors.push({ role: "bold_span", startToken: startToken + before, endToken: startToken + before + Math.max(0, inside - 1), lineIndex });
     }
     if (!knownRole && /`[^`]+`|```/u.test(line)) anchors.push({ role: "prompt_code", startToken, endToken, lineIndex });
@@ -225,15 +238,25 @@ export function evaluateManusStyle(sourcePlain: string, goldText: string, candid
   const headingCaseAccuracy = caseAccuracy(goldText, candidateText, gold.anchors.filter((anchor) => roleGroups.heading.has(anchor.role) || roleGroups.section.has(anchor.role)));
   const densityScore = clamp(1 - emojiDensityDeviationPer100Words / Math.max(1, goldEmojiDensity * 2));
   const accentScore = semanticAccentCount <= semanticAccentBudget ? 1 : clamp(1 - (semanticAccentCount - semanticAccentBudget) / semanticAccentBudget);
-  const weightedStyleScore = round(
-    heading.f1 * 0.12 + section.f1 * 0.13 + list.f1 * 0.15 + bold.f1 * 0.14 + paragraph.f1 * 0.14 + emojiRole.f1 * 0.16 + densityScore * 0.08 + accentScore * 0.04 + headingCaseAccuracy * 0.04,
-  );
+  const roles = Object.fromEntries(manusAnchorRoles.map((role) => [role, groupMetrics(gold.anchors, candidate.anchors, new Set([role]))])) as Record<ManusAnchorRole, RoleMetrics>;
+  const weightedContributions = {
+    heading: round(heading.f1 * 0.12),
+    section: round(section.f1 * 0.13),
+    list: round(list.f1 * 0.15),
+    bold: round(bold.f1 * 0.14),
+    paragraph: round(paragraph.f1 * 0.14),
+    emojiRole: round(emojiRole.f1 * 0.16),
+    emojiDensity: round(densityScore * 0.08),
+    semanticAccent: round(accentScore * 0.04),
+    headingCase: round(headingCaseAccuracy * 0.04),
+  };
+  const weightedStyleScore = round(Object.values(weightedContributions).reduce((sum, value) => sum + value, 0));
   const categories = Object.entries(hardGates).filter(([, value]) => !value).map(([key]) => `MANUS_GATE_${key.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase()}`);
   if (weightedStyleScore < threshold) categories.push("MANUS_STYLE_SCORE_BELOW_THRESHOLD");
   return {
     pass: Object.values(hardGates).every(Boolean) && weightedStyleScore >= threshold,
     hardGates,
-    metrics: { heading, section, list, bold, paragraph, emojiRole, emojiDensityDeviationPer100Words, semanticAccentCount, semanticAccentBudgetExceeded: semanticAccentCount > semanticAccentBudget, headingCaseAccuracy },
+    metrics: { heading, section, list, bold, paragraph, emojiRole, emojiDensityDeviationPer100Words, semanticAccentCount, semanticAccentBudgetExceeded: semanticAccentCount > semanticAccentBudget, headingCaseAccuracy, roles, weightedContributions },
     weightedStyleScore,
     diagnostics: {
       exactByteEquality: goldText === candidateText,
@@ -270,6 +293,10 @@ function collectRemovals(text: string): Array<{ start: number; end: number; cate
   for (const match of text.matchAll(/\*\*([^*]+)\*\*/gu)) {
     const start = match.index ?? 0;
     removals.push({ start, end: start + 2, category: "markdown" }, { start: start + match[0].length - 2, end: start + match[0].length, category: "markdown" });
+  }
+  for (const match of text.matchAll(/(?<!\*)\*([^*\n]+)\*(?!\*)/gu)) {
+    const start = match.index ?? 0;
+    removals.push({ start, end: start + 1, category: "markdown" }, { start: start + match[0].length - 1, end: start + match[0].length, category: "markdown" });
   }
   for (const expression of [/\|\|([^|]+)\|\|/gu, /~~([^~]+)~~/gu]) {
     for (const match of text.matchAll(expression)) {
@@ -372,9 +399,19 @@ function validateMarkdown(text: string): { balanced: boolean; forbiddenStyles: s
   const forbiddenStyles: string[] = [];
   if (/\|\|[^|]+\|\|/u.test(text)) forbiddenStyles.push("spoiler");
   if (/~~[^~]+~~/u.test(text)) forbiddenStyles.push("strike");
-  if (/(^|[^*])\*[^*\n]+\*([^*]|$)|(^|\s)_[^_\n]+_(?=\s|$)/u.test(text)) forbiddenStyles.push("italic");
-  const balanced = (text.match(/\*\*/gu)?.length ?? 0) % 2 === 0 && (text.match(/\|\|/gu)?.length ?? 0) % 2 === 0 && (text.match(/~~/gu)?.length ?? 0) % 2 === 0 && (text.match(/`/gu)?.length ?? 0) % 2 === 0;
+  if (/(^|\s)_[^_\n]+_(?=\s|$)/u.test(text)) forbiddenStyles.push("italic");
+  const withoutValidBold = text
+    .replace(/\*\*[^*\n]+\*\*/gu, "")
+    .replace(/(?<!\*)\*[^*\n]+\*(?!\*)/gu, "");
+  const balanced = !/(?<!\\)\*/u.test(withoutValidBold) && (text.match(/\|\|/gu)?.length ?? 0) % 2 === 0 && (text.match(/~~/gu)?.length ?? 0) % 2 === 0 && (text.match(/`/gu)?.length ?? 0) % 2 === 0;
   return { balanced, forbiddenStyles };
+}
+
+function markdownBoldSpans(line: string): Array<{ index: number; text: string }> {
+  const spans: Array<{ index: number; text: string }> = [];
+  for (const match of line.matchAll(/\*\*([^*]+)\*\*/gu)) spans.push({ index: match.index ?? 0, text: match[1] });
+  for (const match of line.matchAll(/(?<!\*)\*([^*\n]+)\*(?!\*)/gu)) spans.push({ index: match.index ?? 0, text: match[1] });
+  return spans.sort((left, right) => left.index - right.index);
 }
 
 function groupMetrics(gold: ManusAnchor[], candidate: ManusAnchor[], roles: Set<ManusAnchorRole>): RoleMetrics {
