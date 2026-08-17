@@ -97,7 +97,7 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
     expect(serialized).not.toContain(output);
   });
 
-  it("emits a distinct category-only primary emoji semantic failure", async () => {
+  it("emits a distinct category-only primary emoji shape failure", async () => {
     const logger = new CapturingLogger();
     const unsafeValue = "NOT_AN_EMOJI_SENTINEL";
     const output = JSON.stringify({
@@ -112,13 +112,13 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
     });
 
     expect(logger.entries.at(-1)?.fields).toMatchObject({
-      validationCode: "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID",
+      validationCode: "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID",
       parsedOperationCount: 0,
       failingOperationIndexBucket: "not_applicable",
       failingOperationKind: "emoji_insertion",
       fieldPresenceMask: 23,
       anyEmojiDirective: true,
-      planValidationStage: "semantic",
+      planValidationStage: "shape",
       schemaFailureLocation: "primary_emoji"
     });
     expect(JSON.stringify(logger.entries)).not.toContain(unsafeValue);

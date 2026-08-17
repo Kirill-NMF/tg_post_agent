@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 
-Status: offline evaluator and role-constrained Option 2 contract implemented; two bounded primary attempts failed closed before candidate rendering, with the second root-caused and fixed offline
+Status: offline evaluator and role-constrained Option 2 contract implemented; authoritative post-fix primary verification failed closed before candidate rendering; holdout remains sealed
 
 ## Context
 
@@ -78,6 +78,14 @@ The single correction call also reached provider transport success with no retry
 The deterministic root cause was schema precision: every operation ID was only `type: string` in the provider schema, while the runtime alone knew the current canonical segment IDs. The active schema is now built from the request's canonical IDs and gives every operation branch the same exact ID enum. The provider request and local Ajv parser compile that same dynamic schema source; the unchanged semantic allowlist remains a second fail-closed gate. Synthetic regression reproduces the observed seven-operation response and rejects its unknown primary ID at shape validation.
 
 The ledger is 48/50. No candidate, readable diff, hard-gate result, or style score exists from either primary attempt. A third primary call is not authorized by this slice, and `holdout_10` remains sealed because primary tuning has not passed. The next action is an explicit coordinator/owner decision whether to repurpose one remaining slot for one post-fix primary verification before any holdout run.
+
+## Authoritative post-fix primary verification
+
+The authorized verification used exactly one further provider attempt with no retry or fallback. Transport and the dynamic 38-ID schema completed, then the semantic gate rejected a role-incompatible emoji insertion with `FORMAT_OPTION2_EMOJI_ROLE_INVALID`. Safe diagnostics recorded an operation index bucket of `1_3`, 29 additional operations, an emoji directive, and no operation values.
+
+The deterministic defect was a second schema-precision gap: canonical IDs were enumerated, but the provider schema did not encode the allowed role-to-emoji pairs. The request-specific shared schema now replaces the generic emoji branch with exact closed variants grouped by canonical segment role, allowed IDs, `before` position, and evidenced emoji enum. The unchanged semantic role validator remains defense in depth. A RED fixture reproduces the role-incompatible pair; focused tests prove it is now provider-schema-invalid while valid role pairs remain reversible.
+
+The ledger is 49/50. No candidate, readable diff, hard-gate result, per-role metric, or weighted style score exists. No further primary tuning call is authorized, and `holdout_10` remains sealed because the primary gate did not pass.
 
 ## Consequences
 

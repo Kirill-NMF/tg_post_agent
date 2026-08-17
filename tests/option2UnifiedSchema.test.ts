@@ -32,6 +32,20 @@ describe("Option 2 unified provider/runtime schema", () => {
     );
   });
 
+  it("rejects a role-incompatible emoji at the request-specific shared schema boundary", () => {
+    const segments = [
+      { id: "block_1", start: 0, end: 1, text: "x", role: "intro" as const },
+      { id: "block_2", start: 2, end: 3, text: "x", role: "primary_list" as const },
+    ];
+    const schema = buildOption2SegmentPlanSchema(segments);
+    const validate = new Ajv({ strict: false }).compile(schema);
+
+    expect(validate({
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
+      operations: [{ id: "block_2", kind: "emoji_insertion", position: "before", emoji: "\u{1F525}" }],
+    })).toBe(false);
+  });
+
   it("requires a dedicated primary emoji and exact discriminated operation branches", () => {
     const schema = option2SegmentPlanSchema as {
       required?: string[];
@@ -79,14 +93,15 @@ describe("Option 2 unified provider/runtime schema", () => {
     expect(validateOption2SegmentPlanShape(document)).toBe(true);
   });
 
-  it("rejects a non-emoji primary token semantically after schema validation", () => {
+  it("rejects a non-emoji primary token at the request-specific shared schema boundary", () => {
     const document = { primaryEmoji: primaryEmoji("not-emoji"), operations: [] };
-    const validate = compileProviderSchema();
+    const segments = testSegments(["block_1"]);
+    const validate = new Ajv({ strict: false }).compile(buildOption2SegmentPlanSchema(segments));
 
-    expect(validate(document)).toBe(true);
+    expect(validate(document)).toBe(false);
     expectValidationCode(
-      () => parseOption2SegmentPlan(JSON.stringify(document), testSegments(["block_1"])),
-      "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID"
+      () => parseOption2SegmentPlan(JSON.stringify(document), segments),
+      "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
     );
   });
 

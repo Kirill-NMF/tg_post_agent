@@ -49,9 +49,8 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
   async formatOption2Segments(params: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: Option2SegmentDirective[] }>> {
     if (params.segments.some((segment) => segment.text !== params.draftText.slice(segment.start, segment.end))) return failure("FORMAT_SEGMENT_SOURCE_MISMATCH", "Canonical segment source mismatch.", false);
     const logger = this.input.logger ?? noopLogger;
-    const segmentIds = params.segments.map((segment) => segment.id);
     logger.info(
-      { event: "formatting_segment_request_started", projectId: params.projectId, modelLabel: this.input.model, segmentCount: segmentIds.length },
+      { event: "formatting_segment_request_started", projectId: params.projectId, modelLabel: this.input.model, segmentCount: params.segments.length },
       "formatting segment request started"
     );
     try {
@@ -66,7 +65,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
           json_schema: {
             name: "tg_post_agent_option2_segment_plan",
             strict: true,
-            schema: buildOption2SegmentPlanSchema(segmentIds)
+            schema: buildOption2SegmentPlanSchema(params.segments)
           }
         }
       });
@@ -307,13 +306,17 @@ const option2SegmentPlanSchemaBase: Record<string, unknown> = {
   }
 };
 
-export function buildOption2SegmentPlanSchema(segmentIds?: readonly string[]): Record<string, unknown> {
+type Option2SchemaSegment = Pick<CanonicalFormattingSegment, "id" | "role">;
+
+export function buildOption2SegmentPlanSchema(segmentsOrIds?: readonly string[] | readonly Option2SchemaSegment[]): Record<string, unknown> {
   const schema = structuredClone(option2SegmentPlanSchemaBase) as Record<string, unknown>;
-  if (segmentIds === undefined) return schema;
+  if (segmentsOrIds === undefined) return schema;
+  const segmentIds = segmentsOrIds.map((segment) => typeof segment === "string" ? segment : segment.id);
   if (segmentIds.length === 0 || segmentIds.some((id) => !/^block_[1-9][0-9]*$/.test(id)) || new Set(segmentIds).size !== segmentIds.length) {
     throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
   }
   constrainSegmentIdSchemas(schema, segmentIds);
+  if (typeof segmentsOrIds[0] !== "string") constrainRoleEmojiSchemas(schema, segmentsOrIds as readonly Option2SchemaSegment[]);
   return schema;
 }
 
@@ -355,7 +358,7 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
     throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID", emptyRejectedPlanDiagnostics(responseByteLengthBucket, "json"));
   }
   const validateActiveShape = new Ajv({ allErrors: true, strict: true })
-    .compile<Option2SegmentPlanDocument>(buildOption2SegmentPlanSchema(segments.map((segment) => segment.id)));
+    .compile<Option2SegmentPlanDocument>(buildOption2SegmentPlanSchema(segments));
   if (!validateActiveShape(parsed)) {
     const failure = locateSchemaFailure(validateActiveShape.errors);
     throw new FormattingPlanValidationError(
@@ -420,6 +423,41 @@ function constrainSegmentIdSchemas(value: unknown, segmentIds: readonly string[]
     if (propertyRecord.id !== undefined) propertyRecord.id = { type: "string", enum: [...segmentIds] };
   }
   for (const child of Object.values(record)) constrainSegmentIdSchemas(child, segmentIds);
+}
+
+function constrainRoleEmojiSchemas(schema: Record<string, unknown>, segments: readonly Option2SchemaSegment[]): void {
+  const emojiVariants = Object.entries(roleAnchorEmoji).flatMap(([role, emojis]) => {
+    const roleIds = segments.filter((segment) => segment.role === role).map((segment) => segment.id);
+    if (roleIds.length === 0 || !emojis) return [];
+    return [{
+      type: "object",
+      additionalProperties: false,
+      required: ["id", "kind", "position", "emoji"],
+      properties: {
+        id: { type: "string", enum: roleIds },
+        kind: { type: "string", enum: ["emoji_insertion"] },
+        position: { type: "string", enum: ["before"] },
+        emoji: { type: "string", enum: [...emojis] }
+      }
+    }];
+  });
+  if (emojiVariants.length === 0) throw new FormattingPlanValidationError("FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE");
+
+  const properties = schema.properties as Record<string, unknown>;
+  properties.primaryEmoji = { anyOf: structuredClone(emojiVariants) };
+  const operations = properties.operations as Record<string, unknown>;
+  const items = operations.items as Record<string, unknown>;
+  const branches = items.anyOf as Array<Record<string, unknown>>;
+  items.anyOf = branches.flatMap((branch) => isEmojiInsertionSchema(branch) ? structuredClone(emojiVariants) : [branch]);
+}
+
+function isEmojiInsertionSchema(schema: Record<string, unknown>): boolean {
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return false;
+  const kind = (properties as Record<string, unknown>).kind;
+  if (!kind || typeof kind !== "object" || Array.isArray(kind)) return false;
+  const values = (kind as Record<string, unknown>).enum;
+  return Array.isArray(values) && values.length === 1 && values[0] === "emoji_insertion";
 }
 
 function emptyRejectedPlanDiagnostics(

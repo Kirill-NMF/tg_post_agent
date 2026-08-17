@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "cumulativePrimaryAttemptCount": 3,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "FORMAT_OPTION2_EMOJI_ROLE_INVALID",
+    "failureBoundary": "formatting_plan_validation",
+    "validationStage": "semantic",
+    "schemaFailureLocation": "operation",
+    "failingOperationIndexBucket": "1_3",
+    "operationKind": "emoji_insertion",
+    "fieldPresenceMask": 23,
+    "additionalOperationCount": 29,
+    "anyEmojiDirective": true,
+    "responseByteLengthBucket": "1024_4095"
+  },
+  "rootCause": {
+    "category": "provider_schema_role_emoji_pair_unconstrained",
+    "deterministicReproduction": true,
+    "fixCategory": "shared_dynamic_role_emoji_variants",
+    "semanticGateRelaxed": false
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": false,
+    "privateDiffWritten": false,
+    "hardGateResultAvailable": false,
+    "perRoleMetricsAvailable": false,
+    "weightedStyleScoreAvailable": false,
+    "threshold": 0.65,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT"
+  },
+  "ledger": {
+    "spent": 49,
+    "cap": 50
+  },
+  "nextAction": "primary_rejected_holdout_remains_sealed"
+}

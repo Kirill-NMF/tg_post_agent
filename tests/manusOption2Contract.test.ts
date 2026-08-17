@@ -121,7 +121,7 @@ describe("Manus Option2 role contract", () => {
   });
 
   it.each([
-    ["wrong role anchor", { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "🔥" }, "FORMAT_OPTION2_EMOJI_ROLE_INVALID"],
+    ["wrong role anchor", { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "🔥" }, "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
     ["random semantic emoji", { id: "block_3", kind: "semantic_accent", position: "before", emoji: "🚀" }, "FORMAT_OPTION2_SEMANTIC_ACCENT_INVALID"],
     ["code on prose", { id: "block_2", kind: "markdown_span", style: "code" }, "FORMAT_OPTION2_CODE_ROLE_INVALID"],
     ["list marker on heading", { id: "block_3", kind: "list_marker", marker: "dash" }, "FORMAT_OPTION2_LIST_ROLE_INVALID"],
