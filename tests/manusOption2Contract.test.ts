@@ -69,6 +69,7 @@ describe("Manus Option2 role contract", () => {
     expect(prompt).toContain("main_heading");
     expect(prompt).toContain("section_heading");
     expect(prompt).toContain("Preserve every word, punctuation mark, and order");
+    expect(prompt).toContain("exact segment ID and contextual marker variant exposed by the schema");
     expect(prompt).toContain("Never invent CTA, audience-question, or hashtag words");
     expect(prompt).not.toContain("post_10");
     expect(JSON.stringify(option2SegmentPlanSchema)).not.toMatch(/anchor|text|replacement/i);
@@ -158,7 +159,7 @@ describe("Manus Option2 role contract", () => {
   it("rejects list-marker metadata that disagrees with canonical punctuation", () => {
     const plan = validPlan();
     plan.operations = plan.operations.map((operation) => operation.kind === "list_marker" ? { ...operation, marker: "dash" } : operation) as typeof plan.operations;
-    expectCode(() => parseOption2SegmentPlan(JSON.stringify(plan), deriveCanonicalSegments(longDraft)), "FORMAT_OPTION2_LIST_MARKER_SOURCE_MISMATCH");
+    expectCode(() => parseOption2SegmentPlan(JSON.stringify(plan), deriveCanonicalSegments(longDraft)), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
   });
 
   it("assigns CTA only from an existing lexical CTA line", () => {
@@ -180,7 +181,7 @@ describe("Manus Option2 role contract", () => {
     ["wrong role anchor", { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "🔥" }, "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
     ["random semantic emoji", { id: "block_3", kind: "semantic_accent", position: "before", emoji: "🚀" }, "FORMAT_OPTION2_SEMANTIC_ACCENT_INVALID"],
     ["code on prose", { id: "block_2", kind: "markdown_span", style: "code" }, "FORMAT_OPTION2_CODE_ROLE_INVALID"],
-    ["list marker on heading", { id: "block_3", kind: "list_marker", marker: "dash" }, "FORMAT_OPTION2_LIST_ROLE_INVALID"],
+    ["list marker on heading", { id: "block_3", kind: "list_marker", marker: "dash" }, "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
   ])("rejects %s", (_label, invalidOperation, code) => {
     const plan = validPlan();
     if (invalidOperation.kind === "emoji_insertion" && invalidOperation.id === plan.primaryEmoji.id) plan.primaryEmoji = invalidOperation as typeof plan.primaryEmoji;

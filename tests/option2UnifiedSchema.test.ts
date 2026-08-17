@@ -46,6 +46,54 @@ describe("Option 2 unified provider/runtime schema", () => {
     })).toBe(false);
   });
 
+  it("rejects list-marker operations targeting a non-nested-list segment at the shared schema boundary", () => {
+    const segments = [
+      { id: "block_1", start: 0, end: 5, text: "Intro", role: "intro" as const },
+      { id: "block_2", start: 7, end: 15, text: "Section", role: "section_heading" as const },
+      { id: "block_3", start: 17, end: 30, text: "— Nested item", role: "nested_list" as const },
+    ];
+    const document = {
+      primaryEmoji: primaryEmoji(),
+      operations: [{ id: "block_2", kind: "list_marker", marker: "em_dash" }],
+    };
+    const validate = new Ajv({ strict: false }).compile(buildOption2SegmentPlanSchema(segments));
+
+    expect(validate(document)).toBe(false);
+    expectValidationCode(
+      () => parseOption2SegmentPlan(JSON.stringify(document), segments),
+      "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
+    );
+  });
+
+  it("exposes only the marker variant already present on each nested-list segment", () => {
+    const segments = [
+      { id: "block_1", start: 0, end: 5, text: "Intro", role: "intro" as const },
+      { id: "block_2", start: 7, end: 20, text: "— Nested item", role: "nested_list" as const },
+      { id: "block_3", start: 22, end: 35, text: "- Nested item", role: "nested_list" as const },
+    ];
+    const validate = new Ajv({ strict: false }).compile(buildOption2SegmentPlanSchema(segments));
+    const validEmDash = {
+      primaryEmoji: primaryEmoji(),
+      operations: [{ id: "block_2", kind: "list_marker", marker: "em_dash" }],
+    };
+    const validDash = {
+      primaryEmoji: primaryEmoji(),
+      operations: [{ id: "block_3", kind: "list_marker", marker: "dash" }],
+    };
+    const invalid = {
+      ...validEmDash,
+      operations: [{ id: "block_2", kind: "list_marker", marker: "dash" }],
+    };
+
+    expect(validate(validEmDash)).toBe(true);
+    expect(validate(validDash)).toBe(true);
+    expect(validate(invalid)).toBe(false);
+    expectValidationCode(
+      () => parseOption2SegmentPlan(JSON.stringify(invalid), segments),
+      "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
+    );
+  });
+
   it("requires a dedicated primary emoji and exact discriminated operation branches", () => {
     const schema = option2SegmentPlanSchema as {
       required?: string[];

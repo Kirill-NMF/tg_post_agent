@@ -318,7 +318,7 @@ const option2SegmentPlanSchemaBase: Record<string, unknown> = {
   }
 };
 
-type Option2SchemaSegment = Pick<CanonicalFormattingSegment, "id" | "role">;
+type Option2SchemaSegment = Pick<CanonicalFormattingSegment, "id" | "role" | "text">;
 
 export function buildOption2SegmentPlanSchema(segmentsOrIds?: readonly string[] | readonly Option2SchemaSegment[]): Record<string, unknown> {
   const schema = structuredClone(option2SegmentPlanSchemaBase) as Record<string, unknown>;
@@ -328,7 +328,11 @@ export function buildOption2SegmentPlanSchema(segmentsOrIds?: readonly string[] 
     throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
   }
   constrainSegmentIdSchemas(schema, segmentIds);
-  if (typeof segmentsOrIds[0] !== "string") constrainRoleEmojiSchemas(schema, segmentsOrIds as readonly Option2SchemaSegment[]);
+  if (typeof segmentsOrIds[0] !== "string") {
+    const segments = segmentsOrIds as readonly Option2SchemaSegment[];
+    constrainRoleEmojiSchemas(schema, segments);
+    constrainRoleListMarkerSchemas(schema, segments);
+  }
   return schema;
 }
 
@@ -350,7 +354,7 @@ export function buildOption2SegmentPrompt(segments: readonly CanonicalFormatting
     "Apply the Manus/CRYPTUS Option 2 contract with primary-gold-first precedence.",
     "Preserve every word, punctuation mark, and order. The only surface change is the explicit reversible uppercase heading_case operation for main_heading.",
     "The server deterministically applies required role decorations: main_heading=uppercase+bold; section_heading=bold+leading pause; intro=leading scroll; primary_list=leading orange circle; prompt_code=leading low-brightness symbol+code; cta=leading fire; audience_question=leading arrow. Return only role-valid optional directives; required slots are canonicalized server-side.",
-    "For existing nested_list, declare only its contextual dash marker. For list_candidate, list_decoration may choose primary_list or nested_list; the server inserts only the typed presentation anchor and never rewrites punctuation. Preserve hashtag_footer without invention.",
+    "For existing nested_list, list_marker may use only the exact segment ID and contextual marker variant exposed by the schema; never guess another ID or marker. For list_candidate, list_decoration may choose primary_list or nested_list; the server inserts only the typed presentation anchor and never rewrites punctuation. Preserve hashtag_footer without invention.",
     "Bold is dominant. Never use italic, strike, spoiler, custom/Premium emoji, arbitrary emoji soup, or monospace outside prompt_code.",
     "Never invent CTA, audience-question, or hashtag words; those roles only decorate lexical content already present in the canonical segment.",
     "semantic_accent is optional only on section_heading, uses the evidenced allowlist, and is density-bounded.",
@@ -479,6 +483,40 @@ function isEmojiInsertionSchema(schema: Record<string, unknown>): boolean {
   if (!kind || typeof kind !== "object" || Array.isArray(kind)) return false;
   const values = (kind as Record<string, unknown>).enum;
   return Array.isArray(values) && values.length === 1 && values[0] === "emoji_insertion";
+}
+
+function constrainRoleListMarkerSchemas(schema: Record<string, unknown>, segments: readonly Option2SchemaSegment[]): void {
+  const variants = (["dash", "em_dash"] as const).flatMap((marker) => {
+    const markerText = marker === "em_dash" ? "\u2014 " : "- ";
+    const ids = segments
+      .filter((segment) => segment.role === "nested_list" && segment.text.trimStart().startsWith(markerText))
+      .map((segment) => segment.id);
+    if (ids.length === 0) return [];
+    return [{
+      type: "object",
+      additionalProperties: false,
+      required: ["id", "kind", "marker"],
+      properties: {
+        id: { type: "string", enum: ids },
+        kind: { type: "string", enum: ["list_marker"] },
+        marker: { type: "string", enum: [marker] }
+      }
+    }];
+  });
+  const properties = schema.properties as Record<string, unknown>;
+  const operations = properties.operations as Record<string, unknown>;
+  const items = operations.items as Record<string, unknown>;
+  const branches = items.anyOf as Array<Record<string, unknown>>;
+  items.anyOf = branches.flatMap((branch) => isOperationKindSchema(branch, "list_marker") ? structuredClone(variants) : [branch]);
+}
+
+function isOperationKindSchema(schema: Record<string, unknown>, kindName: string): boolean {
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return false;
+  const kind = (properties as Record<string, unknown>).kind;
+  if (!kind || typeof kind !== "object" || Array.isArray(kind)) return false;
+  const values = (kind as Record<string, unknown>).enum;
+  return Array.isArray(values) && values.length === 1 && values[0] === kindName;
 }
 
 function emptyRejectedPlanDiagnostics(
