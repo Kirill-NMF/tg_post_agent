@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "FORMAT_PLAN_OUTPUT_INVALID",
+    "shapeGate": "not_reached",
+    "semanticGate": "not_reached",
+    "safeSubcategoryAvailableForThisAttempt": false,
+    "observabilityGapCorrectedAfterBaseline": true
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": false,
+    "privateDiffWritten": false,
+    "hardGateResultAvailable": false,
+    "weightedStyleScoreAvailable": false,
+    "threshold": 0.65,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT"
+  },
+  "privacy": {
+    "goldHashMatchedManifest": true,
+    "privatePermissionsVerified": true,
+    "contentCommitted": false,
+    "rawProviderOutputPersisted": false
+  },
+  "ledger": {
+    "spent": 47,
+    "cap": 50
+  },
+  "nextAction": "one_diagnostics_enabled_primary_correction_before_holdout"
+}

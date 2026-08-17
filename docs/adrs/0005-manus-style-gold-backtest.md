@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 
-Status: offline evaluator and role-constrained Option 2 contract implemented; provider quality backtest pending
+Status: offline evaluator and role-constrained Option 2 contract implemented; first provider tuning attempt reached fail-closed adapter validation without a candidate
 
 ## Context
 
@@ -63,9 +63,13 @@ Run `npm run build`, then `npm run benchmark:manus -- --mode=tuning --gold-id=pr
 
 No compatible previously persisted candidate exists, so this slice records `MANUS_CANDIDATE_ARTIFACT_ABSENT` and no model-quality score. The deterministic seven-segment synthetic contract is green; that proves capability and safety, not Manus literary quality.
 
-## Controlled call plan
+## First controlled tuning result
 
-The ledger remains 46/50. The four remaining slots are reserved in order: one primary-gold tuning run; one correction only if the first tuning evidence requires it; one untouched `holdout_10` run; and one final real-owner validation. No retry or fallback is part of this plan.
+The primary-gold call used the configured Claude Sonnet OpenRouter route once with fallback disabled and no retry. The provider transport returned successfully, but the formatting adapter rejected the output under `FORMAT_PLAN_OUTPUT_INVALID` before a candidate could be rendered. Consequently the evaluator correctly reported `MANUS_CANDIDATE_ARTIFACT_ABSENT`; no hard-gate/style score or readable diff exists for this attempt.
+
+The original runner used a no-op adapter logger, so the safe shape-versus-semantic subcategory was not retained. That observability defect is now guarded by a category-only collector that allowlists boundary, validation code, response metadata buckets, operation count/index/kind categories, field-presence mask, and emoji-directive presence. It excludes model output, segment IDs/text, prompts, provider payloads, project identifiers, and credentials. This is a no-call harness correction, not a formatting behavior change.
+
+The ledger is 47/50. The next permitted operation is at most one evidence-led correction run against the same primary gold, now with safe adapter diagnostics. `holdout_10` remains sealed and must not be read or run until a primary candidate passes the tuning threshold. No retry or fallback is part of this plan.
 
 ## Consequences
 
