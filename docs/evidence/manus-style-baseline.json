@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "corpusCount": 4,
+  "trainingCount": 3,
+  "holdoutCount": 1,
+  "calibration": {
+    "trainingCount": 3,
+    "holdoutId": "holdout_10",
+    "leaveOneOutScores": [
+      0.6813,
+      0.8625,
+      0.7769
+    ],
+    "threshold": 0.65
+  },
+  "holdoutProfile": {
+    "wordCount": 417,
+    "roleDensity": {
+      "main_heading": 0.2398,
+      "section_heading": 0,
+      "intro": 0.2398,
+      "primary_list": 2.3981,
+      "nested_list": 2.3981,
+      "bold_span": 7.6739,
+      "prompt_code": 2.3981,
+      "cta": 0.2398,
+      "audience_question": 0.2398,
+      "hashtag_footer": 0,
+      "paragraph_boundary": 4.0767,
+      "semantic_accent": 0
+    },
+    "emojiDensityPer100Words": 3.1175,
+    "paragraphDensityPer100Words": 4.0767
+  },
+  "hardGateSummary": {
+    "reversibleCount": 4,
+    "idempotentCount": 4,
+    "lexicalEquivalentCount": 4
+  },
+  "conflictCodes": [
+    "MAIN_HEADING_TREATMENT_VARIATION",
+    "PROMPT_CODE_DENSITY_VARIATION",
+    "INLINE_BOLD_DENSITY_VARIATION",
+    "SEMANTIC_ACCENT_SCOPE_VARIATION",
+    "LIST_DASH_CONTEXT_VARIATION"
+  ],
+  "privateDiffArtifacts": 4
+}

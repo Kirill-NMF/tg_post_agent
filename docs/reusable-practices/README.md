@@ -12,6 +12,7 @@ Portable engineering playbooks extracted from project work. They describe reusab
 - [Safe production operations for small private bots](playbooks/safe-private-bot-production-operations.md)
 - [Preservation-first transformations](playbooks/preservation-first-transformations.md)
 - [Evidence-led job latency diagnosis](playbooks/evidence-led-job-latency.md)
+- [Private style-gold backtesting](playbooks/private-style-gold-backtesting.md)
 
 ## Contribution Rule
 

@@ -39,3 +39,9 @@ Canary complexity must match production shape. A one-segment happy path is insuf
 ## Terminal acceptance
 
 Transformation success is not established by provider completion or a succeeded job alone. The terminal gate must compare canonical and delivered lexical units in exact order, require option-specific permitted decoration, scope the final by version/cursor, reject stale or duplicate finals, and verify exactly one non-empty export artifact after one Done action. Literary quality and decoration density remain owner judgements only after this technical gate passes.
+
+## Private style-gold round trip
+
+When visual quality is reference-driven, keep the full gold, neutral inputs, reversible maps, and readable diffs private and gitignored. Commit only content hashes, role/count summaries, thresholds, and category-only results. Deformatting must restore the exact private gold, be idempotent, and preserve lexical order before any style score is meaningful.
+
+Compare presentation anchors at neighboring canonical lexical-token indices rather than by exact bytes. Hard safety gates precede similarity metrics. Reserve a structurally distinct holdout outside prompt examples and threshold tuning, and record reference contradictions with an explicit primary-gold-first rule. See `private-style-gold-backtesting.md` for the reusable procedure.

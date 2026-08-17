@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "privacy": "content_free_manifest_private_corpus_gitignored",
+  "authorityOrder": [
+    "primary_gold",
+    "generalization",
+    "rule_evidence",
+    "diagnostic_history"
+  ],
+  "holdout": "holdout_10",
+  "documents": [
+    {
+      "id": "primary_option2_final",
+      "authority": "primary_gold",
+      "holdout": false,
+      "sha256": "b8bf290d3fb19a17723ae70761f40ac9af2916106398ce44196815dadf55fd34",
+      "byteLength": 4354,
+      "lexicalTokenCount": 349,
+      "anchorCount": 74,
+      "roleCounts": {
+        "main_heading": 1,
+        "section_heading": 4,
+        "intro": 1,
+        "primary_list": 4,
+        "nested_list": 16,
+        "bold_span": 5,
+        "prompt_code": 2,
+        "cta": 1,
+        "audience_question": 1,
+        "hashtag_footer": 1,
+        "paragraph_boundary": 38,
+        "semantic_accent": 0
+      },
+      "reversible": true,
+      "idempotent": true,
+      "lexicalEquivalent": true
+    },
+    {
+      "id": "generalization_7",
+      "authority": "generalization",
+      "holdout": false,
+      "sha256": "b1df7be121aaf68fcfb04e03fd80966a6ba63719785a5e7b9db1c8468ddd51bf",
+      "byteLength": 5132,
+      "lexicalTokenCount": 482,
+      "anchorCount": 81,
+      "roleCounts": {
+        "main_heading": 1,
+        "section_heading": 3,
+        "intro": 1,
+        "primary_list": 10,
+        "nested_list": 7,
+        "bold_span": 22,
+        "prompt_code": 1,
+        "cta": 1,
+        "audience_question": 1,
+        "hashtag_footer": 1,
+        "paragraph_boundary": 32,
+        "semantic_accent": 1
+      },
+      "reversible": true,
+      "idempotent": true,
+      "lexicalEquivalent": true
+    },
+    {
+      "id": "generalization_9",
+      "authority": "generalization",
+      "holdout": false,
+      "sha256": "c692613b333762cd8bf1815b03f96020ce7dc2612aebe98fd496aa7bd385515d",
+      "byteLength": 5950,
+      "lexicalTokenCount": 482,
+      "anchorCount": 90,
+      "roleCounts": {
+        "main_heading": 1,
+        "section_heading": 3,
+        "intro": 1,
+        "primary_list": 14,
+        "nested_list": 11,
+        "bold_span": 32,
+        "prompt_code": 1,
+        "cta": 1,
+        "audience_question": 1,
+        "hashtag_footer": 1,
+        "paragraph_boundary": 24,
+        "semantic_accent": 0
+      },
+      "reversible": true,
+      "idempotent": true,
+      "lexicalEquivalent": true
+    },
+    {
+      "id": "holdout_10",
+      "authority": "holdout",
+      "holdout": true,
+      "sha256": "ec32f11added52331d0e7640453ee924d0ff45dd20159a35b6a9d34f3a47f7a8",
+      "byteLength": 4911,
+      "lexicalTokenCount": 417,
+      "anchorCount": 83,
+      "roleCounts": {
+        "main_heading": 1,
+        "section_heading": 0,
+        "intro": 1,
+        "primary_list": 10,
+        "nested_list": 10,
+        "bold_span": 32,
+        "prompt_code": 10,
+        "cta": 1,
+        "audience_question": 1,
+        "hashtag_footer": 0,
+        "paragraph_boundary": 17,
+        "semantic_accent": 0
+      },
+      "reversible": true,
+      "idempotent": true,
+      "lexicalEquivalent": true
+    }
+  ],
+  "ruleEvidence": [
+    {
+      "id": "option2_rules_final",
+      "sha256": "3d3379ef96836def8246bb07321cf186c95ac402187328dabd42bb1580bea6ef"
+    },
+    {
+      "id": "master_prompt_with_examples",
+      "sha256": "ba4651754fd595d058c0f21dc95c50e396e46ac074fa7b16d82c4856a461ac96"
+    },
+    {
+      "id": "cryptus_approved_emojis",
+      "sha256": "93314b0b9adcfd484325126558f4bd41dabaa5ba380580283916c16162595a99"
+    }
+  ],
+  "conflicts": [
+    {
+      "code": "MAIN_HEADING_TREATMENT_VARIATION",
+      "primaryGoldFirst": true,
+      "evidence": "primary_full_bold_caps_holdout_distribution_differs"
+    },
+    {
+      "code": "PROMPT_CODE_DENSITY_VARIATION",
+      "primaryGoldFirst": true,
+      "evidence": "primary_sparse_holdout_dense"
+    },
+    {
+      "code": "INLINE_BOLD_DENSITY_VARIATION",
+      "primaryGoldFirst": true,
+      "evidence": "generalization_examples_exceed_primary"
+    },
+    {
+      "code": "SEMANTIC_ACCENT_SCOPE_VARIATION",
+      "primaryGoldFirst": true,
+      "evidence": "later_gold_refines_rule_evidence"
+    },
+    {
+      "code": "LIST_DASH_CONTEXT_VARIATION",
+      "primaryGoldFirst": true,
+      "evidence": "primary_and_generalization_context_dependent"
+    }
+  ]
+}
