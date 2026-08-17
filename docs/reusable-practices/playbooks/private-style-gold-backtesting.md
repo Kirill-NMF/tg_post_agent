@@ -25,6 +25,8 @@ If a style role always implies a fixed decoration, the server owns that directiv
 
 An accepted provider transport with `FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE` produces no candidate and therefore no hard-gate or style score. Record the safe operation count/category, preserve the holdout seal, and use a synthetic RED fixture for the no-call repair. Never spend a holdout call until a primary candidate passes, and never exceed the owner-approved ledger.
 
+Treat the configured operation limit as the provider-supplied plan budget. When the server adds deterministic required role directives, compute a separate completed-plan cap as `provider limit + exact required-role count`; do not charge server-owned operations twice, silently truncate valid optional operations, or raise the provider allowance. Regress this with production-shaped segment/operation counts and retain a separate test that rejects provider output above its original cap.
+
 ## Evaluator gate
 
 Hard failures precede similarity scoring: lexical addition/removal/reorder, punctuation mutation outside declared decoration markers, unbalanced Markdown, forbidden styles or emoji categories, and invented hashtag/CTA/question roles.

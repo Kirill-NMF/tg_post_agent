@@ -20,9 +20,9 @@ Phase 12 is the current checkpoint. Tier 1 covers the shared provider/runtime sc
 
 ## Next Step
 
-Owner decides whether to authorize additional provider budget for one renewed primary benchmark verification. The sealed holdout cannot run until a primary candidate passes. The previously preserved Telegram result remains available for literary/UX review, but the Manus-style benchmark is not accepted.
+Owner decides whether to repurpose the one remaining approved slot for a post-fix primary benchmark verification and, if primary later passes, authorize a separate holdout slot. The sealed holdout cannot run until a primary candidate passes. The previously preserved Telegram result remains available for literary/UX review, but the Manus-style benchmark is not accepted.
 
-The category-only provider ledger is exhausted at 50/50. The final authorized primary technical verification reached provider transport success but failed closed before candidate rendering with `FORMAT_OPTION2_ROLE_CONTRACT_INCOMPLETE` after 28 parsed operations. Required role decorations are now server-owned and deterministic; provider directives still pass the unchanged shape and semantic gates before canonical completion. No candidate or quality score exists, and the holdout remains sealed. The ledger retains no transcript, draft, prompt, provider response, credential, or user content.
+The category-only provider ledger is 51/52. The renewed primary verification reached provider transport success but failed closed before candidate rendering with `FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED` after 16 parsed provider directives. A deterministic 38-segment regression proved that 21 server-owned required directives were incorrectly double-counted against the provider limit; provider and server operation budgets are now separated without increasing the provider allowance or relaxing safety gates. No candidate or quality score exists, and the holdout remains sealed. The ledger retains no transcript, draft, prompt, provider response, credential, or user content.
 
 ## Owner Focus
 
@@ -92,7 +92,7 @@ That configuration/deployment boundary is now satisfied for the recorded Option 
 
 The public Stage 3 flow is implemented behind the explicit OpenRouter formatting configuration: formatting action -> Telegram | Telegram + emoji -> FORMAT_POST -> formatted result -> correction action | final acceptance. Tier 1 deterministic coverage verifies durable enqueue ordering, stale/duplicate callback rejection, the shared provider/runtime schema, semantic preservation, recovery to `draft_editing`, stale-final invalidation, and single-artifact delivery. Option 2 now has isolated Tier 2 evidence on a seven-segment long-form fixture: one FORMAT_POST attempt, first-click current-version final, exact 112-unit lexical order, permitted emoji, no duplicate/stale final, and exactly one non-empty `.txt` after Done. Commits 3080e5e and 7dcd2be contain the incident evidence and root fix; 79b62f8, 56f93b9, and 70645d5 provide the controlled fixture/launch path.
 
-The approved model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The current owner-approved cap is 50 and the category-only ledger is 50/50. The final authorized primary verification was single-attempt/no-fallback and produced no accepted candidate; its exact safe category drove the offline server-owned required-role fix. Premium/custom emoji remain deferred, and no further provider operation is permitted without explicit owner approval.
+The approved model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The current owner-approved cap is 52 and the category-only ledger is 51/52. The renewed primary verification was single-attempt/no-fallback and produced no accepted candidate; its exact safe category drove the offline provider/server operation-budget fix. Premium/custom emoji remain deferred. The remaining slot is not authorized for holdout because primary has not passed; repurposing it for primary requires an explicit owner/coordinator decision.
 
 ## Stage 3 Option 2 Owner Checkpoint
 

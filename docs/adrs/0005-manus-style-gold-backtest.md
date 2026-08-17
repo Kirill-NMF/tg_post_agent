@@ -95,6 +95,16 @@ The deterministic root cause was a remaining completeness split: the provider sc
 
 The ledger is exhausted at 50/50. `holdout_10` was not read or executed. Any further provider operation, including a renewed primary verification or the sealed holdout, requires explicit owner budget approval; a primary candidate must pass before holdout execution.
 
+## Renewed primary verification under cap 52
+
+The owner renewed the cap to 52. The next single-attempt primary verification reached provider transport success without retry or fallback, parsed 16 valid provider directives including emoji, and then failed closed with `FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED`. No candidate or evaluator metrics exist, and the holdout remained sealed.
+
+The deterministic production-shaped regression proved that server-owned required operations were incorrectly charged against the same limit already applied to provider output. The 38-segment primary has 21 deterministic required directives; adding them to a valid 16-directive provider plan produced 36 total operations and exceeded the old flat cap of 30. The adapter now preserves the provider-supplied cap of 30 and adds only the exact deterministic required-role count to the completed-plan cap. It does not raise the provider allowance, discard operations, or relax shape, semantic, lexical, punctuation, or role gates. A 31-directive provider plan still fails.
+
+The structured-output design remains aligned with the official OpenRouter and Anthropic guidance: strict JSON Schema is endpoint-dependent, provider output remains locally validated, and unsupported constraints stay in local semantic validation rather than being assumed at the provider grammar layer. Sources: https://openrouter.ai/docs/guides/features/structured-outputs and https://platform.claude.com/docs/en/build-with-claude/structured-outputs.
+
+The ledger is 51/52. Slot 52 remains unused and cannot be spent on holdout because primary has not passed. Reusing it for one post-fix primary verification requires an explicit owner/coordinator decision; a later holdout would then require additional budget.
+
 ## Consequences
 
 The benchmark can reject lexical mutation, invalid Markdown, emoji soup, misplaced anchors, and invented structural content without exposing private references. It does not prove universal style quality, and the roadmap must not mark the owner literary/UX checkpoint complete.

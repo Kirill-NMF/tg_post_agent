@@ -408,7 +408,8 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
   const semanticBudget = Math.min(2, Math.ceil(segments.filter((segment) => segment.role === "section_heading").length / 3));
   if (semanticAccentCount > semanticBudget) throw new FormattingPlanValidationError("FORMAT_OPTION2_SEMANTIC_ACCENT_DENSITY_EXCEEDED", rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic"));
   const completedDirectives = completeRequiredRoleContract(directives, segments);
-  if (completedDirectives.length > maxOperations) {
+  const completedOperationLimit = maxOperations + segments.reduce((count, segment) => count + requiredRoleDirectives(segment).length, 0);
+  if (completedDirectives.length > completedOperationLimit) {
     throw new FormattingPlanValidationError(
       "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
       rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic")

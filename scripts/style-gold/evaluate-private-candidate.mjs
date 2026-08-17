@@ -18,6 +18,7 @@ const root = resolve(process.cwd(), ".runtime/manus-style");
 const corpusPath = resolve(root, "corpus", `${selection.goldId}.json`);
 const candidatePath = resolve(root, "candidates", `${selection.candidateId}.txt`);
 const diffPath = resolve(root, "diffs", `${selection.mode}-${selection.goldId}-${selection.candidateId}.private.json`);
+const primaryPassGatePath = resolve(root, "reports", "primary-pass-gate.json");
 if (!corpusPath.startsWith(root) || !candidatePath.startsWith(root) || !diffPath.startsWith(root)) exitSafely("MANUS_BENCHMARK_PATH_INVALID");
 
 try {
@@ -28,6 +29,17 @@ try {
   if (typeof corpus.formattedText !== "string" || typeof corpus.plainText !== "string") exitSafely("MANUS_PRIVATE_CORPUS_INVALID");
   const evaluation = evaluateManusStyle(corpus.plainText, corpus.formattedText, candidate, 0.65);
   await atomicWrite(diffPath, JSON.stringify({ goldId: selection.goldId, candidateId: selection.candidateId, sourcePlain: corpus.plainText, gold: corpus.formattedText, candidate, evaluation }, null, 2), 0o600);
+  const primaryPassGateWritten = selection.mode === "tuning" && selection.goldId === "primary_option2_final" && evaluation.pass;
+  if (primaryPassGateWritten) {
+    await atomicWrite(primaryPassGatePath, JSON.stringify({
+      schemaVersion: 1,
+      goldId: selection.goldId,
+      candidateId: selection.candidateId,
+      pass: true,
+      threshold: 0.65,
+      holdoutUnlocked: true,
+    }) + "\n", 0o600);
+  }
   process.stdout.write(JSON.stringify({
     mode: selection.mode,
     holdout: selection.holdout,
@@ -38,6 +50,7 @@ try {
     categories: evaluation.categories,
     diagnostics: evaluation.diagnostics,
     privateDiffWritten: true,
+    primaryPassGateWritten,
   }) + "\n");
 } catch (error) {
   if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") exitSafely("MANUS_CANDIDATE_ARTIFACT_ABSENT");

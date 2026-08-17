@@ -3,6 +3,7 @@ import {
   applySegmentFormattingPlan,
   deriveCanonicalSegments,
   recoverCanonicalText,
+  type CanonicalFormattingSegment,
   validateTelegramMarkdownFormatting,
 } from "../src/domain/formatting.js";
 import {
@@ -109,6 +110,39 @@ describe("Manus Option2 role contract", () => {
     const rendered = applySegmentFormattingPlan(longDraft, "option_2", directives, segments);
     expect(rendered.ok).toBe(true);
     if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(longDraft);
+  });
+
+  it("budgets server-owned required roles separately from a bounded production-shaped provider plan", () => {
+    const roles: CanonicalFormattingSegment["role"][] = [
+      "main_heading", "intro",
+      ...Array(4).fill("section_heading"),
+      ...Array(4).fill("primary_list"),
+      ...Array(16).fill("nested_list"),
+      ...Array(2).fill("prompt_code"),
+      "cta", "audience_question",
+      ...Array(8).fill("paragraph"),
+    ];
+    const { draft, segments } = syntheticSegments(roles);
+    const operations = segments.slice(0, 15).map((segment) => ({ id: segment.id, kind: "paragraph_break" as const, position: "after" as const }));
+    const directives = parseOption2SegmentPlan(JSON.stringify({
+      primaryEmoji: { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "\uD83D\uDCDC" },
+      operations,
+    }), segments, 30);
+
+    expect(directives).toHaveLength(36);
+    const rendered = applySegmentFormattingPlan(draft, "option_2", directives, segments);
+    expect(rendered.ok).toBe(true);
+    if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(draft);
+  });
+
+  it("still rejects more than thirty provider-supplied directives", () => {
+    const segments = deriveCanonicalSegments(longDraft);
+    const operations = Array.from({ length: 30 }, (_, index) => ({
+      id: segments[index % segments.length]!.id,
+      kind: "paragraph_break",
+      position: "after",
+    }));
+    expectCode(() => parseOption2SegmentPlan(JSON.stringify({ primaryEmoji: validPlan().primaryEmoji, operations }), segments, 30), "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED");
   });
 
   it("treats list-marker metadata as a declaration and never duplicates punctuation", () => {
@@ -251,6 +285,19 @@ function expectCode(action: () => unknown, expected: string): void {
     expect(error).toBeInstanceOf(FormattingPlanValidationError);
     expect((error as FormattingPlanValidationError).code).toBe(expected);
   }
+}
+
+function syntheticSegments(roles: readonly CanonicalFormattingSegment["role"][]): { draft: string; segments: CanonicalFormattingSegment[] } {
+  const texts = roles.map((_, index) => `Synthetic block ${index + 1}.`);
+  const draft = texts.join("\n\n");
+  let cursor = 0;
+  const segments = texts.map((text, index) => {
+    const start = cursor;
+    const end = start + text.length;
+    cursor = end + 2;
+    return { id: `block_${index + 1}`, start, end, text, role: roles[index]! };
+  });
+  return { draft, segments };
 }
 
 function expectEveryObjectClosed(value: unknown): void {

@@ -9,19 +9,40 @@ import { validatePrivateBenchmarkSelection } from "../../dist/src/evaluation/man
 
 const privateRoot = resolve(process.cwd(), ".runtime/manus-style");
 const manifestPath = resolve(process.cwd(), "docs/evidence/manus-style-gold-manifest.json");
+const primaryPassGatePath = resolve(privateRoot, "reports/primary-pass-gate.json");
 
-export function validateTuningPreflight(input) {
-  if (input.goldId === input.manifest?.holdout || input.manifest?.documents?.find((item) => item.id === input.goldId)?.holdout) return "MANUS_HOLDOUT_TUNING_FORBIDDEN";
-  const manifestGold = input.manifest?.documents?.find((item) => item.id === input.goldId && item.holdout === false);
-  if (!manifestGold || input.goldId !== "primary_option2_final") return "MANUS_TUNING_GOLD_ID_INVALID";
+export function validateBenchmarkPreflight(input) {
+  const manifestGold = input.manifest?.documents?.find((item) => item.id === input.goldId);
+  if (input.mode === "tuning") {
+    if (input.goldId === input.manifest?.holdout || manifestGold?.holdout) return "MANUS_HOLDOUT_TUNING_FORBIDDEN";
+    if (!manifestGold || input.goldId !== "primary_option2_final") return "MANUS_TUNING_GOLD_ID_INVALID";
+  } else if (input.mode === "holdout") {
+    if (!manifestGold?.holdout || input.goldId !== input.manifest?.holdout) return "MANUS_HOLDOUT_ID_REQUIRED";
+    if (!isValidPrimaryPassGate(input.primaryPassGate, input.expectedPrimaryCandidateId)) return "MANUS_PRIMARY_PASS_GATE_REQUIRED";
+  } else {
+    return "MANUS_BENCHMARK_MODE_INVALID";
+  }
   if (manifestGold.sha256 !== input.formattedHash) return "MANUS_GOLD_HASH_MISMATCH";
   if (!input.corpusPrivate || !input.outputPrivate) return "MANUS_PRIVATE_PERMISSIONS_INVALID";
   if (!input.apiKeyPresent) return "MANUS_PROVIDER_KEY_ABSENT";
   if (input.model !== "anthropic/claude-sonnet-5") return "MANUS_PROVIDER_MODEL_MISMATCH";
   const ledger = input.ledger;
-  if (!Number.isSafeInteger(input.expectedLedgerSpent) || input.expectedLedgerSpent < 0 || input.expectedLedgerSpent >= 50) return "MANUS_LEDGER_PRECONDITION_FAILED";
-  if (!ledger || ledger.dailyBudget !== 50 || ledger.attemptedBillableOperations !== input.expectedLedgerSpent || ledger.remainingBudget !== 50 - input.expectedLedgerSpent || !Array.isArray(ledger.entries)) return "MANUS_LEDGER_PRECONDITION_FAILED";
+  if (!Number.isSafeInteger(input.expectedLedgerCap) || input.expectedLedgerCap < 1 || !Number.isSafeInteger(input.expectedLedgerSpent) || input.expectedLedgerSpent < 0 || input.expectedLedgerSpent >= input.expectedLedgerCap) return "MANUS_LEDGER_PRECONDITION_FAILED";
+  if (!ledger || ledger.dailyBudget !== input.expectedLedgerCap || ledger.attemptedBillableOperations !== input.expectedLedgerSpent || ledger.remainingBudget !== input.expectedLedgerCap - input.expectedLedgerSpent || !Array.isArray(ledger.entries)) return "MANUS_LEDGER_PRECONDITION_FAILED";
   return null;
+}
+
+export function validateTuningPreflight(input) {
+  return validateBenchmarkPreflight({ ...input, mode: "tuning", expectedLedgerCap: input.expectedLedgerCap ?? 50, primaryPassGate: null, expectedPrimaryCandidateId: null });
+}
+
+function isValidPrimaryPassGate(gate, expectedCandidateId) {
+  return Boolean(gate)
+    && gate.goldId === "primary_option2_final"
+    && gate.candidateId === expectedCandidateId
+    && gate.pass === true
+    && gate.threshold === 0.65
+    && gate.holdoutUnlocked === true;
 }
 
 export function createLedgeredSingleAttemptClient(input) {
@@ -90,9 +111,12 @@ async function main() {
   const goldId = args.get("--gold-id") ?? "";
   const candidateId = args.get("--candidate-id") ?? "";
   const runId = args.get("--run-id") ?? "";
+  const mode = args.get("--mode") ?? "tuning";
+  const expectedPrimaryCandidateId = args.get("--primary-candidate-id") ?? null;
   const preflightOnly = args.get("--preflight-only") === "true";
   const expectedLedgerSpent = Number(process.env.TG_POST_AGENT_EXPECTED_LEDGER_SPENT);
-  const selection = validatePrivateBenchmarkSelection({ mode: "tuning", goldId, candidateId });
+  const expectedLedgerCap = Number(process.env.TG_POST_AGENT_EXPECTED_LEDGER_CAP);
+  const selection = validatePrivateBenchmarkSelection({ mode, goldId, candidateId });
   if (!selection.ok || !/^[a-z0-9][a-z0-9_-]{2,63}$/u.test(runId)) return emitFailure(selection.ok ? "MANUS_RUN_ID_INVALID" : selection.code, undefined);
 
   const corpusPath = resolve(privateRoot, "corpus", goldId + ".json");
@@ -103,6 +127,11 @@ async function main() {
   let report = baseReport();
   try {
     if (!ledgerPath || !isInsidePrivateRoot(candidatePath) || !isInsidePrivateRoot(reportPath)) throw safeError("MANUS_PATH_CONFIGURATION_INVALID");
+    let primaryPassGate = null;
+    if (selection.holdout) {
+      await requirePrivateFile(primaryPassGatePath);
+      primaryPassGate = JSON.parse(await readFile(primaryPassGatePath, "utf8"));
+    }
     await requirePrivateFile(corpusPath);
     await requireAbsent(candidatePath);
     await requireAbsent(reportPath);
@@ -114,7 +143,8 @@ async function main() {
     if (typeof corpus.formattedText !== "string" || typeof corpus.plainText !== "string") throw safeError("MANUS_PRIVATE_CORPUS_INVALID");
     const deterministic = deformatGold(corpus.formattedText);
     if (deterministic.plainText !== corpus.plainText) throw safeError("MANUS_DEFORMAT_HASH_MISMATCH");
-    const preflightCategory = validateTuningPreflight({
+    const preflightCategory = validateBenchmarkPreflight({
+      mode: selection.mode,
       goldId,
       manifest,
       formattedHash: sha256(corpus.formattedText),
@@ -126,8 +156,11 @@ async function main() {
       ]),
       ledger,
       expectedLedgerSpent,
+      expectedLedgerCap,
       model: process.env.OPENROUTER_FORMATTING_MODEL,
       apiKeyPresent: Boolean(process.env.OPENROUTER_API_KEY),
+      primaryPassGate,
+      expectedPrimaryCandidateId,
     });
     if (preflightCategory) throw safeError(preflightCategory);
     const segments = deriveCanonicalSegments(corpus.plainText);
@@ -136,6 +169,8 @@ async function main() {
       report = {
         ...report,
         terminalCategory: "preflight_ready",
+        benchmarkMode: selection.mode,
+        holdout: selection.holdout,
         segmentCount: segments.length,
         corpusHashMatched: true,
         structuredOutputContract: true,
@@ -151,14 +186,16 @@ async function main() {
 
     const reserve = () => appendLedgerEvent(ledgerPath, {
       expectedSpent: expectedLedgerSpent,
+      expectedCap: expectedLedgerCap,
       billable: true,
-      category: "manus_tuning_primary",
+      category: selection.holdout ? "manus_holdout_final" : "manus_tuning_primary",
       outcome: "started",
     });
     const complete = (outcome) => appendLedgerEvent(ledgerPath, {
       expectedSpent: expectedLedgerSpent + 1,
+      expectedCap: expectedLedgerCap,
       billable: false,
-      category: "manus_tuning_primary_terminal",
+      category: selection.holdout ? "manus_holdout_final_terminal" : "manus_tuning_primary_terminal",
       outcome,
     });
     ledgeredClient = createLedgeredSingleAttemptClient({
@@ -177,7 +214,7 @@ async function main() {
       logger: diagnostics.logger,
     });
     const providerResult = await adapter.formatOption2Segments({
-      projectId: "private-manus-tuning-primary",
+      projectId: selection.holdout ? "private-manus-holdout" : "private-manus-tuning-primary",
       draftText: corpus.plainText,
       segments,
     });
@@ -195,6 +232,8 @@ async function main() {
     report = {
       ...report,
       terminalCategory: "candidate_rendered",
+      benchmarkMode: selection.mode,
+      holdout: selection.holdout,
       candidateWritten: true,
       segmentCount: segments.length,
       operationCount: providerResult.value.directives.length,
@@ -238,7 +277,7 @@ async function appendLedgerEvent(path, event) {
   const metadata = await stat(path);
   if (!metadata.isFile() || (metadata.mode & 0o077) !== 0) throw safeError("MANUS_LEDGER_PERMISSIONS_INVALID");
   const ledger = JSON.parse(await readFile(path, "utf8"));
-  if (ledger.dailyBudget !== 50 || ledger.attemptedBillableOperations !== event.expectedSpent || ledger.remainingBudget !== 50 - event.expectedSpent || !Array.isArray(ledger.entries)) throw safeError("MANUS_LEDGER_CHANGED");
+  if (ledger.dailyBudget !== event.expectedCap || ledger.attemptedBillableOperations !== event.expectedSpent || ledger.remainingBudget !== event.expectedCap - event.expectedSpent || !Array.isArray(ledger.entries)) throw safeError("MANUS_LEDGER_CHANGED");
   const next = {
     ...ledger,
     attemptedBillableOperations: ledger.attemptedBillableOperations + (event.billable ? 1 : 0),
@@ -311,7 +350,7 @@ function safeError(code) {
 
 function safeCategory(error) {
   if (error && typeof error === "object" && typeof error.safeCode === "string" && /^[A-Z0-9_]{3,80}$/u.test(error.safeCode)) return error.safeCode;
-  return "MANUS_TUNING_RUNNER_FAILURE";
+  return "MANUS_BENCHMARK_RUNNER_FAILURE";
 }
 
 function compact(record) {

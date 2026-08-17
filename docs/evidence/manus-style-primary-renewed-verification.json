@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "cumulativePrimaryAttemptCount": 5,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
+    "failureBoundary": "formatting_plan_validation",
+    "validationStage": "semantic",
+    "parsedOperationCount": 16,
+    "anyEmojiDirective": true,
+    "responseByteLengthBucket": "1024_4095"
+  },
+  "rootCause": {
+    "category": "server_owned_operations_double_counted_against_provider_limit",
+    "deterministicReproduction": true,
+    "fixCategory": "separate_provider_and_server_operation_budgets",
+    "providerOperationLimit": 30,
+    "primaryRequiredServerOperationCount": 21,
+    "effectiveCompletedOperationLimit": 51,
+    "semanticGateRelaxed": false
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": false,
+    "privateDiffWritten": false,
+    "hardGateResultAvailable": false,
+    "perRoleMetricsAvailable": false,
+    "weightedStyleScoreAvailable": false,
+    "threshold": 0.65,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT"
+  },
+  "ledger": {
+    "spent": 51,
+    "cap": 52
+  },
+  "nextAction": "owner_decision_required_to_repurpose_remaining_slot_for_post_fix_primary_before_holdout"
+}

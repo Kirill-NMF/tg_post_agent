@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   atomicPrivateWrite,
+  validateBenchmarkPreflight,
   createSafeDiagnosticsLogger,
   createLedgeredSingleAttemptClient,
   validateTuningPreflight,
@@ -59,6 +60,50 @@ test("tuning preflight supports a later explicitly reconciled correction slot", 
     model: "anthropic/claude-sonnet-5",
     apiKeyPresent: true,
   }), null);
+});
+
+test("renewed owner cap accepts primary at 50 of 52", () => {
+  assert.equal(validateBenchmarkPreflight({
+    mode: "tuning",
+    goldId: "primary_option2_final",
+    manifest,
+    formattedHash: "gold-hash",
+    corpusPrivate: true,
+    outputPrivate: true,
+    ledger: { dailyBudget: 52, attemptedBillableOperations: 50, remainingBudget: 2, entries: [] },
+    expectedLedgerSpent: 50,
+    expectedLedgerCap: 52,
+    model: "anthropic/claude-sonnet-5",
+    apiKeyPresent: true,
+    primaryPassGate: null,
+    expectedPrimaryCandidateId: null,
+  }), null);
+});
+
+test("holdout preflight stays sealed until an exact primary pass gate exists", () => {
+  const common = {
+    mode: "holdout",
+    goldId: "holdout_10",
+    manifest,
+    formattedHash: "holdout-hash",
+    corpusPrivate: true,
+    outputPrivate: true,
+    ledger: { dailyBudget: 52, attemptedBillableOperations: 51, remainingBudget: 1, entries: [] },
+    expectedLedgerSpent: 51,
+    expectedLedgerCap: 52,
+    model: "anthropic/claude-sonnet-5",
+    apiKeyPresent: true,
+    expectedPrimaryCandidateId: "primary_verified_01",
+  };
+  assert.equal(validateBenchmarkPreflight({ ...common, primaryPassGate: null }), "MANUS_PRIMARY_PASS_GATE_REQUIRED");
+  assert.equal(validateBenchmarkPreflight({
+    ...common,
+    primaryPassGate: { goldId: "primary_option2_final", candidateId: "primary_verified_01", pass: true, threshold: 0.65, holdoutUnlocked: true },
+  }), null);
+  assert.equal(validateBenchmarkPreflight({
+    ...common,
+    primaryPassGate: { goldId: "primary_option2_final", candidateId: "different_primary", pass: true, threshold: 0.65, holdoutUnlocked: true },
+  }), "MANUS_PRIMARY_PASS_GATE_REQUIRED");
 });
 
 test("ledgered client reserves exactly one provider attempt and refuses a second call", async () => {

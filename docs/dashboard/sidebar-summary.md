@@ -6,12 +6,12 @@ Updated: 2026-08-18
 
 - Product stage: Stage 3 formatting.
 - Engineering phase: Phase 12 Option 2 technical gate complete on a production-shaped seven-segment case.
-- Status: delivery gate complete; Manus-style benchmark pending after an offline contract fix and exhausted provider budget.
+- Status: delivery gate complete; Manus-style benchmark pending after an offline operation-budget fix; ledger 51/52.
 - Branch: codex/phase-1-architecture-data-model.
 
 ## Next Required Owner Action
 
-Approve additional provider budget for one renewed primary benchmark verification, or pause the benchmark. The sealed holdout remains unavailable until primary passes.
+Decide whether slot 52 may be repurposed for one post-fix primary verification. The sealed holdout remains unavailable until primary passes and would require a later budget slot.
 
 ## Owner Focus
 
@@ -25,11 +25,11 @@ Current: the seven-segment Telegram delivery path remains technically proven, bu
 
 ## Short Answer
 
-Telegram delivery acceptance is complete. Manus-style benchmark acceptance is not; the ledger is 50/50 and requires owner approval before another primary verification.
+Telegram delivery acceptance is complete. Manus-style benchmark acceptance is not; the ledger is 51/52 and the remaining slot cannot be used without an explicit primary-repurposing decision.
 
 ## Verification Status
 
 - Technical handoff requires a path-level terminal-transition inventory: acknowledgement, job, exactly-one result or recovery, durable terminal state, Tier 1, and applicable Tier 2.
-- Option 2 has current-version first-click final/export evidence on a seven-segment fixture; the final authorized primary style verification failed closed on required-role completeness now fixed offline, no quality score exists, the holdout is sealed, and the safe ledger is 50/50.
+- Option 2 has current-version first-click final/export evidence on a seven-segment fixture; the renewed primary style verification failed closed on provider/server operation-budget double counting now fixed offline, no quality score exists, the holdout is sealed, and the safe ledger is 51/52.
 - Owner 3/3 is only for literary/product/UX judgement after the applicable technical path inventory is complete.
 - Any owner-found delivery/stuck/state defect becomes a reproducible Tier 1 test and applicable Tier 2 regression before closure.
