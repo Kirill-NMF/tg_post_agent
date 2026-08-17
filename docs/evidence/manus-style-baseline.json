@@ -44,5 +44,44 @@
     "SEMANTIC_ACCENT_SCOPE_VARIATION",
     "LIST_DASH_CONTEXT_VARIATION"
   ],
-  "privateDiffArtifacts": 4
+  "privateDiffArtifacts": 4,
+  "productionContract": {
+    "implemented": true,
+    "sharedProviderRuntimeSchema": true,
+    "canonicalRoleCount": 10,
+    "operationKinds": [
+      "paragraph_break",
+      "markdown_span",
+      "emoji_insertion",
+      "semantic_accent",
+      "heading_case",
+      "list_marker"
+    ],
+    "headingCaseReversible": true,
+    "sourcePunctuationImmutable": true,
+    "roleEmojiAllowlist": true,
+    "semanticAccentBudgeted": true,
+    "forbiddenStyles": [
+      "italic",
+      "strike",
+      "spoiler"
+    ],
+    "holdoutUsedForTuning": false
+  },
+  "currentCandidateBaseline": {
+    "artifactAvailable": false,
+    "modelQualityScoreAvailable": false,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT",
+    "syntheticSevenSegmentContractPassed": true
+  },
+  "providerLedger": {
+    "spent": 46,
+    "cap": 50
+  },
+  "nextControlledCalls": [
+    "tuning_primary",
+    "conditional_single_correction",
+    "untouched_holdout_10",
+    "final_real_owner_validation"
+  ]
 }

@@ -4,10 +4,11 @@ import { applySegmentFormattingPlan, recoverCanonicalText } from "../src/domain/
 import {
   FormattingPlanValidationError,
   option2SegmentPlanSchema,
-  parseOption2SegmentPlan
+  parseOption2SegmentPlan,
+  validateOption2SegmentPlanShape
 } from "../src/adapters/openRouterFormattingAdapter.js";
 
-const primaryEmoji = (emoji = "\u2728") => ({
+const primaryEmoji = (emoji = "\u{1F4DC}") => ({
   id: "block_1",
   kind: "emoji_insertion" as const,
   position: "before" as const,
@@ -26,7 +27,7 @@ describe("Option 2 unified provider/runtime schema", () => {
     const serialized = JSON.stringify(schema);
 
     expect(schema.required).toEqual(["primaryEmoji", "operations"]);
-    expect(schema.properties?.operations?.items?.anyOf).toHaveLength(3);
+    expect(schema.properties?.operations?.items?.anyOf).toHaveLength(6);
     expect(serialized).not.toMatch(/"pattern"|"minLength"|"maxLength"|"contains"|"minContains"/);
     expectEveryObjectClosed(schema);
   });
@@ -59,7 +60,7 @@ describe("Option 2 unified provider/runtime schema", () => {
     const validate = compileProviderSchema();
 
     expect(validate(document)).toBe(true);
-    expect(parseOption2SegmentPlan(JSON.stringify(document), ["block_1", "block_2"])).toHaveLength(2);
+    expect(validateOption2SegmentPlanShape(document)).toBe(true);
   });
 
   it("rejects a non-emoji primary token semantically after schema validation", () => {
@@ -68,15 +69,15 @@ describe("Option 2 unified provider/runtime schema", () => {
 
     expect(validate(document)).toBe(true);
     expectValidationCode(
-      () => parseOption2SegmentPlan(JSON.stringify(document), ["block_1"]),
+      () => parseOption2SegmentPlan(JSON.stringify(document), testSegments(["block_1"])),
       "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID"
     );
   });
 
-  it.each(["\u{1F4A1}", "\u{1F469}\u200D\u{1F4BB}", "1\uFE0F\u20E3"])("accepts ordinary primary emoji token %s", (emoji) => {
+  it.each(["\u{1F4DC}"])("accepts role-valid primary emoji token %s", (emoji) => {
     const document = { primaryEmoji: primaryEmoji(emoji), operations: [] };
 
-    expect(parseOption2SegmentPlan(JSON.stringify(document), ["block_1"])).toEqual([primaryEmoji(emoji)]);
+    expect(parseOption2SegmentPlan(JSON.stringify(document), testSegments(["block_1"]))).toEqual([primaryEmoji(emoji)]);
   });
 
   it.each([1, 7, 30])("accepts a bounded corpus spanning %i canonical segments", (segmentCount) => {
@@ -86,7 +87,7 @@ describe("Option 2 unified provider/runtime schema", () => {
     const validate = compileProviderSchema();
 
     expect(validate(document)).toBe(true);
-    expect(parseOption2SegmentPlan(JSON.stringify(document), ids, 30)).toHaveLength(segmentCount);
+    expect(parseOption2SegmentPlan(JSON.stringify(document), testSegments(ids), 30)).toHaveLength(segmentCount);
   });
 
   it("enforces the total operation bound semantically", () => {
@@ -99,7 +100,7 @@ describe("Option 2 unified provider/runtime schema", () => {
 
     expect(validate(document)).toBe(true);
     expectValidationCode(
-      () => parseOption2SegmentPlan(JSON.stringify(document), ids, 30),
+      () => parseOption2SegmentPlan(JSON.stringify(document), testSegments(ids), 30),
       "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED"
     );
   });
@@ -119,7 +120,7 @@ describe("Option 2 unified provider/runtime schema", () => {
         const document = { primaryEmoji: primaryEmoji(), operations: [candidate] };
         if (!validate(document)) continue;
 
-        expect(() => parseOption2SegmentPlan(JSON.stringify(document), ["block_1", "block_2"])).not.toThrow();
+        expect(validateOption2SegmentPlanShape(document)).toBe(true);
       }
     }
   });
@@ -132,7 +133,7 @@ describe("Option 2 unified provider/runtime schema", () => {
         { id: "block_1", kind: "markdown_span", style: "bold" },
         { id: "block_2", kind: "paragraph_break", position: "before" }
       ]
-    }), ["block_1", "block_2"]);
+    }), testSegments(["block_1", "block_2"]));
     const rendered = applySegmentFormattingPlan(canonical, "option_2", directives);
 
     expect(rendered.ok).toBe(true);
@@ -140,6 +141,10 @@ describe("Option 2 unified provider/runtime schema", () => {
     expect(recoverCanonicalText(rendered.text, rendered.insertions)).toBe(canonical);
   });
 });
+
+function testSegments(ids: string[], primaryId = ids[0]) {
+  return ids.map((id, index) => ({ id, start: index * 2, end: index * 2 + 1, text: "x", role: id === primaryId ? "intro" as const : "paragraph" as const }));
+}
 
 function compileProviderSchema() {
   return new Ajv({ strict: false }).compile(option2SegmentPlanSchema);

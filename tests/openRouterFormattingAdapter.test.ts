@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient, type FormattingInteractionRequest } from "../src/adapters/openRouterFormattingAdapter.js";
 import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
+import { isOrdinaryEmoji } from "../src/domain/emoji.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
 describe("OpenRouterFormattingAdapter", () => {
@@ -23,17 +24,17 @@ describe("OpenRouterFormattingAdapter", () => {
 
   it("parses ID-only Option 2 directives without exposing canonical segment text", () => {
     const directives = parseOption2SegmentPlan(JSON.stringify({
-      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
       operations: [
         { id: "block_2", kind: "paragraph_break", position: "after" }
       ]
-    }), ["block_1", "block_2"]);
+    }), testSegments(["block_1", "block_2"]));
 
     expect(directives).toEqual([
-      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
       { id: "block_2", kind: "paragraph_break", position: "after" }
     ]);
-    const prompt = buildOption2SegmentPrompt(["block_1", "block_2"]);
+    const prompt = buildOption2SegmentPrompt(testSegments(["block_1", "block_2"]));
     expect(prompt).toContain("block_1");
     expect(prompt).not.toContain("CANONICAL_TEXT_SENTINEL");
     const schema = JSON.stringify(option2SegmentPlanSchema);
@@ -42,26 +43,22 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(schema).not.toContain("text");
   });
 
-  it("accepts ordinary, ZWJ, and keycap emoji but rejects punctuation and symbols as Option 2 emoji", () => {
-    for (const emoji of ["\u{1F4A1}", "\u{1F469}\u200D\u{1F4BB}", "1\uFE0F\u20E3"]) {
-      expect(parseOption2SegmentPlan(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji }, operations: [] }), ["block_1"])).toHaveLength(1);
-    }
-    for (const emoji of ["\u2014", "\u00AB", "\u20AC", "\u042F", "A"]) {
-      expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji }, operations: [] }), ["block_1"]), "FORMAT_OPTION2_PRIMARY_EMOJI_INVALID");
-    }
+  it("recognizes ordinary, ZWJ, and keycap emoji but rejects punctuation and symbols", () => {
+    for (const emoji of ["\u{1F4A1}", "\u{1F469}\u200D\u{1F4BB}", "1\uFE0F\u20E3"]) expect(isOrdinaryEmoji(emoji)).toBe(true);
+    for (const emoji of ["\u2014", "\u00AB", "\u20AC", "\u042F", "A"]) expect(isOrdinaryEmoji(emoji)).toBe(false);
   });
 
   it("rejects an Option 2 segment plan without its required primary emoji", () => {
     expectSegmentValidationCode(() => parseOption2SegmentPlan(JSON.stringify({
       operations: [{ id: "block_1", kind: "paragraph_break", position: "after" }]
-    }), ["block_1"]), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
+    }), testSegments(["block_1"])), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID");
   });
 
   it("requests strict OpenRouter JSON Schema for Option 2 segment directives", async () => {
-    const client = capturingClient(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [] }));
+    const client = capturingClient(JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [] }));
     const adapter = new OpenRouterFormattingAdapter({ client, model: "owner-selected-format-model" });
 
-    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] })).resolves.toMatchObject({ ok: true });
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", draftText: "Safe intro.", segments: [{ id: "block_1", start: 0, end: 11, text: "Safe intro.", role: "intro" }] })).resolves.toMatchObject({ ok: true });
 
     const request = client.requests[0] as unknown as { response_format?: Record<string, unknown>; stream?: unknown; provider?: Record<string, unknown>; plugins?: unknown };
     expect(request.response_format).toMatchObject({
@@ -76,7 +73,7 @@ describe("OpenRouterFormattingAdapter", () => {
 
   it.each(["prose instead of JSON", "```json\n{\"operations\":[]}\n```"])("rejects non-JSON Option 2 provider output", async (output) => {
     const adapter = new OpenRouterFormattingAdapter({ client: capturingClient(output), model: "owner-selected-format-model" });
-    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] }))
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", draftText: "Safe intro.", segments: [{ id: "block_1", start: 0, end: 11, text: "Safe intro.", role: "intro" }] }))
       .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
   });
 
@@ -85,17 +82,17 @@ describe("OpenRouterFormattingAdapter", () => {
       client: { async create() { throw new ProviderRequestError("HTTP_400", false); } },
       model: "owner-selected-format-model"
     });
-    await expect(adapter.formatOption2Segments({ projectId: "project-1", segments: [{ id: "block_1", start: 0, end: 23 }] }))
+    await expect(adapter.formatOption2Segments({ projectId: "project-1", draftText: "Safe intro.", segments: [{ id: "block_1", start: 0, end: 11, text: "Safe intro.", role: "intro" }] }))
       .resolves.toMatchObject({ ok: false, error: { code: "FORMAT_PLAN_OUTPUT_INVALID", retryable: false } });
   });
 
   it.each([
-    [JSON.stringify({ primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [] }), "FORMAT_SEGMENT_ID_INVALID"],
-    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
-    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
-    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }, operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
+    [JSON.stringify({ primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [] }), "FORMAT_SEGMENT_ID_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
   ])("rejects non-ID Option 2 directives", (raw, expected) => {
-    expectSegmentValidationCode(() => parseOption2SegmentPlan(raw, ["block_1"]), expected);
+    expectSegmentValidationCode(() => parseOption2SegmentPlan(raw, testSegments(["block_1"])), expected);
   });
 
   it("categorizes a mismatched selected option without recording model content", () => {
@@ -179,6 +176,10 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(JSON.stringify(logger.entries)).not.toContain("SECRET DRAFT");
   });
 });
+
+function testSegments(ids: string[], primaryId = ids[0]) {
+  return ids.map((id, index) => ({ id, start: index * 2, end: index * 2 + 1, text: "x", role: id === primaryId ? "intro" as const : "paragraph" as const }));
+}
 
 function expectSegmentValidationCode(action: () => unknown, expected: string): void {
   try {

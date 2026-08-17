@@ -17,11 +17,11 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
     ["emoji_missing_position_and_emoji", { id: "block_1", kind: "emoji_insertion" }],
     ["paragraph_cross_kind_style", { id: "block_1", kind: "paragraph_break", position: "after", style: "bold" }],
     ["markdown_cross_kind_position", { id: "block_1", kind: "markdown_span", style: "bold", position: "after" }],
-    ["emoji_cross_kind_style", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728", style: "bold" }]
+    ["emoji_cross_kind_style", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}", style: "bold" }]
   ])("rejects former provider-schema/parser drift fixture %s", (_category, operation) => {
     const validate = new Ajv({ strict: false }).compile(option2SegmentPlanSchema);
     const document = {
-      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
       operations: [operation]
     };
 
@@ -31,26 +31,26 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
   it.each([
     ["paragraph_break", { id: "block_1", kind: "paragraph_break", position: "after" }],
     ["markdown_span", { id: "block_1", kind: "markdown_span", style: "bold" }],
-    ["emoji_insertion", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" }]
+    ["emoji_insertion", { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }]
   ])("keeps provider schema and parser aligned for valid %s form", (kind, operation) => {
     const validate = new Ajv({ strict: false }).compile(option2SegmentPlanSchema);
     const primaryEmoji = kind === "emoji_insertion"
       ? operation
-      : { id: "block_2", kind: "emoji_insertion", position: "after", emoji: "\u2728" };
+      : { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" };
     const operations = kind === "emoji_insertion" ? [] : [operation];
     const document = { primaryEmoji, operations };
 
     expect(validate(document)).toBe(true);
-    expect(parseOption2SegmentPlan(JSON.stringify(document), ["block_1", "block_2"])).toHaveLength(operations.length + 1);
+    expect(parseOption2SegmentPlan(JSON.stringify(document), testSegments(["block_1", "block_2"], String(primaryEmoji.id)))).toHaveLength(operations.length + 1);
   });
 
   it("keeps a seven-segment mixed drift corpus rejected by both validators", () => {
     const document = {
-      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
       operations: [
         { id: "block_1", kind: "paragraph_break", position: "after" },
         { id: "block_2", kind: "markdown_span", style: "bold" },
-        { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+        { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
         { id: "block_4", kind: "paragraph_break", position: "before" },
         { id: "block_5", kind: "markdown_span", style: "italic" },
         { id: "block_6", kind: "paragraph_break" },
@@ -61,7 +61,7 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
 
     expect(validate(document)).toBe(false);
     expectSegmentValidationCode(
-      () => parseOption2SegmentPlan(JSON.stringify(document), Array.from({ length: 7 }, (_, index) => `block_${index + 1}`)),
+      () => parseOption2SegmentPlan(JSON.stringify(document), testSegments(Array.from({ length: 7 }, (_, index) => `block_${index + 1}`))),
       "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
     );
   });
@@ -69,14 +69,14 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
   it("emits category-only rejected segment-plan diagnostics without provider output values", async () => {
     const logger = new CapturingLogger();
     const output = JSON.stringify({
-      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u2728" },
+      primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
       operations: [{ id: "block_2", kind: "paragraph_break" }]
     });
     const adapter = new OpenRouterFormattingAdapter({ client: capturingClient(output), model: "owner-selected-format-model", logger });
 
-    await adapter.formatOption2Segments({ projectId: "project-safe", segments: [
-      { id: "block_1", start: 0, end: 10 },
-      { id: "block_2", start: 11, end: 20 }
+    await adapter.formatOption2Segments({ projectId: "project-safe", draftText: "Safe intro.\n\nSafe body.", segments: [
+      { id: "block_1", start: 0, end: 11, text: "Safe intro.", role: "intro" },
+      { id: "block_2", start: 13, end: 23, text: "Safe body.", role: "paragraph" }
     ] });
 
     expect(logger.entries.at(-1)?.fields).toMatchObject({
@@ -108,7 +108,7 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
 
     await adapter.formatOption2Segments({
       projectId: "project-safe",
-      segments: [{ id: "block_1", start: 0, end: 10 }]
+      draftText: "Safe intro.", segments: [{ id: "block_1", start: 0, end: 11, text: "Safe intro.", role: "intro" }]
     });
 
     expect(logger.entries.at(-1)?.fields).toMatchObject({
@@ -134,6 +134,10 @@ describe("Option 2 provider-schema/parser alignment diagnostics", () => {
     expect([...keywords].filter((keyword) => documentedUnsupported.has(keyword))).toEqual([]);
   });
 });
+
+function testSegments(ids: string[], primaryId = ids[0]) {
+  return ids.map((id, index) => ({ id, start: index * 2, end: index * 2 + 1, text: "x", role: id === primaryId ? "intro" as const : "paragraph" as const }));
+}
 
 function expectSegmentValidationCode(action: () => unknown, expected: string): void {
   try {

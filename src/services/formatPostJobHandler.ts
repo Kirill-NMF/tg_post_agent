@@ -9,7 +9,7 @@ import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWork
 import { formattedReplyMarkup } from "./formatPresentation.js";
 
 type SegmentFormattingAdapter = {
-  formatOption2Segments(input: { projectId: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: SegmentFormattingOperation[] }>>
+  formatOption2Segments(input: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: SegmentFormattingOperation[] }>>
 };
 
 export type FormatPostJobHandlerDeps = {
@@ -57,7 +57,7 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
       } else {
         const providerStartedAt = now();
         try {
-          const result = await deps.formatting.formatOption2Segments({ projectId: project.id, segments });
+          const result = await deps.formatting.formatOption2Segments({ projectId: project.id, draftText: post.currentDraft, segments });
           providerDurationMs = Math.max(0, now() - providerStartedAt);
           if (!result.ok) {
             providerFailure = result.error;
@@ -65,7 +65,7 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
             providerMeta = result.meta;
             operationCount = result.value.directives.length;
             const validationStartedAt = now();
-            rendered = applySegmentFormattingPlan(post.currentDraft, "option_2", result.value.directives);
+            rendered = applySegmentFormattingPlan(post.currentDraft, "option_2", result.value.directives, segments);
             validationApplicationDurationMs = Math.max(0, now() - validationStartedAt);
           }
         } catch {

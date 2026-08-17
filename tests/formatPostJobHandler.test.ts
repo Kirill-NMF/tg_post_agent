@@ -62,7 +62,7 @@ describe("FORMAT_POST job handler", () => {
     await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
     expect(segmentCalls).toBe(1);
     expect(legacyCalls).toBe(0);
-    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728}Canonical draft.");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728} Canonical draft.");
     expect(notifier.messages).toHaveLength(1);
   });
 
@@ -84,7 +84,7 @@ describe("FORMAT_POST job handler", () => {
     });
 
     await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
-    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("✨Canonical draft.");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("✨ Canonical draft.");
   });
 
   it("recovers an Option 2 invalid segment directive without mutating the active draft", async () => {

@@ -21,8 +21,14 @@ export type RenderedInsertion = {
   text: string;
 };
 
+export type RenderedCaseTransform = {
+  sourceStart: number;
+  originalText: string;
+  transformedText: string;
+};
+
 export type FormattingApplyResult =
-  | { ok: true; text: string; insertions: RenderedInsertion[] }
+  | { ok: true; text: string; insertions: RenderedInsertion[]; caseTransforms: RenderedCaseTransform[] }
   | { ok: false; code: string; message: string; text: string };
 
 type ResolvedOperation =
@@ -91,16 +97,20 @@ export function applyFormattingPlan(originalText: string, plan: FormattingDecora
   }
   text += originalText.slice(cursor);
 
-  return { ok: true, text, insertions: renderedInsertions };
+  return { ok: true, text, insertions: renderedInsertions, caseTransforms: [] };
 }
 
-export function recoverCanonicalText(renderedText: string, insertions: RenderedInsertion[]): string | undefined {
+export function recoverCanonicalText(renderedText: string, insertions: RenderedInsertion[], caseTransforms: RenderedCaseTransform[] = []): string | undefined {
   let recovered = renderedText;
   for (const insertion of [...insertions].sort((left, right) => right.renderedStart - left.renderedStart)) {
     if (recovered.slice(insertion.renderedStart, insertion.renderedStart + insertion.text.length) !== insertion.text) {
       return undefined;
     }
     recovered = recovered.slice(0, insertion.renderedStart) + recovered.slice(insertion.renderedStart + insertion.text.length);
+  }
+  for (const transform of [...caseTransforms].sort((left, right) => right.sourceStart - left.sourceStart)) {
+    if (recovered.slice(transform.sourceStart, transform.sourceStart + transform.transformedText.length) !== transform.transformedText) return undefined;
+    recovered = recovered.slice(0, transform.sourceStart) + transform.originalText + recovered.slice(transform.sourceStart + transform.transformedText.length);
   }
   return recovered;
 }
@@ -182,36 +192,139 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 
-export type CanonicalFormattingSegment = { id: string; start: number; end: number };
+export type CanonicalFormattingRole =
+  | "main_heading"
+  | "section_heading"
+  | "intro"
+  | "primary_list"
+  | "nested_list"
+  | "prompt_code"
+  | "cta"
+  | "audience_question"
+  | "hashtag_footer"
+  | "paragraph";
+
+export type CanonicalFormattingSegment = { id: string; start: number; end: number; text: string; role: CanonicalFormattingRole };
 export type SegmentFormattingOperation =
   | { id: string; kind: "paragraph_break"; position: "before" | "after" }
   | { id: string; kind: "emoji_insertion"; position: "before" | "after"; emoji: string }
-  | { id: string; kind: "markdown_span"; style: "bold" | "italic" | "code" };
+  | { id: string; kind: "semantic_accent"; position: "before" | "after"; emoji: string }
+  | { id: string; kind: "markdown_span"; style: "bold" | "code" }
+  | { id: string; kind: "heading_case"; mode: "uppercase" }
+  | { id: string; kind: "list_marker"; marker: "dash" | "em_dash" };
 
 export function deriveCanonicalSegments(text: string): CanonicalFormattingSegment[] {
   if (!text) return [];
-  const segments: CanonicalFormattingSegment[] = [];
+  const raw: Array<{ start: number; end: number; text: string }> = [];
   const matcher = /[^\n](?:[\s\S]*?[^\n])?(?=\n{2,}|$)/g;
-  for (const match of text.matchAll(matcher)) segments.push({ id: "block_" + (segments.length + 1), start: match.index ?? 0, end: (match.index ?? 0) + match[0].length });
-  return segments;
+  for (const match of text.matchAll(matcher)) raw.push({ start: match.index ?? 0, end: (match.index ?? 0) + match[0].length, text: match[0] });
+  const title = raw.length > 1 && isHeadingCandidate(raw[0].text);
+  const audienceIndex = raw.length > 1 && /\?\s*$/u.test(raw.at(-1)?.text ?? "") ? raw.length - 1 : -1;
+  let introAssigned = false;
+  return raw.map((segment, index) => {
+    let role: CanonicalFormattingRole;
+    const trimmed = segment.text.trim();
+    if (title && index === 0) role = "main_heading";
+    else if (/^(?:`{1,3}|\u041a\u043e\u0434\s*:|\u041f\u0440\u043e\u043c\u043f\u0442\s*:)/iu.test(trimmed)) role = "prompt_code";
+    else if (/^(?:#[\p{L}\p{N}_-]+\s*)+$/u.test(trimmed)) role = "hashtag_footer";
+    else if (index === audienceIndex) role = "audience_question";
+    else if (isCtaCandidate(trimmed)) role = "cta";
+    else if (/^\s*(?:\u2014|\u2013)\s+/u.test(segment.text)) role = "nested_list";
+    else if (/^\s*(?:-|\u2022|\d+[.)])\s+/u.test(segment.text)) role = "primary_list";
+    else if (isHeadingCandidate(segment.text)) role = "section_heading";
+    else if (!introAssigned) { role = "intro"; introAssigned = true; }
+    else role = "paragraph";
+    return { id: "block_" + (index + 1), ...segment, role };
+  });
 }
 
-export function applySegmentFormattingPlan(text: string, option: FormattingOption, operations: SegmentFormattingOperation[]): FormattingApplyResult {
-  const segments = deriveCanonicalSegments(text);
+export function applySegmentFormattingPlan(text: string, option: FormattingOption, operations: SegmentFormattingOperation[], suppliedSegments?: readonly CanonicalFormattingSegment[]): FormattingApplyResult {
+  const segments = suppliedSegments ? [...suppliedSegments] : deriveCanonicalSegments(text);
+  if (!segments.length || segments.some((segment) => segment.text !== text.slice(segment.start, segment.end))) return fallback(text, "FORMAT_SEGMENT_SOURCE_MISMATCH", "Formatting segments do not match the canonical draft.");
   const known = new Set(segments.map((segment) => segment.id));
   const used = new Set<string>();
-  const anchors: FormattingOperation[] = [];
+  const caseTransforms: RenderedCaseTransform[] = [];
+  let transformed = text;
   for (const operation of operations) {
     if (!known.has(operation.id)) return fallback(text, "FORMAT_SEGMENT_UNKNOWN", "Formatting segment is not canonical.");
     const key = operation.id + ":" + operation.kind;
     if (used.has(key)) return fallback(text, "FORMAT_SEGMENT_DUPLICATE", "Duplicate segment decoration is not allowed.");
     used.add(key);
+    if (operation.kind !== "heading_case") continue;
     const segment = segments.find((item) => item.id === operation.id)!;
-    const value = text.slice(segment.start, segment.end);
-    const occurrence = text.slice(0, segment.start).split(value).length - 1;
-    if (operation.kind === "markdown_span") anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, style: operation.style });
-    else if (operation.kind === "emoji_insertion") anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, position: operation.position, emoji: operation.emoji });
-    else anchors.push({ kind: operation.kind, anchor: { text: value, occurrence }, position: operation.position });
+    if (segment.role !== "main_heading" || operation.mode !== "uppercase") return fallback(text, "FORMAT_OPTION2_HEADING_CASE_ROLE_INVALID", "Heading case transformation is not allowed for this segment.");
+    const upper = segment.text.toLocaleUpperCase("ru");
+    if (upper.length !== segment.text.length || !sameCaseInsensitiveTokens(segment.text, upper)) return fallback(text, "FORMAT_OPTION2_HEADING_CASE_UNSAFE", "Heading case transformation is not reversibly bounded.");
+    transformed = transformed.slice(0, segment.start) + upper + transformed.slice(segment.end);
+    caseTransforms.push({ sourceStart: segment.start, originalText: segment.text, transformedText: upper });
   }
-  return applyFormattingPlan(text, { option, operations: anchors });
+  const insertions = buildSegmentInsertions(segments, operations);
+  if (!insertions.ok) return fallback(text, insertions.code, insertions.message);
+  let cursor = 0;
+  let rendered = "";
+  const renderedInsertions: RenderedInsertion[] = [];
+  for (const insertion of insertions.value) {
+    rendered += transformed.slice(cursor, insertion.sourceIndex);
+    renderedInsertions.push({ renderedStart: rendered.length, text: insertion.text });
+    rendered += insertion.text;
+    cursor = insertion.sourceIndex;
+  }
+  rendered += transformed.slice(cursor);
+  if (!validateTelegramMarkdownFormatting(rendered, renderedInsertions)) return fallback(text, "FORMAT_TELEGRAM_MARKDOWN_INVALID", "Rendered Telegram Markdown is unbalanced.");
+  if (recoverCanonicalText(rendered, renderedInsertions, caseTransforms) !== text) return fallback(text, "FORMAT_LEXICAL_PRESERVATION_FAILED", "Rendered formatting did not preserve the canonical draft.");
+  return { ok: true, text: rendered, insertions: renderedInsertions, caseTransforms };
+}
+
+export function validateTelegramMarkdownFormatting(text: string, generatedInsertions?: readonly RenderedInsertion[]): boolean {
+  const generated = generatedInsertions?.map((insertion) => insertion.text).join("") ?? text;
+  return (generated.match(/(?<!\\)\*/gu)?.length ?? 0) % 2 === 0
+    && (generated.match(/(?<!\\)`/gu)?.length ?? 0) % 2 === 0
+    && !/(?<!\\)(?:_|~|\|\|)/u.test(generated);
+}
+
+function buildSegmentInsertions(segments: readonly CanonicalFormattingSegment[], operations: readonly SegmentFormattingOperation[]): { ok: true; value: PendingInsertion[] } | Invalid {
+  const insertions: PendingInsertion[] = [];
+  const emojiByBoundary = new Map<string, { sourceIndex: number; values: string[]; position: "before" | "after" }>();
+  for (const operation of operations) {
+    if (operation.kind === "heading_case") continue;
+    const segment = segments.find((item) => item.id === operation.id)!;
+    if (operation.kind === "markdown_span") {
+      const marker = operation.style === "bold" ? "*" : "`";
+      insertions.push({ sourceIndex: segment.start, text: marker, category: "markdown_open" }, { sourceIndex: segment.end, text: marker, category: "markdown_close" });
+    } else if (operation.kind === "paragraph_break") {
+      insertions.push({ sourceIndex: operation.position === "before" ? segment.start : segment.end, text: "\n\n", category: "paragraph_break", position: operation.position });
+    } else if (operation.kind === "list_marker") {
+      const marker = operation.marker === "em_dash" ? "\u2014 " : "- ";
+      if (!segment.text.trimStart().startsWith(marker)) return { ok: false, code: "FORMAT_OPTION2_LIST_MARKER_SOURCE_MISMATCH", message: "List marker metadata must match existing canonical punctuation." };
+    } else {
+      const sourceIndex = operation.position === "before" ? segment.start : segment.end;
+      const boundary = sourceIndex + ":" + operation.position;
+      const group = emojiByBoundary.get(boundary) ?? { sourceIndex, values: [], position: operation.position };
+      group.values.push(operation.emoji);
+      emojiByBoundary.set(boundary, group);
+    }
+  }
+  for (const group of emojiByBoundary.values()) insertions.push({ sourceIndex: group.sourceIndex, text: group.values.join(" ") + " ", category: "emoji_insertion", position: group.position });
+  insertions.sort((left, right) => left.sourceIndex - right.sourceIndex || insertionOrder(left) - insertionOrder(right) || left.text.localeCompare(right.text));
+  return { ok: true, value: insertions };
+}
+
+function isHeadingCandidate(value: string): boolean {
+  const trimmed = value.trim();
+  return !trimmed.includes("\n") && lexicalWordCount(trimmed) > 0 && lexicalWordCount(trimmed) <= 14 && !/[.!?]\s*$/u.test(trimmed) && !/^(?:[-\u2013\u2014\u2022#`]|\d+[.)]\s)/u.test(trimmed);
+}
+
+function isCtaCandidate(value: string): boolean {
+  return /^(?:подпишитесь|напишите|сохраните|переходите|присоединяйтесь|попробуйте|заберите|скачайте|оставьте|поделитесь|register|join|subscribe|try|download)(?=\s|[.!?:;,-]|$)/iu.test(value);
+}
+
+function lexicalWordCount(value: string): number {
+  return [...value.matchAll(/[\p{L}\p{N}]+/gu)].length;
+}
+
+function sameCaseInsensitiveTokens(left: string, right: string): boolean {
+  const normalize = (value: string) => [...value.matchAll(/[\p{L}\p{N}]+/gu)].map((match) => match[0].toLocaleLowerCase("ru"));
+  const leftTokens = normalize(left);
+  const rightTokens = normalize(right);
+  return leftTokens.length === rightTokens.length && leftTokens.every((value, index) => value === rightTokens[index]);
 }

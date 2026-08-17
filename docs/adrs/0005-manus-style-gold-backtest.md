@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 
-Status: accepted for offline evaluation; production formatting behavior unchanged
+Status: offline evaluator and role-constrained Option 2 contract implemented; provider quality backtest pending
 
 ## Context
 
@@ -37,26 +37,35 @@ Private human-readable diffs live under `.runtime/manus-style/diffs/`; productio
 
 Hashtags, CTA, and audience questions are not generative formatting primitives. They can only be styled when their lexical content already exists in the source or an explicit upstream contract supplies it.
 
-## Current Stage 3 expressibility
+## Implemented Option 2 contract
 
-| Requirement | Current capability | Gap |
+The active provider schema and the local Ajv shape validator now share the same closed schema object. Shape validation runs before semantic gates. Canonical blocks carry server-derived roles; the provider returns only typed ID-addressed decoration metadata and cannot return replacement text.
+
+| Requirement | Implemented rule | Remaining limitation |
 | --- | --- | --- |
-| Paragraph rhythm | `paragraph_break` before/after canonical blocks | Block-level only; no role-aware rhythm policy. |
-| Bold headings/blocks | `markdown_span` over an entire canonical block | Cannot target an arbitrary inline phrase inside a block. |
-| Emoji anchors | `emoji_insertion` before/after blocks | No explicit Manus role taxonomy or per-role density budget in the active contract. |
-| Heading capitalization | Insert-only preservation forbids character mutation | A future server-controlled case-only transform needs its own measured safety contract. |
-| List punctuation | Existing operations cannot replace lexical dash/bullet punctuation | Any formatter-created marker must be server-owned decoration; source punctuation remains immutable. |
-| Prompt/code | Whole-block `code` exists | Current schema also exposes italic; prompt/code eligibility is not role-gated. |
-| Telegram entities | Renderer emits Markdown text | No entity-native operation or entity-level comparison. |
-| Hashtag/CTA/question | Lexical preservation blocks invention | Correctly unexpressible unless already present upstream. |
+| Main heading | Required whole-block bold plus reversible server-applied uppercase | Only a confidently detected first title block is eligible. |
+| Section heading | Required whole-block bold plus leading pause anchor | Arbitrary inline heading fragments remain unsupported. |
+| Intro/list anchors | Scroll for intro; orange circle for existing primary-list blocks | List punctuation itself remains canonical and immutable. |
+| Nested list | Typed list-marker metadata must declare the dash already present in source | The formatter never inserts or replaces lexical punctuation. |
+| Prompt/code | Code style and low-brightness anchor only on a detected copyable prompt/code block | No monospace on general prose. |
+| CTA/question/footer | Fire/arrow decorate only existing role text; hashtags are preserved without invention | CTA detection is deliberately conservative. |
+| Semantic accent | Training-gold-evidenced envelope accent, section-heading only, bounded to at most two and one per three sections | The small allowlist stays provisional until tuning evidence justifies expansion. |
+| Paragraph rhythm | Typed paragraph breaks remain block-boundary-only and reversible | No sentence-level reflow. |
+| Telegram formatting | Only bold/code markers are generated; italic, strike, spoiler, arbitrary emoji, and custom emoji are absent from schema | Entity-native rendering remains a separate future capability. |
 
-## Next implementation plan
+Primary-gold-first resolves the known conflicts as follows: primary heading treatment wins; later training gold may add only the bounded semantic accent; code is role-gated; dash variants are declarations of existing punctuation; bold is required for title/section roles but is not maximized globally. CTA, questions, hashtags, words, punctuation, and order cannot be invented or rewritten.
 
-1. Run the offline evaluator against captured current Option 2 outputs for all three tuning inputs and the untouched holdout; no prompt tuning uses holdout results.
-2. Add deterministic server-side role labels to canonical segments (`main_heading`, `section_heading`, list, prompt/code, CTA/question/footer) and pass only labels plus segment IDs to the provider.
-3. Tighten the Option 2 prompt/schema to role-constrained decoration directives: bold dominance, known anchor roles, semantic-accent budget, no italic/strike/spoiler, and code only for prompt/code roles.
-4. Re-run the full backtest. Only gaps demonstrated by metrics may justify new domain operations for inline spans, case-only headings, or server-owned list markers.
-5. After Tier 1 passes, use at most one separately authorized provider canary and keep owner review limited to literary/visual judgement.
+The provider request continues to use OpenRouter strict structured output with `stream: false`, `provider.require_parameters: true`, and syntax-only response healing. Relevant official references: [Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs), [Provider Routing](https://openrouter.ai/docs/guides/routing/provider-selection), [Response Healing](https://openrouter.ai/docs/guides/features/plugins/response-healing), and [Telegram message entities](https://core.telegram.org/api/entities).
+
+## Offline command and separation gate
+
+Run `npm run build`, then `npm run benchmark:manus -- --mode=tuning --gold-id=primary_option2_final --candidate-id=<safe-id>`. The command accepts only mode-restricted private artifacts under the gitignored runtime corpus, writes the readable diff atomically with mode `0600`, and prints only category metrics. Tuning mode refuses `holdout_10` before reading any candidate. Holdout mode accepts only `holdout_10`.
+
+No compatible previously persisted candidate exists, so this slice records `MANUS_CANDIDATE_ARTIFACT_ABSENT` and no model-quality score. The deterministic seven-segment synthetic contract is green; that proves capability and safety, not Manus literary quality.
+
+## Controlled call plan
+
+The ledger remains 46/50. The four remaining slots are reserved in order: one primary-gold tuning run; one correction only if the first tuning evidence requires it; one untouched `holdout_10` run; and one final real-owner validation. No retry or fallback is part of this plan.
 
 ## Consequences
 

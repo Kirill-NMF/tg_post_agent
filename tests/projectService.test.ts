@@ -158,7 +158,7 @@ describe("ProjectService mock state machine", () => {
 
     expect(segmentCalls).toBe(1);
     expect(legacyCalls).toBe(0);
-    expect((await repository.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728}Current draft");
+    expect((await repository.findById(project.id))?.posts[0]?.formattedText).toBe("\u{2728} Current draft");
   });
 
   it("keeps the no-job mock path revising drafts synchronously", async () => {

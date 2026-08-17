@@ -17,7 +17,8 @@
     "test:telegram-correction-canary-contract": "python3 -B -m unittest scripts/telegram-e2e/test_tg_post_agent_correction_canary.py",
     "smoke:telegram": "python3 scripts/telegram-e2e/tg_post_agent_smoke.py",
     "smoke:telegram-audio": "python3 -B scripts/telegram-e2e/tg_post_agent_audio_canary.py",
-    "smoke:telegram-correction": "python3 -B scripts/telegram-e2e/tg_post_agent_correction_canary.py"
+    "smoke:telegram-correction": "python3 -B scripts/telegram-e2e/tg_post_agent_correction_canary.py",
+    "benchmark:manus": "node scripts/style-gold/evaluate-private-candidate.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

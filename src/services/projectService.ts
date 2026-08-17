@@ -262,7 +262,7 @@ export class ProjectService {
     }
 
     const segmentFormatter = this.models as ModelAdapters & Partial<{
-      formatOption2Segments(input: { projectId: string; segments: readonly CanonicalFormattingSegment[] }): Promise<{
+      formatOption2Segments(input: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<{
         ok: true;
         value: { directives: SegmentFormattingOperation[] };
       } | { ok: false; error: { message: string } }>;
@@ -271,7 +271,7 @@ export class ProjectService {
       ? applySegmentFormattingPlan(
           post.currentDraft,
           "option_2",
-          (await unwrap(segmentFormatter.formatOption2Segments({ projectId: project.id, segments: deriveCanonicalSegments(post.currentDraft) }))).directives
+          (await unwrap(segmentFormatter.formatOption2Segments({ projectId: project.id, draftText: post.currentDraft, segments: deriveCanonicalSegments(post.currentDraft) }))).directives
         )
       : applyFormattingPlan(post.currentDraft, (await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }))).decorationPlan);
     if (!rendered.ok) {

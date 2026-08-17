@@ -30,3 +30,9 @@ Calibrate weights and the initial threshold using leave-one-out comparisons amon
 ## Production boundary
 
 Keep evaluator code outside runtime behavior unless a later reviewed change explicitly wires it. Never log reference text, normalized text, model output, or private diffs. A production-shaped canary must match the gold segment count, length, and operation complexity; a trivial one-block example cannot close a long-form style gate.
+
+## Active role-contract discipline
+
+For a private-gold-driven production change, provider JSON Schema and the local shape validator consume one shared schema source; semantic checks run only after that shared shape gate. The active Option 2 contract uses server-derived segment roles and ID-addressed metadata. Heading case is a recorded reversible transform. List-marker metadata declares punctuation that already exists; it never inserts or replaces punctuation. Role-specific emoji, code eligibility, and semantic-accent density are enforced locally even when structured output succeeds.
+
+The private benchmark command must refuse holdout material in tuning mode before file access, require mode-restricted corpus and candidate files, atomically write readable diffs with mode `0600`, and emit only content-free metrics. An absent candidate is an absence category, never a zero or fabricated model score. A seven-segment synthetic contract run proves expressibility and safety only; owner literary/UX acceptance still requires tuning, untouched holdout, and final real-output review.
