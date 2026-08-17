@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "candidate_rendered",
+    "shapeGate": "valid",
+    "semanticGate": "valid",
+    "segmentCount": 38,
+    "operationCount": 32,
+    "lexicalPreserved": true,
+    "punctuationPreserved": true,
+    "schemaCategory": "shared_strict_json_schema"
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": true,
+    "privateDiffWritten": true,
+    "hardGates": {
+      "lexicalSequenceExact": true,
+      "punctuationPreserved": false,
+      "markdownBalanced": true,
+      "forbiddenStylesZero": false,
+      "forbiddenEmojiCategoriesZero": true,
+      "inventedHashtagZero": true,
+      "inventedCtaZero": true,
+      "inventedQuestionZero": true
+    },
+    "metrics": {
+      "headingF1": 0,
+      "sectionF1": 0.4706,
+      "listF1": 0,
+      "boldF1": 0,
+      "paragraphF1": 1,
+      "emojiRoleF1": 0.4138,
+      "emojiDensityDeviationPer100Words": 2.2923,
+      "semanticAccentCount": 0,
+      "semanticAccentBudgetExceeded": false,
+      "headingCaseAccuracy": 1
+    },
+    "weightedStyleScore": 0.3874,
+    "threshold": 0.65,
+    "thresholdPassed": false,
+    "category": "MANUS_PRIMARY_HARD_GATE_AND_STYLE_THRESHOLD_FAILED"
+  },
+  "ledger": {
+    "spent": 52,
+    "cap": 52
+  },
+  "nextAction": "owner_product_review_required_before_any_holdout_or_provider_operation"
+}
