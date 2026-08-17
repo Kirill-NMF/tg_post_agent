@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "goldId": "primary_option2_final",
+  "holdoutRead": false,
+  "provider": {
+    "routeCategory": "openrouter_anthropic",
+    "modelCategory": "claude_sonnet",
+    "attemptCount": 1,
+    "cumulativePrimaryAttemptCount": 2,
+    "retryCount": 0,
+    "fallbackUsed": false,
+    "transportCategory": "provider_success"
+  },
+  "adapter": {
+    "terminalCategory": "FORMAT_SEGMENT_ID_INVALID",
+    "failureBoundary": "formatting_plan_validation",
+    "validationStage": "semantic",
+    "schemaFailureLocation": "primary_emoji",
+    "operationKind": "emoji_insertion",
+    "fieldPresenceMask": 23,
+    "additionalOperationCount": 7,
+    "anyEmojiDirective": true,
+    "responseByteLengthBucket": "256_1023"
+  },
+  "rootCause": {
+    "category": "provider_schema_id_unconstrained_runtime_allowlist_only",
+    "deterministicReproduction": true,
+    "fixCategory": "shared_dynamic_segment_id_enum",
+    "semanticGateRelaxed": false
+  },
+  "evaluation": {
+    "candidateArtifactAvailable": false,
+    "privateDiffWritten": false,
+    "hardGateResultAvailable": false,
+    "weightedStyleScoreAvailable": false,
+    "threshold": 0.65,
+    "category": "MANUS_CANDIDATE_ARTIFACT_ABSENT"
+  },
+  "ledger": {
+    "spent": 48,
+    "cap": 50
+  },
+  "nextAction": "explicit_decision_required_for_one_post_fix_primary_verification_before_holdout"
+}

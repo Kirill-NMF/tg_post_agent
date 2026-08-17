@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { applySegmentFormattingPlan, recoverCanonicalText } from "../src/domain/formatting.js";
 import {
   FormattingPlanValidationError,
+  buildOption2SegmentPlanSchema,
   option2SegmentPlanSchema,
   parseOption2SegmentPlan,
   validateOption2SegmentPlanShape
@@ -16,6 +17,21 @@ const primaryEmoji = (emoji = "\u{1F4DC}") => ({
 });
 
 describe("Option 2 unified provider/runtime schema", () => {
+  it("rejects the observed shape-valid primary emoji with an unknown segment ID at the shared schema boundary", () => {
+    const schema = buildOption2SegmentPlanSchema(["block_1", "block_2", "block_3", "block_4", "block_5", "block_6", "block_7"]);
+    const validate = new Ajv({ strict: false }).compile(schema);
+    const document = {
+      primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" },
+      operations: Array.from({ length: 7 }, (_, index) => ({ id: `block_${(index % 7) + 1}`, kind: "paragraph_break", position: "after" }))
+    };
+
+    expect(validate(document)).toBe(false);
+    expectValidationCode(
+      () => parseOption2SegmentPlan(JSON.stringify(document), testSegments(["block_1", "block_2", "block_3", "block_4", "block_5", "block_6", "block_7"])),
+      "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"
+    );
+  });
+
   it("requires a dedicated primary emoji and exact discriminated operation branches", () => {
     const schema = option2SegmentPlanSchema as {
       required?: string[];

@@ -44,7 +44,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 9: Gemini Draft Revision | Stage 2 | done | 2/3 | adapter/job/service/router regression tests | Text edits move to a busy state, block stale formatting, then return to editing after save. |
 | Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | Tier 2 technical paths complete; owner 3/3 pending | 3/3 | dedicated transport, source-audio, planning correction, and draft-delivery evidence recorded | Owner evaluates literary/product/UX only. |
 | Phase 11: Formatting Foundation | Stage 3 | done | 2/3 | deterministic decoration-plan validation and lexical-preservation tests | Foundation only; no public UI. |
-| Phase 12: Real Formatting Adapter | Stage 3 | Option 2 technical gate green; first Manus tuning call failed closed before candidate; correction and untouched holdout pending | 3/3 | Shared-schema contract tests, seven-segment exact-job canary, lexical/emoji/final/export checks, private gold round-trip/evaluator | Run one diagnostics-enabled primary correction, then untouched holdout only after a passing primary candidate; literary review remains owner-only. |
+| Phase 12: Real Formatting Adapter | Stage 3 | Option 2 technical gate green; two primary tuning calls failed closed, second root-caused to unconstrained schema IDs and fixed offline; post-fix verification pending | 3/3 | Shared dynamic ID-enum schema tests, seven-segment exact-job canary, lexical/emoji/final/export checks, private gold round-trip/evaluator | Decide whether to authorize one post-fix primary verification; keep untouched holdout sealed until primary passes. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
 | Phase 14: Telethon E2E Harness | all | focused Option 2 harness complete; full cross-stage flow later | 3/3 | current-version cursor, duplicate/stale, lexical/emoji, Done/.txt evidence | Validate future full-series click-through separately. |
 | Phase 15: VPS Deployment/Operations | all | Stage 3 controlled deploy gate proven; broader operations later | 3/3 | runtime OS/env identity, DB peer auth, zombie-aware single process, healthy worker tick | Approve broader production-like operations separately. |
@@ -63,11 +63,11 @@ State-machine resilience is risk-based: focused regression on every change; happ
 
 Phase 12 Option 2 has completed its technical gate. The accepted seven-segment run used one exact FORMAT_POST attempt with fallback disabled, delivered one current-version final on the first click, preserved 112 lexical units in order, added permitted ordinary emoji, and produced exactly one non-empty .txt after one Done click. The marker fixture was cleaned and the prior active project was restored.
 
-The category-only ledger is 47/50. Tuning gold #1 used exactly one Claude Sonnet/OpenRouter attempt with fallback disabled and no retry. Provider transport succeeded, but the adapter rejected the output before rendering, so no candidate, private diff, or model-quality score exists. The next slot is limited to one diagnostics-enabled correction against the same primary gold. `holdout_10` remains sealed; the final slot remains reserved for real-owner validation.
+The category-only ledger is 48/50. The diagnostics-enabled correction used exactly one additional Claude Sonnet/OpenRouter attempt with fallback disabled and no retry. Provider transport succeeded, but the semantic gate rejected an unknown primary segment ID. The provider and local parser now share the same request-specific segment-ID enum; no third primary call was made. No candidate, private diff, or model-quality score exists. `holdout_10` remains sealed; proceeding requires an explicit decision on one post-fix primary verification.
 
 The private Manus/CRYPTUS benchmark contains one primary gold, two training generalization examples, and one structurally distinct holdout. All four references round-trip reversibly, deformat idempotently, and preserve their lexical token sequences. The training leave-one-out floor is 0.6813 and the provisional weighted-style threshold is 0.65. Full reference text and readable diffs remain gitignored; committed evidence is content-free.
 
-The role-constrained production contract and seven-segment synthetic benchmark are green, but no model quality score exists because the first tuning attempt produced no accepted candidate. The runner now retains only allowlisted shape/semantic failure categories for a future bounded correction. The remaining gate is a successful primary candidate, untouched holdout backtesting, and owner 3/3 literary/product/UX judgement. The current technical result does not claim the Manus-style quality benchmark, all Stage 3 quality, or future changed paths are accepted.
+The role-constrained production contract and deterministic regression are green, but no model quality score exists because neither bounded primary attempt produced an accepted candidate. The second attempt proved that the provider schema admitted an ID outside the canonical set; the active provider/runtime schema now shares a dynamic ID enum and keeps semantic validation unchanged. The remaining gate is a successful primary candidate, untouched holdout backtesting, and owner 3/3 literary/product/UX judgement. The current technical result does not claim the Manus-style quality benchmark, all Stage 3 quality, or future changed paths are accepted.
 
 Owner review may now assess the preserved Option 2 result. Option 1 and any future changed or broader cross-stage path retain their own path-specific evidence requirements.
 
@@ -80,7 +80,7 @@ Historical regression: the P0 deployment persisted busy state before `GENERATE_D
 
 ## P0 Draft Delivery
 
-Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. Its historical Stage 2 bounded ledger closed at 15/15; the current cross-stage ledger is 47/50. The remaining Stage 2 gate is owner 3/3 acceptance.
+Tier 2 draft-generation delivery passed with one terminal draft result and cleanup. Its historical Stage 2 bounded ledger closed at 15/15; the current cross-stage ledger is 48/50. The remaining Stage 2 gate is owner 3/3 acceptance.
 
 ## Terminal-Path Evidence Register
 

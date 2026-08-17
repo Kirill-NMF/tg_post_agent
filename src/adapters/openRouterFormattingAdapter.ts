@@ -66,7 +66,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
           json_schema: {
             name: "tg_post_agent_option2_segment_plan",
             strict: true,
-            schema: option2SegmentPlanSchema
+            schema: buildOption2SegmentPlanSchema(segmentIds)
           }
         }
       });
@@ -285,7 +285,7 @@ const emojiInsertionSegmentSchema = {
   }
 } as const;
 
-export const option2SegmentPlanSchema: Record<string, unknown> = {
+const option2SegmentPlanSchemaBase: Record<string, unknown> = {
   type: "object",
   additionalProperties: false,
   required: ["primaryEmoji", "operations"],
@@ -306,6 +306,18 @@ export const option2SegmentPlanSchema: Record<string, unknown> = {
     }
   }
 };
+
+export function buildOption2SegmentPlanSchema(segmentIds?: readonly string[]): Record<string, unknown> {
+  const schema = structuredClone(option2SegmentPlanSchemaBase) as Record<string, unknown>;
+  if (segmentIds === undefined) return schema;
+  if (segmentIds.length === 0 || segmentIds.some((id) => !/^block_[1-9][0-9]*$/.test(id)) || new Set(segmentIds).size !== segmentIds.length) {
+    throw new FormattingPlanValidationError("FORMAT_SEGMENT_ID_INVALID");
+  }
+  constrainSegmentIdSchemas(schema, segmentIds);
+  return schema;
+}
+
+export const option2SegmentPlanSchema: Record<string, unknown> = buildOption2SegmentPlanSchema();
 
 type Option2SegmentPlanDocument = {
   primaryEmoji: Extract<Option2SegmentDirective, { kind: "emoji_insertion" }>;
@@ -342,8 +354,10 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
   } catch {
     throw new FormattingPlanValidationError("FORMAT_PLAN_JSON_INVALID", emptyRejectedPlanDiagnostics(responseByteLengthBucket, "json"));
   }
-  if (!validateOption2SegmentPlanShape(parsed)) {
-    const failure = locateSchemaFailure(validateOption2SegmentPlanShape.errors);
+  const validateActiveShape = new Ajv({ allErrors: true, strict: true })
+    .compile<Option2SegmentPlanDocument>(buildOption2SegmentPlanSchema(segments.map((segment) => segment.id)));
+  if (!validateActiveShape(parsed)) {
+    const failure = locateSchemaFailure(validateActiveShape.errors);
     throw new FormattingPlanValidationError(
       "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID",
       rejectedPlanDiagnostics(responseByteLengthBucket, parsed, failure.index, "shape", failure.location)
@@ -391,6 +405,21 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
   if (semanticAccentCount > semanticBudget) throw new FormattingPlanValidationError("FORMAT_OPTION2_SEMANTIC_ACCENT_DENSITY_EXCEEDED", rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic"));
   validateRequiredRoleContract(directives, segments, responseByteLengthBucket, parsed);
   return directives;
+}
+
+function constrainSegmentIdSchemas(value: unknown, segmentIds: readonly string[]): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) constrainSegmentIdSchemas(item, segmentIds);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  const properties = record.properties;
+  if (properties && typeof properties === "object" && !Array.isArray(properties)) {
+    const propertyRecord = properties as Record<string, unknown>;
+    if (propertyRecord.id !== undefined) propertyRecord.id = { type: "string", enum: [...segmentIds] };
+  }
+  for (const child of Object.values(record)) constrainSegmentIdSchemas(child, segmentIds);
 }
 
 function emptyRejectedPlanDiagnostics(

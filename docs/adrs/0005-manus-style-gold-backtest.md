@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 
-Status: offline evaluator and role-constrained Option 2 contract implemented; first provider tuning attempt reached fail-closed adapter validation without a candidate
+Status: offline evaluator and role-constrained Option 2 contract implemented; two bounded primary attempts failed closed before candidate rendering, with the second root-caused and fixed offline
 
 ## Context
 
@@ -70,6 +70,14 @@ The primary-gold call used the configured Claude Sonnet OpenRouter route once wi
 The original runner used a no-op adapter logger, so the safe shape-versus-semantic subcategory was not retained. That observability defect is now guarded by a category-only collector that allowlists boundary, validation code, response metadata buckets, operation count/index/kind categories, field-presence mask, and emoji-directive presence. It excludes model output, segment IDs/text, prompts, provider payloads, project identifiers, and credentials. This is a no-call harness correction, not a formatting behavior change.
 
 The ledger is 47/50. The next permitted operation is at most one evidence-led correction run against the same primary gold, now with safe adapter diagnostics. `holdout_10` remains sealed and must not be read or run until a primary candidate passes the tuning threshold. No retry or fallback is part of this plan.
+
+## Diagnostics-enabled correction result
+
+The single correction call also reached provider transport success with no retry or fallback. The shared generic JSON shape accepted the response, then the semantic allowlist rejected the required primary emoji directive with `FORMAT_SEGMENT_ID_INVALID`. Safe diagnostics located the failure at `primary_emoji`, classified it as `emoji_insertion`, recorded seven additional operations and confirmed an emoji directive without retaining any values.
+
+The deterministic root cause was schema precision: every operation ID was only `type: string` in the provider schema, while the runtime alone knew the current canonical segment IDs. The active schema is now built from the request's canonical IDs and gives every operation branch the same exact ID enum. The provider request and local Ajv parser compile that same dynamic schema source; the unchanged semantic allowlist remains a second fail-closed gate. Synthetic regression reproduces the observed seven-operation response and rejects its unknown primary ID at shape validation.
+
+The ledger is 48/50. No candidate, readable diff, hard-gate result, or style score exists from either primary attempt. A third primary call is not authorized by this slice, and `holdout_10` remains sealed because primary tuning has not passed. The next action is an explicit coordinator/owner decision whether to repurpose one remaining slot for one post-fix primary verification before any holdout run.
 
 ## Consequences
 

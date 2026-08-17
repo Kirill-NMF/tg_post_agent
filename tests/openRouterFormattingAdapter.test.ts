@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient, type FormattingInteractionRequest } from "../src/adapters/openRouterFormattingAdapter.js";
+import { FormattingPlanValidationError, OpenRouterFormattingAdapter, buildOption2SegmentPlanSchema, buildOption2SegmentPrompt, option2SegmentPlanSchema, parseFormattingPlan, parseOption2SegmentPlan, type FormattingInteractionClient, type FormattingInteractionRequest } from "../src/adapters/openRouterFormattingAdapter.js";
 import { ProviderRequestError, ProviderResponseError } from "../src/adapters/providerErrors.js";
 import { isOrdinaryEmoji } from "../src/domain/emoji.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
@@ -66,9 +66,18 @@ describe("OpenRouterFormattingAdapter", () => {
       json_schema: { name: "tg_post_agent_option2_segment_plan", strict: true }
     });
     expect(JSON.stringify(request.response_format)).toContain("\"additionalProperties\":false");
+    expect(JSON.stringify(request.response_format)).toContain("\"enum\":[\"block_1\"]");
     expect(request.stream).toBe(false);
     expect(request.provider).toMatchObject({ require_parameters: true });
     expect(request.plugins).toEqual([{ id: "response-healing" }]);
+  });
+
+  it("builds one shared provider/runtime schema with an exact segment ID allowlist", () => {
+    const schema = buildOption2SegmentPlanSchema(["block_1", "block_2"]);
+    const serialized = JSON.stringify(schema);
+
+    expect(serialized).toContain("\"enum\":[\"block_1\",\"block_2\"]");
+    expect(serialized).not.toContain("block_9");
   });
 
   it.each(["prose instead of JSON", "```json\n{\"operations\":[]}\n```"])("rejects non-JSON Option 2 provider output", async (output) => {
@@ -87,7 +96,7 @@ describe("OpenRouterFormattingAdapter", () => {
   });
 
   it.each([
-    [JSON.stringify({ primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [] }), "FORMAT_SEGMENT_ID_INVALID"],
+    [JSON.stringify({ primaryEmoji: { id: "block_9", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
     [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", anchor: { text: "source", occurrence: 0 } }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
     [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "paragraph_break", position: "after", text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"],
     [JSON.stringify({ primaryEmoji: { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "\u{1F4DC}" }, operations: [{ id: "block_1", kind: "markdown_span", style: "bold", replacement_text: "source" }] }), "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID"]
