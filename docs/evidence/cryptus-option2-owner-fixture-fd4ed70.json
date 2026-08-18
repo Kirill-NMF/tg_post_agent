@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "implementationCommit": "fd4ed70",
+  "promptVersion": "cryptus_media_option2_v1",
+  "routeCategory": "openrouter_anthropic",
+  "modelCategory": "claude_sonnet",
+  "providerAttemptCount": 1,
+  "retryCount": 0,
+  "fallbackUsed": false,
+  "maxAttempts": 1,
+  "providerDurationMs": 15204,
+  "terminalCategory": "FORMAT_OPTION2_EMOJI_ROLE_INVALID",
+  "explicitContractPassed": false,
+  "privateCandidateWritten": true,
+  "rules": {
+    "titleValid": true,
+    "markdownHeadingAbsent": true,
+    "italicAbsent": true,
+    "allowedEmojiOnly": true,
+    "emojiRoleValid": false,
+    "emojiRoleFailureCategories": [
+      "allowed_emoji_not_leading",
+      "cta_not_bold"
+    ],
+    "lexicalAndPunctuationExact": true,
+    "comparisonListValid": false,
+    "finalQuestionValid": false,
+    "wrapperAbsent": true
+  },
+  "deliveryAttempted": false,
+  "ledgerSpent": 56,
+  "ledgerCap": 60,
+  "ownerCheckpoint": "inspect_private_candidate_and_decide_prompt_or_provider_followup"
+}
