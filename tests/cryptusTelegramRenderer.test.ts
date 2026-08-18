@@ -14,7 +14,7 @@ function configuration(): CustomEmojiConfiguration {
 
 describe("renderCryptusTelegramText", () => {
   it("accepts bold markup emitted by the source-backed Option 2 renderer", () => {
-    const canonicalDraft = "Главный заголовок\n\nОбычный абзац.";
+    const canonicalDraft = "**Главный заголовок**\n\nОбычный абзац.";
     const segments = deriveCanonicalSegments(canonicalDraft);
     const formatted = applySegmentFormattingPlan(canonicalDraft, "option_2", [
       { id: "block_1", kind: "markdown_span", style: "bold" },

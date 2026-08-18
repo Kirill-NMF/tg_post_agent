@@ -371,6 +371,8 @@ function buildSegmentInsertions(segments: readonly CanonicalFormattingSegment[],
     const sourceIndex = (index: number) => index + transforms.reduce((delta, transform) => transform.sourceEnd <= index ? delta + transform.transformedText.length - transform.originalText.length : delta, 0);
     if (operation.kind === "markdown_span") {
       const marker = operation.style === "bold" ? "**" : "`";
+      const trimmed = segment.text.trim();
+      if (trimmed.startsWith(marker) && trimmed.endsWith(marker) && trimmed.length > marker.length * 2) continue;
       insertions.push({ sourceIndex: sourceIndex(segment.start), text: marker, category: "markdown_open" }, { sourceIndex: sourceIndex(segment.end), text: marker, category: "markdown_close" });
     } else if (operation.kind === "paragraph_break") {
       insertions.push({ sourceIndex: sourceIndex(operation.position === "before" ? segment.start : segment.end), text: "\n\n", category: "paragraph_break", position: operation.position });
