@@ -68,7 +68,7 @@ export class CustomEmojiSetupService {
       if (!isValidCustomEmojiRoleAlt(role, item.alt)) {
         return this.record(failure("EMOJI_SETUP_ALT_INVALID", `Неверный символ для роли ${roleLabel(role)}. Пришлите шесть эмодзи в указанном порядке.`), evidence);
       }
-      mappings.push({ role, customEmojiId: item.customEmojiId, alt: item.alt, setName: sticker.set_name });
+      mappings.push({ role, customEmojiId: item.customEmojiId, alt: sticker.emoji, setName: sticker.set_name });
     }
     if (new Set(mappings.map((item) => item.customEmojiId)).size !== mappings.length) {
       return this.record(failure("EMOJI_SETUP_DUPLICATE_ENTITY", "Каждая из шести ролей должна содержать отдельный custom emoji."), evidence);

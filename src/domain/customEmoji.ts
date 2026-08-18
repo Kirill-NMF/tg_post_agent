@@ -21,17 +21,8 @@ export type CustomEmojiConfiguration = {
   updatedAt: Date;
 };
 
-const fixedRoleAlts: Partial<Record<CustomEmojiRole, readonly string[]>> = {
-  post_title: ["📜"],
-  section_title: ["⏸", "⏸️"],
-  list_item: ["🟠"],
-  copy_block: ["🔅"],
-  cta: ["🔥"]
-};
-
-export function isValidCustomEmojiRoleAlt(role: CustomEmojiRole, alt: string): boolean {
-  const fixed = fixedRoleAlts[role];
-  return fixed ? fixed.includes(alt) : role === "audience_question" && isOrdinaryEmoji(alt);
+export function isValidCustomEmojiRoleAlt(_role: CustomEmojiRole, alt: string): boolean {
+  return alt.length > 0 && alt.length <= 16 && alt.trim() === alt && !/\s/u.test(alt);
 }
 
 export function validateCompleteCustomEmojiMappings(value: unknown): CustomEmojiMapping[] | undefined {
@@ -54,4 +45,3 @@ export function validateCompleteCustomEmojiMappings(value: unknown): CustomEmoji
   if (new Set(mappings.map((item) => item.customEmojiId)).size !== mappings.length) return undefined;
   return mappings;
 }
-import { isOrdinaryEmoji } from "./emoji.js";

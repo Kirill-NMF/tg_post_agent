@@ -33,13 +33,21 @@ describe("renderCryptusTelegramText", () => {
     expect(rendered.usedCustomEmoji).toBe(false);
   });
 
-  it("fails closed to Unicode when a persisted mapping has an invalid fixed-role alt", () => {
-    const invalid = configuration();
-    invalid.mappings[0] = { ...invalid.mappings[0]!, alt: "🔴" };
-    const rendered = renderCryptusTelegramText("📜 **Заголовок**", invalid);
+  it("replaces every canonical role marker with its positional mapping actual alt", () => {
+    const arbitrary = configuration();
+    const actualAlts = ["🧾", "⏯️", "🔘", "💡", "▶️", "🟰"];
+    arbitrary.mappings = arbitrary.mappings.map((mapping, index) => ({ ...mapping, alt: actualAlts[index]! }));
+    const canonical = "📜 **Заголовок**\n⏸️ **СЕКЦИЯ**\n🟠 **Пункт**\n🔅 `код`\n🔥 **CTA**\n➡️ **Вопрос?**";
 
-    expect(rendered.text).toBe("📜 Заголовок");
-    expect(rendered.usedCustomEmoji).toBe(false);
+    const rendered = renderCryptusTelegramText(canonical, arbitrary);
+
+    expect(rendered.text).toBe("🧾 Заголовок\n⏯️ СЕКЦИЯ\n🔘 Пункт\n💡 код\n▶️ CTA\n🟰 Вопрос?");
+    expect(rendered.entities.filter((entity) => entity.type === "custom_emoji")).toHaveLength(6);
+    expect(rendered.entities.filter((entity) => entity.type === "custom_emoji").map((entity) => entity.length)).toEqual(
+      actualAlts.map((alt) => alt.length)
+    );
+    expect(rendered.usedCustomEmoji).toBe(true);
+    expect(canonical).toBe("📜 **Заголовок**\n⏸️ **СЕКЦИЯ**\n🟠 **Пункт**\n🔅 `код`\n🔥 **CTA**\n➡️ **Вопрос?**");
   });
 
   it("preserves VS16/surrogate lengths and never places a custom entity inside code", () => {

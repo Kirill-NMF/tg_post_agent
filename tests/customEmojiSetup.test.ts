@@ -81,23 +81,38 @@ describe("CustomEmojiSetupService", () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
-  it("validates fixed role alts while accepting a CTA emoji from another pack", async () => {
+  it("assigns all six roles positionally and persists each sticker actual alt", async () => {
     const repository = new InMemoryCustomEmojiRepository();
     const service = new CustomEmojiSetupService({ ownerTelegramId: ownerId, repository });
+    const actualAlts = ["🧾", "⏯️", "🔘", "💡", "▶️", "🟰"];
+    const actualCommand = `/emoji_setup ${actualAlts.join(" ")}`;
+    let offset = "/emoji_setup ".length;
+    const actualEntities: IncomingTelegramEntity[] = [{ type: "bot_command", offset: 0, length: "/emoji_setup".length }];
+    for (let index = 0; index < actualAlts.length; index += 1) {
+      const alt = actualAlts[index]!;
+      actualEntities.push({ type: "custom_emoji", offset, length: alt.length, custom_emoji_id: String(1001 + index) });
+      offset += alt.length + (index === actualAlts.length - 1 ? 0 : 1);
+    }
+    const resolved = actualAlts.map((emoji, index) => ({
+      type: "custom_emoji" as const,
+      custom_emoji_id: String(1001 + index),
+      emoji,
+      set_name: `owner_pack_${index + 1}`
+    }));
 
     const result = await service.configure(
-      { telegramUserId: ownerId, text: command, entities: entities() },
-      vi.fn().mockResolvedValue(stickers())
+      { telegramUserId: ownerId, text: actualCommand, entities: actualEntities },
+      vi.fn().mockResolvedValue(resolved)
     );
 
     expect(result).toMatchObject({ ok: true, code: "EMOJI_SETUP_SAVED" });
     expect((await repository.get())?.mappings.map((mapping) => [mapping.role, mapping.alt, mapping.setName])).toEqual([
-      ["post_title", "📜", "CRYPTUSinstrument"],
-      ["section_title", "⏸️", "CRYPTUSinstrument"],
-      ["list_item", "🟠", "CRYPTUSinstrument"],
-      ["copy_block", "🔅", "CRYPTUSinstrument"],
-      ["cta", "🔥", "owner_cta_pack"],
-      ["audience_question", "🟰", "CRYPTUSinstrument"]
+      ["post_title", "🧾", "owner_pack_1"],
+      ["section_title", "⏯️", "owner_pack_2"],
+      ["list_item", "🔘", "owner_pack_3"],
+      ["copy_block", "💡", "owner_pack_4"],
+      ["cta", "▶️", "owner_pack_5"],
+      ["audience_question", "🟰", "owner_pack_6"]
     ]);
   });
 
