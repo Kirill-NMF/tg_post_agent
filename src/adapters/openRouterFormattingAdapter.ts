@@ -3,7 +3,7 @@ import type { ModelAdapters } from "../domain/modelContracts.js";
 import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDecorationPlan, type SegmentFormattingOperation } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
 import { isOrdinaryEmoji } from "../domain/emoji.js";
-import { CRYPTUS_OPTION2_PROMPT_VERSION, buildCryptusOption2Prompt, validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
+import { CRYPTUS_OPTION2_PROMPT_VERSION, buildCryptusOption2Prompt, canonicalizeCryptusOption2LexicalSurface, classifyCryptusOption2LexicalMismatch, validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
 import type { OpenRouterInteractionRequest } from "./openRouterInteractionClient.js";
@@ -64,10 +64,23 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
       if (typeof interaction.output_text !== "string") {
         return failure("FORMAT_OPTION2_OUTPUT_INVALID", "Formatting provider output was missing text.", false);
       }
-      const validation = validateCryptusOption2Candidate(params.draftText, interaction.output_text);
+      let formattedText = interaction.output_text;
+      let validation = validateCryptusOption2Candidate(params.draftText, formattedText);
+      if (!validation.ok && validation.code === "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED") {
+        const repaired = canonicalizeCryptusOption2LexicalSurface(params.draftText, formattedText);
+        const repairedValidation = validateCryptusOption2Candidate(params.draftText, repaired);
+        if (repaired !== formattedText && repairedValidation.ok) {
+          formattedText = repaired;
+          validation = repairedValidation;
+          logger.info(
+            { event: "formatting_option2_lexical_surface_repaired", projectId: params.projectId, repairCategory: "canonical_case_and_punctuation" },
+            "formatting Option 2 lexical surface repaired"
+          );
+        }
+      }
       if (!validation.ok) {
         logger.warn(
-          { event: "formatting_option2_final_text_failed", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION, failureBoundary: "validation", validationCode: validation.code },
+          { event: "formatting_option2_final_text_failed", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION, failureBoundary: "validation", validationCode: validation.code, lexicalMismatchCategory: validation.code === "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED" ? classifyCryptusOption2LexicalMismatch(params.draftText, formattedText) : "not_applicable" },
           "formatting Option 2 final text failed"
         );
         return failure(validation.code, "Formatting provider output failed the CRYPTUS_MEDIA contract.", false);
@@ -76,7 +89,7 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
         { event: "formatting_option2_final_text_validated", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION },
         "formatting Option 2 final text validated"
       );
-      return { ok: true, value: { formattedText: interaction.output_text }, meta: { provider: "openrouter", modelLabel: this.input.model } };
+      return { ok: true, value: { formattedText }, meta: { provider: "openrouter", modelLabel: this.input.model } };
     } catch (error) {
       logger.warn(
         { event: "formatting_option2_final_text_failed", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION, failureBoundary: failureBoundary(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },

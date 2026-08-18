@@ -49,6 +49,23 @@ describe("OpenRouterFormattingAdapter", () => {
     expect(JSON.stringify(logger.entries)).not.toContain("Заголовок");
   });
 
+  it("repairs only case and punctuation drift before returning the final text", async () => {
+    const logger = new CapturingLogger();
+    const adapter = new OpenRouterFormattingAdapter({
+      client: capturingClient("📜 **ЗАГОЛОВОК**\n\nТЕКСТ; СОХРАНЯЕТСЯ.\n\n➡️ **ПОЧЕМУ?**"),
+      model: "owner-selected-format-model",
+      logger,
+    });
+    await expect(adapter.formatOption2FinalText({
+      projectId: "project-1",
+      draftText: "Заголовок\n\nТекст, сохраняется.\n\nПочему?",
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { formattedText: "📜 **Заголовок**\n\nТекст, сохраняется.\n\n➡️ **Почему?**" },
+    });
+    expect(logger.entries.some((entry) => entry.fields.event === "formatting_option2_lexical_surface_repaired")).toBe(true);
+  });
+
   it("maps a strict decoration plan and preserves the canonical draft", async () => {
     const client = capturingClient(JSON.stringify({
       option: "option_2",

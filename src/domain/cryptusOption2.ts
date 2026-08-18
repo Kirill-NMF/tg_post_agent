@@ -85,6 +85,68 @@ export function deformatCryptusOption2(value: string, source = false): string {
     .trim();
 }
 
+type CanonicalSurfaceToken = { kind: "word" | "punctuation"; value: string };
+const candidateSurfacePattern = /\*\*|`|📜|⏸️?|🟠|🔅|🔥|➡️?|[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*|[^\p{L}\p{N}\s]|\s+/gu;
+
+export type CryptusLexicalMismatchCategory = "none" | "token_count" | "token_kind" | "word_value" | "case_or_punctuation";
+
+export function classifyCryptusOption2LexicalMismatch(draft: string, candidate: string): CryptusLexicalMismatchCategory {
+  const source = canonicalSourceTokens(draft);
+  const target = candidateSurfaceTokens(candidate).filter((token) => token.kind !== "decoration" && token.kind !== "whitespace");
+  if (source.length !== target.length) return "token_count";
+  let surfaceDrift = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const sourceToken = source[index]!;
+    const targetToken = target[index]!;
+    if (sourceToken.kind !== targetToken.kind) return "token_kind";
+    if (sourceToken.kind === "word") {
+      if (sourceToken.value.toLocaleLowerCase("ru") !== targetToken.value.toLocaleLowerCase("ru")) return "word_value";
+      if (sourceToken.value !== targetToken.value) surfaceDrift = true;
+    } else if (sourceToken.value !== targetToken.value) {
+      surfaceDrift = true;
+    }
+  }
+  return surfaceDrift ? "case_or_punctuation" : "none";
+}
+
+export function canonicalizeCryptusOption2LexicalSurface(draft: string, candidate: string): string {
+  const source = canonicalSourceTokens(draft);
+  const target = candidateSurfaceTokens(candidate);
+  const lexical = target.filter((token) => token.kind !== "decoration" && token.kind !== "whitespace");
+  if (source.length !== lexical.length) return candidate;
+  for (let index = 0; index < source.length; index += 1) {
+    const sourceToken = source[index]!;
+    const targetToken = lexical[index]!;
+    if (sourceToken.kind !== targetToken.kind) return candidate;
+    if (sourceToken.kind === "word" && sourceToken.value.toLocaleLowerCase("ru") !== targetToken.value.toLocaleLowerCase("ru")) return candidate;
+  }
+  let lexicalIndex = 0;
+  return target.map((token) => {
+    if (token.kind === "decoration" || token.kind === "whitespace") return token.value;
+    const sourceToken = source[lexicalIndex++]!;
+    if (sourceToken.kind === "word" && token.sectionHeading) return sourceToken.value.toLocaleUpperCase("ru");
+    return sourceToken.value;
+  }).join("");
+}
+
+function canonicalSourceTokens(draft: string): CanonicalSurfaceToken[] {
+  return surfaceTokens(deformatCryptusOption2(draft, true)).map((value) => ({
+    kind: /^[\p{L}\p{N}]/u.test(value) ? "word" : "punctuation",
+    value,
+  }));
+}
+
+function candidateSurfaceTokens(candidate: string): Array<CanonicalSurfaceToken & { sectionHeading: boolean } | { kind: "decoration" | "whitespace"; value: string; sectionHeading: boolean }> {
+  return [...candidate.matchAll(candidateSurfacePattern)].map((match) => {
+    const value = match[0];
+    const lineStart = candidate.lastIndexOf("\n", match.index ?? 0) + 1;
+    const sectionHeading = /^\s*⏸️?/u.test(candidate.slice(lineStart, match.index ?? 0));
+    if (/^\s+$/u.test(value)) return { kind: "whitespace", value, sectionHeading };
+    if (value === "**" || value === backtick || allowedEmoji.has(value)) return { kind: "decoration", value, sectionHeading };
+    return { kind: /^[\p{L}\p{N}]/u.test(value) ? "word" : "punctuation", value, sectionHeading };
+  });
+}
+
 function stripCryptusDecorations(value: string, source: boolean): string {
   const withoutSourceAnchors = source
     ? value

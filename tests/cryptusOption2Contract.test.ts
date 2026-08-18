@@ -3,6 +3,7 @@ import {
   CRYPTUS_OPTION2_PROMPT_VERSION,
   buildCryptusOption2Prompt,
   validateCryptusOption2Candidate,
+  canonicalizeCryptusOption2LexicalSurface,
 } from "../src/domain/cryptusOption2.js";
 
 const ownerAcceptanceDraft = `### Ваша личная деревня «крепостных» для контента
@@ -196,6 +197,48 @@ describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
     });
   });
 
+  it("repairs case and punctuation drift without changing word order or formatting roles", () => {
+    const source = `Главный заголовок
+
+Текст, здесь сохраняется.
+
+Раздел о практике
+
+Обычный абзац сохраняется.
+
+Почему это важно?`;
+    const candidate = `📜 **ГЛАВНЫЙ ЗАГОЛОВОК**
+
+ТЕКСТ; ЗДЕСЬ СОХРАНЯЕТСЯ.
+
+⏸️ **РАЗДЕЛ О ПРАКТИКЕ**
+
+ОБЫЧНЫЙ АБЗАЦ СОХРАНЯЕТСЯ.
+
+➡️ **ПОЧЕМУ ЭТО ВАЖНО?**`;
+    const repaired = canonicalizeCryptusOption2LexicalSurface(source, candidate);
+    expect(repaired).toBe(`📜 **Главный заголовок**
+
+Текст, здесь сохраняется.
+
+⏸️ **РАЗДЕЛ О ПРАКТИКЕ**
+
+Обычный абзац сохраняется.
+
+➡️ **Почему это важно?**`);
+    expect(validateCryptusOption2Candidate(source, repaired)).toMatchObject({
+      ok: true,
+      lexicalSequenceExact: true,
+      punctuationPreserved: true,
+    });
+  });
+
+  it("never repairs added, removed, or changed words", () => {
+    const source = "Заголовок\n\nТекст сохраняется.\n\nПочему?";
+    const changed = "📜 **Заголовок**\n\nДругой текст сохраняется.\n\n➡️ **Почему?**";
+    expect(canonicalizeCryptusOption2LexicalSurface(source, changed)).toBe(changed);
+    expect(validateCryptusOption2Candidate(source, changed)).toEqual({ ok: false, code: "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED" });
+  });
   it.each([
     ["missing scroll title", validOwnerCandidate.replace("📜 ", ""), "FORMAT_OPTION2_TITLE_INVALID"],
     ["remaining heading marker", validOwnerCandidate.replace("📜 **", "📜 **### "), "FORMAT_OPTION2_MARKDOWN_HEADING_FORBIDDEN"],
