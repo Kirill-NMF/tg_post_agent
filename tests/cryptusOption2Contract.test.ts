@@ -29,15 +29,34 @@ const validOwnerCandidate = `📜 **Ваша личная деревня «кр�
 
 ➡️ **Почему бы этим не воспользоваться?**`;
 
+const validOwnerCandidateWithoutOptionalCta = validOwnerCandidate.replace(
+  "🔥 **Контент можно делать просто жирнющий, в разы быстрее и дешевле.**",
+  "Контент можно делать просто жирнющий, в разы быстрее и дешевле."
+);
+
 describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
   it("stores one versioned fixed prompt and appends the draft under the POST delimiter", () => {
     const prompt = buildCryptusOption2Prompt("Черновик.");
 
-    expect(CRYPTUS_OPTION2_PROMPT_VERSION).toBe("cryptus_media_option2_v1");
+    expect(CRYPTUS_OPTION2_PROMPT_VERSION).toBe("cryptus_media_option2_v2");
     expect(prompt).toContain("Правила форматирования (Опция 2: CRYPTUS_MEDIA)");
     expect(prompt).toContain("Курсив запрещён.");
+    expect(prompt).toContain("Раньше:");
+    expect(prompt).toContain("Сейчас:");
+    expect(prompt).toContain("использовать только ➡️");
+    expect(prompt).toContain("не добавлять 🔥");
     expect(prompt).toContain("Не добавлять другие эмодзи, Markdown-заголовки (#/##/###)");
     expect(prompt.endsWith('POST:\n"""\nЧерновик.\n"""')).toBe(true);
+  });
+
+  it("accepts the owner-equivalent form without inventing an optional CTA role", () => {
+    expect(validateCryptusOption2Candidate(ownerAcceptanceDraft, validOwnerCandidateWithoutOptionalCta)).toMatchObject({
+      ok: true,
+      lexicalSequenceExact: true,
+      punctuationPreserved: true,
+      comparisonListValid: true,
+      finalQuestionValid: true,
+    });
   });
 
   it("accepts the owner fixture with bold scroll title, comparison anchors, and final arrow question", () => {
@@ -88,6 +107,9 @@ describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
     ["reordered source words", validOwnerCandidate.replace("5 дней работы", "работы 5 дней"), "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED"],
     ["comment outside post", validOwnerCandidate + "\nГотово.", "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED"],
     ["comparison without orange anchors", validOwnerCandidate.replaceAll("🟠 ", ""), "FORMAT_OPTION2_COMPARISON_LIST_INVALID"],
+    ["comparison value with extra bold", validOwnerCandidate.replace("**Раньше:** 5 дней", "**Раньше:** **5 дней**"), "FORMAT_OPTION2_COMPARISON_LIST_INVALID"],
+    ["combined CTA and direct-question roles", validOwnerCandidate.replace("➡️ **Почему", "🔥 ➡️ **Почему"), "FORMAT_OPTION2_TERMINAL_ROLE_CONFLICT"],
+    ["combined terminal roles across bold delimiter", validOwnerCandidate.replace("➡️ **Почему", "🔥 **➡️ Почему"), "FORMAT_OPTION2_TERMINAL_ROLE_CONFLICT"],
     ["question without arrow", validOwnerCandidate.replace("➡️ ", ""), "FORMAT_OPTION2_FINAL_QUESTION_INVALID"],
   ])("rejects %s", (_label, candidate, code) => {
     expect(validateCryptusOption2Candidate(ownerAcceptanceDraft, candidate)).toEqual({ ok: false, code });

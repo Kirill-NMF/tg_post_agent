@@ -1,7 +1,7 @@
 import { deriveCanonicalSegments } from "./formatting.js";
 import { isOrdinaryEmoji } from "./emoji.js";
 
-export const CRYPTUS_OPTION2_PROMPT_VERSION = "cryptus_media_option2_v1";
+export const CRYPTUS_OPTION2_PROMPT_VERSION = "cryptus_media_option2_v2";
 
 const backtick = String.fromCharCode(96);
 const fixedPrompt = [
@@ -13,11 +13,12 @@ const fixedPrompt = [
   "1. Начало поста: добавить эмодзи 📜 и выделить заголовок поста жирным шрифтом.",
   "2. Заголовки секций: начинать каждый заголовок секции с эмодзи ⏸️ и выделять его жирным шрифтом, используя КАПСЛОК.",
   "3. Списки: заменить маркеры списков (-, *, нумерацию) на эмодзи 🟠. Первое слово или фразу в пункте выделить жирным.",
+  "3.1. Парные сравнения с метками, например «Раньше:» / «Сейчас:», разделять на две отдельные строки: каждая строка начинается с 🟠, жирным выделяется только метка вместе с двоеточием. Слова, пунктуацию и порядок не менять.",
   "4. Копируемый контент: примеры фраз, код, URL и промпты, предназначенные для копирования, заключать в моноширинный шрифт и предварять эмодзи 🔅.",
   "5. Ключевые слова: выделять только жирным шрифтом.",
   "6. Курсив запрещён.",
-  "7. Финальный CTA: добавить 🔥 и выделить CTA жирным.",
-  "8. Прямой вопрос к аудитории в конце: добавить ➡️ и выделить вопрос жирным.",
+  "7. Финальный CTA, который не является вопросом: добавить 🔥 и выделить CTA жирным.",
+  "8. Прямой вопрос к аудитории в конце: использовать только ➡️ и выделить вопрос жирным; не добавлять 🔥 к вопросу и не объединять роли 🔥 и ➡️ в одной строке.",
   "9. Обычный текст оставлять обычным.",
   "10. Оригинальный текст сохранить без изменений и перефразирования. Разрешено только добавить Telegram-разметку, разрешённые эмодзи и изменить разбиение на абзацы; КАПСЛОК допустим только для заголовков секций.",
   "11. Не добавлять другие эмодзи, Markdown-заголовки (#/##/###), комментарии или пояснения.",
@@ -58,6 +59,7 @@ export function validateCryptusOption2Candidate(draft: string, candidate: string
     return invalid("FORMAT_OPTION2_MARKDOWN_INVALID");
   }
   if (emojiTokens(candidate).some((emoji) => !allowedEmoji.has(emoji))) return invalid("FORMAT_OPTION2_EMOJI_FORBIDDEN");
+  if (hasTerminalRoleConflict(lines)) return invalid("FORMAT_OPTION2_TERMINAL_ROLE_CONFLICT");
   if (!validateEmojiRoles(lines)) return invalid("FORMAT_OPTION2_EMOJI_ROLE_INVALID");
   if (!validateLexicalSurface(draft, candidate)) return invalid("FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED");
   if (!validateComparisonList(draft, lines)) return invalid("FORMAT_OPTION2_COMPARISON_LIST_INVALID");
@@ -145,6 +147,21 @@ function validateEmojiRoles(lines: readonly string[]): boolean {
   return scrollCount === 1;
 }
 
+function hasTerminalRoleConflict(lines: readonly string[]): boolean {
+  return lines.some((line) => {
+    const prefixRoles: string[] = [];
+    for (const { segment } of graphemeSegmenter.segment(line.trim())) {
+      if (segment === "🔥" || segment === "➡" || segment === "➡️") {
+        prefixRoles.push(segment);
+        continue;
+      }
+      if (/^\s+$/u.test(segment) || segment === "*") continue;
+      break;
+    }
+    return prefixRoles.includes("🔥") && prefixRoles.some((role) => role === "➡" || role === "➡️");
+  });
+}
+
 function leadingAllowedEmoji(value: string): string | undefined {
   return [...graphemeSegmenter.segment(value)].map(({ segment }) => segment).find((segment, index) => index === 0 && allowedEmoji.has(segment));
 }
@@ -158,9 +175,11 @@ function isBoldUppercaseLine(value: string): boolean {
 
 function validateComparisonList(draft: string, lines: readonly string[]): boolean {
   if (!/Раньше:/u.test(draft) || !/Сейчас:/u.test(draft)) return true;
-  return ["Раньше:", "Сейчас:"].every((label) =>
-    lines.some((line) => new RegExp("^\\s*🟠\\s+\\*\\*" + label + "\\*\\*", "u").test(line))
-  );
+  return ["Раньше:", "Сейчас:"].every((label) => lines.some((line) => {
+    const match = new RegExp("^\\s*🟠\\s+\\*\\*" + label + "\\*\\*(.*)$", "u").exec(line);
+    if (!match) return false;
+    return !match[1]!.includes("**");
+  }));
 }
 
 function validateFinalQuestion(draft: string, candidateNonEmptyLines: readonly string[]): boolean {

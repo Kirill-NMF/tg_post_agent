@@ -3,7 +3,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { OpenRouterFormattingAdapter } from "../../dist/src/adapters/openRouterFormattingAdapter.js";
 import { createOpenRouterInteractionClient } from "../../dist/src/adapters/openRouterInteractionClient.js";
-import { validateCryptusOption2Candidate } from "../../dist/src/domain/cryptusOption2.js";
+import { CRYPTUS_OPTION2_PROMPT_VERSION, validateCryptusOption2Candidate } from "../../dist/src/domain/cryptusOption2.js";
 import {
   appendLedgerEvent,
   atomicPrivateWrite,
@@ -140,7 +140,7 @@ async function main() {
       maxAttempts: 1,
       routeCategory: "openrouter_anthropic",
       modelCategory: "claude_sonnet",
-      promptVersion: "cryptus_media_option2_v1",
+      promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION,
       candidateFingerprint: fingerprint(result.value.formattedText),
     };
   } catch (error) {
