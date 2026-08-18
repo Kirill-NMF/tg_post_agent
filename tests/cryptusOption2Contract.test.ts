@@ -38,11 +38,12 @@ describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
   it("stores one versioned fixed prompt and appends the draft under the POST delimiter", () => {
     const prompt = buildCryptusOption2Prompt("Черновик.");
 
-    expect(CRYPTUS_OPTION2_PROMPT_VERSION).toBe("cryptus_media_option2_v2");
+    expect(CRYPTUS_OPTION2_PROMPT_VERSION).toBe("cryptus_media_option2_v3");
     expect(prompt).toContain("Правила форматирования (Опция 2: CRYPTUS_MEDIA)");
     expect(prompt).toContain("Курсив запрещён.");
     expect(prompt).toContain("Раньше:");
     expect(prompt).toContain("Сейчас:");
+    expect(prompt).toContain("(-, *, •, нумерацию)");
     expect(prompt).toContain("использовать только ➡️");
     expect(prompt).toContain("не добавлять 🔥");
     expect(prompt).toContain("Не добавлять другие эмодзи, Markdown-заголовки (#/##/###)");
@@ -92,6 +93,57 @@ describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
       ok: true,
       lexicalSequenceExact: true,
       punctuationPreserved: true,
+    });
+  });
+
+  it("treats source bullet markers as replaceable formatting anchors in a production-shaped draft", () => {
+    const source = `Заголовок
+
+Вводный абзац сохраняет исходные слова и пунктуацию.
+
+• Первый пункт остаётся первым.
+• Второй пункт остаётся вторым.
+• Третий пункт остаётся третьим.
+• Четвёртый пункт остаётся четвёртым.
+
+Обычный завершающий абзац остаётся без изменений.
+
+Почему это важно?`;
+    const candidate = `📜 **Заголовок**
+
+Вводный абзац сохраняет исходные слова и пунктуацию.
+
+🟠 **Первый** пункт остаётся первым.
+🟠 **Второй** пункт остаётся вторым.
+🟠 **Третий** пункт остаётся третьим.
+🟠 **Четвёртый** пункт остаётся четвёртым.
+
+Обычный завершающий абзац остаётся без изменений.
+
+➡️ **Почему это важно?**`;
+
+    expect(validateCryptusOption2Candidate(source, candidate)).toMatchObject({
+      ok: true,
+      lexicalSequenceExact: true,
+      punctuationPreserved: true,
+    });
+  });
+
+  it("keeps a bullet that is lexical punctuation inside a line", () => {
+    const source = `Заголовок
+
+Этот символ • остаётся частью предложения.
+
+Почему?`;
+    const candidate = `📜 **Заголовок**
+
+Этот символ остаётся частью предложения.
+
+➡️ **Почему?**`;
+
+    expect(validateCryptusOption2Candidate(source, candidate)).toEqual({
+      ok: false,
+      code: "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED",
     });
   });
 

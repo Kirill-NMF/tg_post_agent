@@ -1,7 +1,7 @@
 import { deriveCanonicalSegments } from "./formatting.js";
 import { isOrdinaryEmoji } from "./emoji.js";
 
-export const CRYPTUS_OPTION2_PROMPT_VERSION = "cryptus_media_option2_v2";
+export const CRYPTUS_OPTION2_PROMPT_VERSION = "cryptus_media_option2_v3";
 
 const backtick = String.fromCharCode(96);
 const fixedPrompt = [
@@ -12,7 +12,7 @@ const fixedPrompt = [
   "Инструкции:",
   "1. Начало поста: добавить эмодзи 📜 и выделить заголовок поста жирным шрифтом.",
   "2. Заголовки секций: начинать каждый заголовок секции с эмодзи ⏸️ и выделять его жирным шрифтом, используя КАПСЛОК.",
-  "3. Списки: заменить маркеры списков (-, *, нумерацию) на эмодзи 🟠. Первое слово или фразу в пункте выделить жирным.",
+  "3. Списки: заменить маркеры списков (-, *, •, нумерацию) на эмодзи 🟠. Первое слово или фразу в пункте выделить жирным.",
   "3.1. Парные сравнения с метками, например «Раньше:» / «Сейчас:», разделять на две отдельные строки: каждая строка начинается с 🟠, жирным выделяется только метка вместе с двоеточием. Слова, пунктуацию и порядок не менять.",
   "4. Копируемый контент: примеры фраз, код, URL и промпты, предназначенные для копирования, заключать в моноширинный шрифт и предварять эмодзи 🔅.",
   "5. Ключевые слова: выделять только жирным шрифтом.",
@@ -81,7 +81,7 @@ export function deformatCryptusOption2(value: string, source = false): string {
   const withoutSourceAnchors = source
     ? value
         .replace(/^\s*#{1,6}\s+/gmu, "")
-        .replace(/^\s*(?:[-*]|\d+[.)])\s+/gmu, "")
+        .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gmu, "")
     : value;
   const withoutEmoji = [...graphemeSegmenter.segment(withoutSourceAnchors)]
     .map(({ segment }) => allowedEmoji.has(segment) ? "" : segment)
