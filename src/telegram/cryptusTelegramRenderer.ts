@@ -25,31 +25,41 @@ export function renderCryptusTelegramText(canonical: string, configuration?: Cus
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     if (lineIndex > 0) text += "\n";
-    let line = lines[lineIndex]!;
-    const role = roleAtLineStart(line);
-    if (role) {
-      const canonicalMarker = canonicalMarkers[role].find((marker) => line === marker || line.startsWith(`${marker} `))!;
-      const mapping = mappingByRole.get(role);
-      const outputMarker = mapping?.alt ?? canonicalMarker;
-      const offset = text.length;
-      text += outputMarker;
-      line = line.slice(canonicalMarker.length);
-      if (mapping) entities.push({ type: "custom_emoji", offset, length: outputMarker.length, custom_emoji_id: mapping.customEmojiId });
-    }
-    const parsed = parseStrictLine(line, text.length);
+    const baseOffset = text.length;
+    const parsed = parseStrictLine(lines[lineIndex]!, baseOffset);
     text += parsed.text;
     entities.push(...parsed.entities);
+    entities.push(...customEmojiEntities(parsed.text, parsed.entities, baseOffset, mappingByRole));
   }
 
   assertEntityRanges(text, entities);
   return { text, entities, usedCustomEmoji: entities.some((entity) => entity.type === "custom_emoji") };
 }
 
-function roleAtLineStart(line: string): CustomEmojiRole | undefined {
-  for (const role of customEmojiRoles) {
-    if (canonicalMarkers[role].some((marker) => line === marker || line.startsWith(`${marker} `))) return role;
+function customEmojiEntities(
+  text: string,
+  parsedEntities: TelegramMessageEntity[],
+  baseOffset: number,
+  mappingByRole: ReadonlyMap<CustomEmojiRole, { customEmojiId: string }>
+): TelegramMessageEntity[] {
+  const markers = customEmojiRoles.flatMap((role) => canonicalMarkers[role].map((marker) => ({ role, marker })))
+    .sort((left, right) => right.marker.length - left.marker.length);
+  const entities: TelegramMessageEntity[] = [];
+  for (let index = 0; index < text.length;) {
+    const match = markers.find(({ marker }) => text.startsWith(marker, index));
+    if (!match) {
+      index += 1;
+      continue;
+    }
+    const mapping = mappingByRole.get(match.role);
+    const offset = baseOffset + index;
+    const insideCode = parsedEntities.some((entity) => entity.type === "code" && offset >= entity.offset && offset < entity.offset + entity.length);
+    if (mapping && !insideCode) {
+      entities.push({ type: "custom_emoji", offset, length: match.marker.length, custom_emoji_id: mapping.customEmojiId });
+    }
+    index += match.marker.length;
   }
-  return undefined;
+  return entities;
 }
 
 function parseStrictLine(line: string, baseOffset: number): { text: string; entities: TelegramMessageEntity[] } {

@@ -32,7 +32,7 @@ describe("renderCryptusTelegramText", () => {
     const canonical = "📜 **ЗАГОЛОВОК**\n🔅 `код 🚀`\n🔥 **Действуйте**\n➡️ **Вопрос?**";
     const rendered = renderCryptusTelegramText(canonical, configuration());
 
-    expect(rendered.text).toBe("📜 ЗАГОЛОВОК\n🔅 код 🚀\n🔥 Действуйте\n🟰 Вопрос?");
+    expect(rendered.text).toBe("📜 ЗАГОЛОВОК\n🔅 код 🚀\n🔥 Действуйте\n➡️ Вопрос?");
     expect(rendered.entities).toContainEqual({ type: "bold", offset: 3, length: 9 });
     expect(rendered.entities).toContainEqual({ type: "code", offset: 16, length: 6 });
     expect(rendered.entities).toContainEqual({ type: "custom_emoji", offset: 0, length: 2, custom_emoji_id: "1001" });
@@ -49,7 +49,7 @@ describe("renderCryptusTelegramText", () => {
     expect(rendered.usedCustomEmoji).toBe(false);
   });
 
-  it("replaces every canonical role marker with its positional mapping actual alt", () => {
+  it("keeps canonical fallback markers while applying positional mapping IDs", () => {
     const arbitrary = configuration();
     const actualAlts = ["🧾", "⏯️", "🔘", "💡", "▶️", "🟰"];
     arbitrary.mappings = arbitrary.mappings.map((mapping, index) => ({ ...mapping, alt: actualAlts[index]! }));
@@ -57,13 +57,29 @@ describe("renderCryptusTelegramText", () => {
 
     const rendered = renderCryptusTelegramText(canonical, arbitrary);
 
-    expect(rendered.text).toBe("🧾 Заголовок\n⏯️ СЕКЦИЯ\n🔘 Пункт\n💡 код\n▶️ CTA\n🟰 Вопрос?");
+    expect(rendered.text).toBe("📜 Заголовок\n⏸️ СЕКЦИЯ\n🟠 Пункт\n🔅 код\n🔥 CTA\n➡️ Вопрос?");
     expect(rendered.entities.filter((entity) => entity.type === "custom_emoji")).toHaveLength(6);
     expect(rendered.entities.filter((entity) => entity.type === "custom_emoji").map((entity) => entity.length)).toEqual(
       actualAlts.map((alt) => alt.length)
     );
     expect(rendered.usedCustomEmoji).toBe(true);
     expect(canonical).toBe("📜 **Заголовок**\n⏸️ **СЕКЦИЯ**\n🟠 **Пункт**\n🔅 `код`\n🔥 **CTA**\n➡️ **Вопрос?**");
+  });
+
+  it("attaches the configured custom entity to every repeated canonical marker without changing text", () => {
+    const canonical = "🟠 Раньше\nВремя без маркера\n🟠 Сейчас\nДеталь 🟠 внутри\nФинал 🟠";
+
+    const rendered = renderCryptusTelegramText(canonical, configuration());
+    const listEntities = rendered.entities.filter(
+      (entity) => entity.type === "custom_emoji" && entity.custom_emoji_id === "1003"
+    );
+    const expectedOffsets = [...canonical.matchAll(/🟠/gu)].map((match) => match.index);
+
+    expect(rendered.text).toBe(canonical);
+    expect(listEntities).toHaveLength(4);
+    expect(listEntities.map((entity) => entity.offset)).toEqual(expectedOffsets);
+    expect(listEntities.every((entity) => entity.length === "🟠".length)).toBe(true);
+    expect(new Set(listEntities.map((entity) => `${entity.offset}:${entity.length}`)).size).toBe(4);
   });
 
   it("preserves VS16/surrogate lengths and never places a custom entity inside code", () => {
