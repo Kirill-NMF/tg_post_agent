@@ -233,7 +233,7 @@ export function deriveCanonicalSegments(text: string): CanonicalFormattingSegmen
     else if (isCtaCandidate(trimmed)) role = "cta";
     else if (/^\s*(?:\u2014|\u2013)\s+/u.test(segment.text)) role = "nested_list";
     else if (/^\s*(?:-|\u2022|\d+[.)])\s+/u.test(segment.text)) role = "primary_list";
-    else if (isSectionHeadingCandidate(segment.text)) role = "section_heading";
+    else if (isSectionHeadingCandidate(raw, index)) role = "section_heading";
     else if (index === introIndex) role = "intro";
     else if (isEnumerationLead(raw, index)) role = "primary_list";
     else if (isLineGroupMember(raw, index)) role = "list_candidate";
@@ -259,7 +259,7 @@ function findIntroIndex(raw: readonly { start: number; end: number; text: string
     && upperCaseRatio(segment.text) <= 0.1
     && !isLineGroupMember(raw, index));
   if (preferred >= 0) return preferred;
-  return raw.findIndex((segment, index) => index >= start && index < end && !isSectionHeadingCandidate(segment.text) && !isLineGroupMember(raw, index));
+  return raw.findIndex((_segment, index) => index >= start && index < end && !isSectionHeadingCandidate(raw, index) && !isLineGroupMember(raw, index));
 }
 
 function isLineGroupMember(raw: readonly { start: number; end: number; text: string }[], index: number): boolean {
@@ -274,8 +274,17 @@ function isEnumerationLead(raw: readonly { start: number; end: number; text: str
   return previousGap !== 1 && nextGap === 1 && /:\s*$/u.test(raw[index].text);
 }
 
-function isSectionHeadingCandidate(value: string): boolean {
-  return lexicalWordCount(value) > 0 && lexicalWordCount(value) <= 14 && upperCaseRatio(value) >= 0.7;
+function isSectionHeadingCandidate(raw: readonly { start: number; end: number; text: string }[], index: number): boolean {
+  const value = raw[index]?.text ?? "";
+  const wordCount = lexicalWordCount(value);
+  if (wordCount <= 0 || wordCount > 14) return false;
+  if (upperCaseRatio(value) >= 0.7) return true;
+  if (index <= 0 || index >= raw.length - 1 || /[.!?]\s*$/u.test(value)) return false;
+  const previous = raw[index - 1]!.text;
+  if (lexicalWordCount(previous) > 0 && lexicalWordCount(previous) <= 14 && upperCaseRatio(previous) >= 0.7) return false;
+  const previousGap = raw[index]!.start - raw[index - 1]!.end;
+  const nextGap = raw[index + 1]!.start - raw[index]!.end;
+  return previousGap >= 2 && nextGap >= 2;
 }
 
 function upperCaseRatio(value: string): number {

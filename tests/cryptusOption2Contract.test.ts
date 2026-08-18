@@ -147,6 +147,55 @@ describe("CRYPTUS_MEDIA Option 2 final-text contract", () => {
     });
   });
 
+  it("allows a reversible uppercase transform only for an isolated section heading", () => {
+    const source = `Главный заголовок
+
+Вводный абзац сохраняется без изменений.
+
+Раздел о практике
+
+Основной абзац сохраняется без изменений.
+
+Почему это важно?`;
+    const candidate = `📜 **Главный заголовок**
+
+Вводный абзац сохраняется без изменений.
+
+⏸️ **РАЗДЕЛ О ПРАКТИКЕ**
+
+Основной абзац сохраняется без изменений.
+
+➡️ **Почему это важно?**`;
+
+    expect(validateCryptusOption2Candidate(source, candidate)).toMatchObject({
+      ok: true,
+      lexicalSequenceExact: true,
+      punctuationPreserved: true,
+    });
+  });
+
+  it("rejects an uppercase transform of an isolated ordinary sentence", () => {
+    const source = `Главный заголовок
+
+Это короткое предложение.
+
+Основной абзац сохраняется без изменений.
+
+Почему?`;
+    const candidate = `📜 **Главный заголовок**
+
+ЭТО КОРОТКОЕ ПРЕДЛОЖЕНИЕ.
+
+Основной абзац сохраняется без изменений.
+
+➡️ **Почему?**`;
+
+    expect(validateCryptusOption2Candidate(source, candidate)).toEqual({
+      ok: false,
+      code: "FORMAT_OPTION2_LEXICAL_PRESERVATION_FAILED",
+    });
+  });
+
   it.each([
     ["missing scroll title", validOwnerCandidate.replace("📜 ", ""), "FORMAT_OPTION2_TITLE_INVALID"],
     ["remaining heading marker", validOwnerCandidate.replace("📜 **", "📜 **### "), "FORMAT_OPTION2_MARKDOWN_HEADING_FORBIDDEN"],

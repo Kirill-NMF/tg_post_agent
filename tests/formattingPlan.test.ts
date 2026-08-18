@@ -95,4 +95,31 @@ describe("formatting decoration plans", () => {
   it("segments empty and one-block drafts deterministically", () => {
     expect(deriveCanonicalSegments("")).toEqual([]); expect(deriveCanonicalSegments("Only.").map((segment) => segment.id)).toEqual(["block_1"]);
   });
+
+  it("classifies an isolated short title-case line as a section heading", () => {
+    const segments = deriveCanonicalSegments(`Главный заголовок
+
+Вводный абзац заканчивается точкой.
+
+Раздел о практике
+
+Основной абзац заканчивается точкой.`);
+
+    expect(segments.map((segment) => segment.role)).toEqual([
+      "main_heading",
+      "intro",
+      "section_heading",
+      "paragraph",
+    ]);
+  });
+
+  it("does not classify an isolated sentence as a section heading", () => {
+    const segments = deriveCanonicalSegments(`Главный заголовок
+
+Это короткое предложение.
+
+Основной абзац заканчивается точкой.`);
+
+    expect(segments[1]?.role).not.toBe("section_heading");
+  });
 });

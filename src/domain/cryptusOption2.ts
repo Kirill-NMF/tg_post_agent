@@ -78,6 +78,14 @@ export function validateCryptusOption2Candidate(draft: string, candidate: string
 }
 
 export function deformatCryptusOption2(value: string, source = false): string {
+  return stripCryptusDecorations(value, source)
+    .replace(/[ \t]+/gu, " ")
+    .replace(/\s*\n\s*/gu, "\n")
+    .replace(/\n+/gu, "\n")
+    .trim();
+}
+
+function stripCryptusDecorations(value: string, source: boolean): string {
   const withoutSourceAnchors = source
     ? value
         .replace(/^\s*#{1,6}\s+/gmu, "")
@@ -88,15 +96,18 @@ export function deformatCryptusOption2(value: string, source = false): string {
     .join("");
   return withoutEmoji
     .replace(/\*\*/gu, "")
-    .replaceAll(backtick, "")
+    .replaceAll(backtick, "");
+}
+
+function deformatCryptusOption2ForRoleInference(value: string, source = false): string {
+  return stripCryptusDecorations(value, source)
     .replace(/[ \t]+/gu, " ")
-    .replace(/\s*\n\s*/gu, "\n")
-    .replace(/\n+/gu, "\n")
+    .replace(/[ \t]*\n[ \t]*/gu, "\n")
     .trim();
 }
 
 function validateLexicalSurface(draft: string, candidate: string): boolean {
-  const sourcePlain = deformatCryptusOption2(draft, true);
+  const sourcePlain = deformatCryptusOption2ForRoleInference(draft, true);
   const candidatePlain = deformatCryptusOption2(candidate);
   const sourceSegments = deriveCanonicalSegments(sourcePlain);
   const sourceTokens = sourceSegments.flatMap((segment) =>
@@ -189,7 +200,7 @@ function validateFinalQuestion(draft: string, candidateNonEmptyLines: readonly s
 }
 
 function validateSectionHeadings(draft: string, candidateLines: readonly string[]): boolean {
-  const sourcePlain = deformatCryptusOption2(draft, true);
+  const sourcePlain = deformatCryptusOption2ForRoleInference(draft, true);
   const headings = deriveCanonicalSegments(sourcePlain).filter((segment) => segment.role === "section_heading");
   return headings.every((heading) => {
     const expected = surfaceTokens(heading.text).map((token) => token.toLocaleLowerCase("ru"));
