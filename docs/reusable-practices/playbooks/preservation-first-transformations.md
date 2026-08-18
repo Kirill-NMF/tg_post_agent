@@ -40,6 +40,12 @@ Canary complexity must match production shape. A one-segment happy path is insuf
 
 Transformation success is not established by provider completion or a succeeded job alone. The terminal gate must compare canonical and delivered lexical units in exact order, require option-specific permitted decoration, scope the final by version/cursor, reject stale or duplicate finals, and verify exactly one non-empty export artifact after one Done action. Literary quality and decoration density remain owner judgements only after this technical gate passes.
 
+## Telegram custom-emoji transport
+
+Treat Premium custom emoji as a delivery projection, never canonical content. Import actual entities only through a separately configured owner identity; require an exact ordered role count, validate every Bot API entity range in UTF-16 code units, resolve each ID through `getCustomEmojiStickers`, and persist the authoritative alt plus sticker-set name atomically. Fixed roles validate their exact Unicode alt; an owner-selected role may capture its actual Telegram alt. Never print IDs or store them in exported text.
+
+Render only the already validated formatting subset into explicit `bold`, `code`, and `custom_emoji` entities. Do not mix `parse_mode` with entities, do not place custom emoji inside code, and require each custom entity to wrap exactly its imported alt. If configuration is absent, disabled, or malformed, send Unicode with base entities. A definite pre-acceptance custom-entity rejection permits exactly one base-entity fallback; a timeout is ambiguous and must not trigger an automatic duplicate. Audit returned entity counts category-only and leave visual rendering to the owner checkpoint. References: [Telegram Bot API MessageEntity/getCustomEmojiStickers](https://core.telegram.org/bots/api) and [Telegram custom emoji entity rules](https://core.telegram.org/api/custom-emoji).
+
 ## Private style-gold round trip
 
 When visual quality is reference-driven, keep the full gold, neutral inputs, reversible maps, and readable diffs private and gitignored. Commit only content hashes, role/count summaries, thresholds, and category-only results. Deformatting must restore the exact private gold, be idempotent, and preserve lexical order before any style score is meaningful.

@@ -20,9 +20,9 @@ Phase 12 is the current checkpoint. Tier 1 covers the shared provider/runtime sc
 
 ## Next Step
 
-The owner raised the provider cap to 60, but the renewed primary protocol stopped after its single authorized attempt. Another provider operation requires a new coordinator instruction after the deterministic list-marker schema fix. The sealed holdout remains unopened.
+The owner-only Premium custom-emoji transport is ready for one setup message after deployment. The owner sends `/emoji_setup` followed by the six actual custom emoji in role order: post title, section title, list item, copy block, CTA (`🔥` alt), audience question. The bot validates actual Bot API entities and sticker metadata, then atomically persists the complete mapping without exposing IDs.
 
-The category-only provider ledger is 53/60. The provider-free server-directive floor remains green at 0.7970/0.6930/0.7917, but the renewed primary model attempt produced no candidate or score: JSON shape passed and local semantics rejected a non-role-valid `list_marker` with `FORMAT_OPTION2_LIST_ROLE_INVALID`. A synthetic reproduction proves the dynamic provider schema accepts a non-`nested_list` ID that the runtime correctly rejects. No retry or fallback occurred. The holdout stayed sealed, no primary pass gate was written, and private output was not committed.
+No provider operation is part of this feature. The category-only provider ledger remains `57/60`. After setup, the next technical action is one deterministic Bot API delivery canary plus read-only Telethon entity verification; literary/visual acceptance remains owner-only.
 
 ## Owner Focus
 
@@ -86,13 +86,17 @@ Historical milestone: Phase 11 introduced deterministic preservation-first decor
 
 Historical boundary: Phase 12 first added the internal FORMAT_POST handler and OpenRouter decoration-plan adapter while formatting configuration and Telegram transport were still gated. The current runtime configuration, public path, and technical evidence are described in the following status section.
 
-That configuration/deployment boundary is now satisfied for the recorded Option 2 path. Option 1, full-series behavior, and future changed paths retain separate evidence gates. Premium emoji remain deferred; formatted text/voice corrections return to draft revision.
+That configuration/deployment boundary is now satisfied for the recorded Option 2 path. Option 1, full-series behavior, and future changed paths retain separate evidence gates. Premium custom emoji are an additive Option 2 transport layer pending owner setup/entity canary; formatted text/voice corrections return to draft revision.
 
 ## Phase 12 Public Flow Status
 
 The public Stage 3 flow is implemented behind the explicit OpenRouter formatting configuration: formatting action -> Telegram | Telegram + emoji -> FORMAT_POST -> formatted result -> correction action | final acceptance. Tier 1 deterministic coverage verifies durable enqueue ordering, stale/duplicate callback rejection, the shared provider/runtime schema, semantic preservation, recovery to `draft_editing`, stale-final invalidation, and single-artifact delivery. Option 2 now has isolated Tier 2 evidence on a seven-segment long-form fixture: one FORMAT_POST attempt, first-click current-version final, exact 112-unit lexical order, permitted emoji, no duplicate/stale final, and exactly one non-empty `.txt` after Done. Commits 3080e5e and 7dcd2be contain the incident evidence and root fix; 79b62f8, 56f93b9, and 70645d5 provide the controlled fixture/launch path.
 
-The approved model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The current owner-approved cap is exhausted at 52/52. The post-fix primary verification was single-attempt/no-fallback and produced a contract-valid private candidate, but benchmark hard gates and the 0.65 style threshold did not pass. Premium/custom emoji remain deferred. The holdout remains sealed; any further provider operation requires a new owner decision and budget.
+The approved model is `anthropic/claude-sonnet-5` through the VPS-only `OPENROUTER_FORMATTING_MODEL` path. The latest accepted CRYPTUS owner fixture preserves canonical `🔥` CTA and the category-only external ledger is `57/60`. Custom emoji delivery is transport-only: it does not invoke the model and cannot change canonical `formattedText` or `.txt`.
+
+## Owner-only custom emoji setup checkpoint
+
+`/emoji_setup` is guarded by a dedicated owner Telegram ID that must also be allowlisted. The command accepts exactly six ordered `custom_emoji` entities, resolves their authoritative alt and set metadata through `getCustomEmojiStickers`, validates fixed role alts (`📜`, pause family, `🟠`, `🔅`, `🔥`) and captures the question-role alt. The complete mapping is replaced atomically in Postgres. Runtime delivery uses explicit UTF-16 `bold`, `code`, and `custom_emoji` entities without `parse_mode`; missing/disabled/invalid mappings fail closed to Unicode/base entities. Telegram transport evidence is pending the single owner setup message and subsequent no-provider canary.
 
 ## Stage 3 Option 2 Owner Checkpoint
 

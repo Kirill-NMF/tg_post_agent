@@ -6,16 +6,16 @@ Updated: 2026-08-18
 
 - Product stage: Stage 3 formatting.
 - Engineering phase: Phase 12 Option 2 technical gate complete on a production-shaped seven-segment case.
-- Status: delivery gate complete; post-fix primary candidate failed benchmark hard gates and style threshold; ledger 52/52.
+- Status: canonical Option 2 gate complete; Premium custom-emoji transport is ready for owner setup; ledger 57/60.
 - Branch: codex/phase-1-architecture-data-model.
 
 ## Next Required Owner Action
 
-Review the category-only primary benchmark gaps and decide the next product direction and budget. The sealed holdout remains unavailable until primary passes.
+Send one protected `/emoji_setup` message with the six actual custom emoji in role order; then the builder runs the provider-free Bot API/Telethon entity canary.
 
 ## Owner Focus
 
-Current: the seven-segment Telegram delivery path remains technically proven, but Manus-style model quality is not. The contract-valid primary candidate scored 0.3874, failed punctuation/forbidden-style hard gates, and did not meet the 0.65 threshold.
+Current: canonical CRYPTUS_MEDIA content remains Unicode/Markdown with `🔥` CTA. Custom emoji are transport-only; owner literary/visual judgement remains after the entity canary.
 
 ## Upcoming Owner Testing Windows
 
@@ -25,7 +25,7 @@ Current: the seven-segment Telegram delivery path remains technically proven, bu
 
 ## Short Answer
 
-Telegram delivery acceptance is complete. Manus-style benchmark acceptance is not; the ledger is exhausted at 52/52 and the holdout remains sealed.
+Canonical Telegram delivery acceptance is complete. Premium entity transport has Tier 1 evidence and awaits the owner setup message plus one no-provider Tier 2 canary. Ledger is 57/60.
 
 ## Verification Status
 

@@ -4,6 +4,7 @@ import { telegramCloudMaxDownloadBytes } from "../telegram/telegramFileClient.js
 export type AppConfig = {
   botToken: string;
   allowedTelegramIds: Set<string>;
+  emojiSetupOwnerTelegramId?: string;
   databaseUrl?: string;
   audioTempDir: string;
   telegramApiBaseUrl: string;
@@ -35,6 +36,10 @@ export type AppConfig = {
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const botToken = readRequired(env, "BOT_TOKEN");
   const allowedTelegramIds = parseTelegramIdAllowlist(readRequired(env, "ALLOWED_TELEGRAM_IDS"));
+  const emojiSetupOwnerTelegramId = parseOptionalTelegramId(readOptional(env, "EMOJI_SETUP_OWNER_TELEGRAM_ID"));
+  if (emojiSetupOwnerTelegramId && !allowedTelegramIds.has(emojiSetupOwnerTelegramId)) {
+    throw new Error("EMOJI_SETUP_OWNER_TELEGRAM_ID must also be present in ALLOWED_TELEGRAM_IDS.");
+  }
   const databaseUrl = resolveDatabaseUrl(env);
   const geminiPlanningModel = readOptional(env, "GEMINI_PLANNING_MODEL") ?? "gemini-2.5-pro";
   const openRouterPlanningModel = readOptional(env, "OPENROUTER_PLANNING_MODEL") ?? "google/gemini-2.5-pro";
@@ -42,6 +47,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   return {
     botToken,
     allowedTelegramIds,
+    emojiSetupOwnerTelegramId,
     databaseUrl,
     audioTempDir: readOptional(env, "AUDIO_TEMP_DIR") ?? ".runtime/audio",
     telegramApiBaseUrl: readOptional(env, "TELEGRAM_API_BASE_URL") ?? "https://api.telegram.org",
@@ -88,6 +94,12 @@ export function parseTelegramIdAllowlist(raw: string): Set<string> {
   }
 
   return new Set(ids);
+}
+
+function parseOptionalTelegramId(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  if (!/^\d{1,20}$/.test(raw)) throw new Error("EMOJI_SETUP_OWNER_TELEGRAM_ID must be one numeric Telegram id.");
+  return raw;
 }
 
 function readRequired(env: NodeJS.ProcessEnv, name: string): string {

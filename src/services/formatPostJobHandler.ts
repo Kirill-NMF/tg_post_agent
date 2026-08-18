@@ -138,7 +138,7 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
       "formatting saved"
     );
 
-    const notification = await notifyFormatted(deps, project, post.formattedText, job.id, now);
+    const notification = await notifyFormatted(deps, project, post.formattedText, request.formattingOption, job.id, now);
     if (notification.status === "failed") {
       post.formattedText = undefined;
       post.formattingOption = undefined;
@@ -192,11 +192,16 @@ async function recoverFromFailure(deps: FormatPostJobHandlerDeps, project: Proje
   }
 }
 
-async function notifyFormatted(deps: FormatPostJobHandlerDeps, project: Project, text: string, jobId: string, now: () => number): Promise<{ status: "not_configured" | "sent" | "failed"; durationMs: number }> {
+async function notifyFormatted(deps: FormatPostJobHandlerDeps, project: Project, text: string, formattingOption: FormattingOption, jobId: string, now: () => number): Promise<{ status: "not_configured" | "sent" | "failed"; durationMs: number }> {
   if (!deps.notifier) return { status: "not_configured", durationMs: 0 };
   const notifierStartedAt = now();
   try {
-    await deps.notifier.sendMessage(project.chatId, text, { reply_markup: formattedReplyMarkup(project) });
+    const options = { reply_markup: formattedReplyMarkup(project) };
+    if (formattingOption === "option_2" && deps.notifier.sendCryptusOption2) {
+      await deps.notifier.sendCryptusOption2(project.chatId, text, options);
+    } else {
+      await deps.notifier.sendMessage(project.chatId, text, options);
+    }
     return { status: "sent", durationMs: Math.max(0, now() - notifierStartedAt) };
   } catch {
     (deps.logger ?? noopLogger).warn(

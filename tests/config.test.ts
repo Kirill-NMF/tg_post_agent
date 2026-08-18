@@ -12,6 +12,13 @@ describe("env config", () => {
     expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123,abc" })).toThrow("numeric Telegram ids");
   });
 
+  it("keeps the owner-only emoji setup boundary disabled unless one numeric owner id is configured", () => {
+    expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123" }).emojiSetupOwnerTelegramId).toBeUndefined();
+    expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123,456", EMOJI_SETUP_OWNER_TELEGRAM_ID: "456" }).emojiSetupOwnerTelegramId).toBe("456");
+    expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", EMOJI_SETUP_OWNER_TELEGRAM_ID: "123,456" })).toThrow("numeric Telegram id");
+    expect(() => loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", EMOJI_SETUP_OWNER_TELEGRAM_ID: "456" })).toThrow("also be present");
+  });
+
   it("accepts database url from DATABASE_URL or TEST_DATABASE_URL", () => {
     expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", DATABASE_URL: "postgres://db" }).databaseUrl).toBe("postgres://db");
     expect(loadConfig({ BOT_TOKEN: "token", ALLOWED_TELEGRAM_IDS: "123", TEST_DATABASE_URL: "postgres://test-db" }).databaseUrl).toBe("postgres://test-db");

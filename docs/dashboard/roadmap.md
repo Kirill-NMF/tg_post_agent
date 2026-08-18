@@ -24,7 +24,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | --- | --- | --- | --- | --- |
 | Stage 1: Transcription | core implementation built; real acceptance pending | Audio intake, temporary processing, transcription, and persisted transcript are built. | Tier 2 intake-contract repair | Re-run guarded transport validation after the coordinator repair. |
 | Stage 2: Plan/draft/revision | core implementation built; real acceptance pending | Planning, draft generation, text and edit-audio correction paths are built. | Tier 2 intake-contract repair | Validate delivery and corrections after the coordinator repair. |
-| Stage 3: Formatting | corrected CRYPTUS_MEDIA structural gate proven; owner literary/visual review pending | Prompt v2 and the fail-closed validator passed the exact owner fixture in one bounded Claude call with no retry/fallback. | Inspect the preserved private candidate for literary, visual, and UX quality | The technical structural gate is green; subjective acceptance remains owner-only. |
+| Stage 3: Formatting | CRYPTUS_MEDIA structural gate proven; Premium entity transport ready for owner setup | Prompt v2 passed the exact owner fixture. The additive custom-emoji renderer preserves canonical Markdown/`.txt` and is provider-free. | Send the one protected six-emoji setup command, then visually inspect the entity canary | Entity transport awaits owner-supplied actual custom emoji; subjective acceptance remains owner-only. |
 | Packaging/deploy | Stage 3 controlled launch gate proven; broader packaging later | Runtime operations remain controlled and authorized; the Stage 3 gate proved runtime-user/env identity, DB peer auth, one healthy worker, and rollback. | as scoped | Broader production operations remain a later phase. |
 
 ## Engineering Phase Roadmap
@@ -45,6 +45,7 @@ State-machine resilience is risk-based: focused regression on every change; happ
 | Phase 10: Edit-Audio Cross-Stage Validation | Stage 1/2 | Tier 2 technical paths complete; owner 3/3 pending | 3/3 | dedicated transport, source-audio, planning correction, and draft-delivery evidence recorded | Owner evaluates literary/product/UX only. |
 | Phase 11: Formatting Foundation | Stage 3 | done | 2/3 | deterministic decoration-plan validation and lexical-preservation tests | Foundation only; no public UI. |
 | Phase 12: Real Formatting Adapter | Stage 3 | corrected explicit product contract green; owner review pending | 3/3 | Prompt v2, exclusive terminal roles, paired comparison anchors, lexical/punctuation preservation, private accepted candidate | Ledger 57/60; owner reviews the private candidate for literary/visual/UX quality only. |
+| Phase 12.1: Premium custom-emoji transport | Stage 3 | implementation/Tier 1 green; owner setup and Tier 2 entity canary pending | 3/3 | owner-only auth, six-entity import, atomic persistence, UTF-16 renderer, definite-error fallback/timeout dedupe tests | Owner sends one `/emoji_setup` message with six actual custom emoji in documented role order. |
 | Phase 13: Final Artifact/Series Flow | Stage 3 | later | 3/3 | final .txt, next-post loop tests | Check copy/paste and series continuation. |
 | Phase 14: Telethon E2E Harness | all | focused Option 2 harness complete; full cross-stage flow later | 3/3 | current-version cursor, duplicate/stale, lexical/emoji, Done/.txt evidence | Validate future full-series click-through separately. |
 | Phase 15: VPS Deployment/Operations | all | Stage 3 controlled deploy gate proven; broader operations later | 3/3 | runtime OS/env identity, DB peer auth, zombie-aware single process, healthy worker tick | Approve broader production-like operations separately. |
@@ -69,7 +70,7 @@ The private Manus/CRYPTUS benchmark contains one primary gold, two training gene
 
 The historical primary/holdout scores remain diagnostic evidence only. Prompt v2 subsequently passed the exact owner acceptance fixture: all explicit structural rules were green in one attempt, and the private mode-0600 candidate is retained for owner review. This does not claim literary, visual, or UX acceptance.
 
-Owner review may now assess the preserved Option 2 result. Option 1 and any future changed or broader cross-stage path retain their own path-specific evidence requirements.
+Owner review may now configure the six transport entities and then assess the preserved Option 2 result visually. Option 1 and any future changed or broader cross-stage path retain their own path-specific evidence requirements. Custom-emoji setup consumes no provider budget; ledger remains `57/60`.
 
 ## Provider Configuration Update
 

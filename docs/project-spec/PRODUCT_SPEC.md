@@ -50,7 +50,7 @@
 - Стилизация под автора или корпус текстов.
 - Mini app для возврата к старым проектам.
 - Автопубликация в канал.
-- Кастомные Telegram Premium emoji.
+- Публичная настройка или админ-панель для Telegram Premium custom emoji (owner-only import-команда входит в Stage 3 transport).
 - S3, Redis, BullMQ, web-админка.
 
 ## Основные понятия
@@ -412,11 +412,11 @@ The canonical accepted draft remains the sole lexical source. Formatting accepts
 - Option 1: Telegram readability only: paragraph boundaries and allowed Markdown spans, with no expressive emoji.
 - Option 2: the same readability plus emoji insertions anchored to existing text.
 - Both options preserve the original lexical text exactly; invalid, ambiguous, deleting, reordering, or unsupported operations fail closed to the original draft.
-- Telegram Premium/custom emoji remains explicitly deferred and is a no-op in this phase.
+- Option 2 may add a deterministic Telegram transport layer that replaces only its known Unicode role markers with owner-imported custom emoji entities. Canonical formatted text remains the validated Unicode/Markdown value.
 
 ### Phase 12 public-flow clarification
 
-The public formatting flow presents one formatting action, then exactly `Telegram` (Option 1) and `Telegram + emoji` (Option 2). Premium/custom emoji remain deferred.
+The public formatting flow presents one formatting action, then exactly `Telegram` (Option 1) and `Telegram + emoji` (Option 2). Owner-imported Premium custom emoji do not add a public choice: they are an additive transport rendering for the existing Option 2 result. The `.txt` artifact retains canonical Unicode/Markdown and never contains custom emoji IDs.
 
 A successfully formatted message exposes a correction action and final acceptance. A text or voice correction returns to the canonical draft-revision path, invalidates the formatted result and stale completion action, and requires a new formatting pass. Final acceptance sends the `.txt` artifact once; it does not duplicate the already delivered formatted body.
 

@@ -26,7 +26,7 @@ export async function openTestDatabase(env: NodeJS.ProcessEnv): Promise<TestData
     async clean() {
       assertSafeTestDatabaseUrl(databaseUrl);
       await db.execute(sql`
-        truncate table artifacts, jobs, project_messages, project_posts, projects, users
+        truncate table custom_emoji_settings, artifacts, jobs, project_messages, project_posts, projects, users
         restart identity cascade
       `);
     }

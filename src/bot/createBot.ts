@@ -1,12 +1,36 @@
 import { Bot, InlineKeyboard, InputFile } from "grammy";
 import type { BotResponse, SourceAudioInput } from "../domain/types.js";
+import type { CustomEmojiSetupService, IncomingTelegramEntity } from "../services/customEmojiSetupService.js";
 import type { BotRouter } from "./router.js";
 
-export function createBot(token: string, router: BotRouter): Bot {
+export function createBot(token: string, router: BotRouter, emojiSetup?: CustomEmojiSetupService): Bot {
   const bot = new Bot(token);
 
   bot.command("start", async (ctx) => {
     await sendResponses(ctx, await router.handleText({ telegramUserId: telegramUserId(ctx), chatId: chatId(ctx), text: "/start" }));
+  });
+
+  bot.command("emoji_setup", async (ctx) => {
+    if (!emojiSetup) {
+      await ctx.reply("Настройка custom emoji отключена: владелец не настроен.");
+      return;
+    }
+    const message = ctx.message;
+    if (!message) throw new Error("Telegram command update has no message.");
+    const result = await emojiSetup.configure(
+      {
+        telegramUserId: telegramUserId(ctx),
+        text: message.text,
+        entities: (message.entities ?? []).map((entity) => ({
+          type: entity.type,
+          offset: entity.offset,
+          length: entity.length,
+          custom_emoji_id: entity.type === "custom_emoji" ? entity.custom_emoji_id : undefined
+        } satisfies IncomingTelegramEntity))
+      },
+      async (ids) => ctx.api.getCustomEmojiStickers(ids)
+    );
+    await ctx.reply(result.message);
   });
 
   bot.on("callback_query:data", async (ctx) => {

@@ -10,7 +10,7 @@
     "db:migrate": "drizzle-kit migrate",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts tests/postgresJobRepository.integration.test.ts",
+    "test:pg": "vitest run tests/postgresProjectRepository.integration.test.ts tests/postgresJobRepository.integration.test.ts tests/postgresCustomEmojiRepository.integration.test.ts",
     "smoke": "node dist/src/index.js --smoke",
     "test:telegram-smoke-contract": "python3 -m unittest scripts/telegram-e2e/test_tg_post_agent_smoke.py",
     "test:telegram-audio-canary-contract": "python3 -B -m unittest scripts/telegram-e2e/test_tg_post_agent_audio_canary.py",

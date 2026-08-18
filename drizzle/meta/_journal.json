@@ -15,6 +15,13 @@
       "when": 1786560563267,
       "tag": "0001_gifted_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787067158711,
+      "tag": "0002_dry_the_watchers",
+      "breakpoints": true
     }
   ]
 }

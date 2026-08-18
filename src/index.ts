@@ -6,13 +6,17 @@ import { loadConfig } from "./config/env.js";
 import { createDb, createDbPool } from "./db/connection.js";
 import { consoleLogger } from "./observability/logger.js";
 import { PgJobRepository } from "./repositories/pgJobRepository.js";
+import { InMemoryCustomEmojiRepository } from "./repositories/inMemoryCustomEmojiRepository.js";
 import { InMemoryProjectRepository } from "./repositories/inMemoryProjectRepository.js";
+import { PgCustomEmojiRepository } from "./repositories/pgCustomEmojiRepository.js";
+import type { CustomEmojiRepository } from "./repositories/customEmojiRepository.js";
 import { PgProjectRepository } from "./repositories/pgProjectRepository.js";
 import type { ProjectRepository } from "./repositories/projectRepository.js";
 import { TelegramAuthService } from "./services/authService.js";
 import { createAudioPipelineHandlers } from "./services/audioPipelineFactory.js";
 import { JobWorker } from "./services/jobWorker.js";
 import { ProjectService } from "./services/projectService.js";
+import { CustomEmojiSetupService } from "./services/customEmojiSetupService.js";
 import { WorkerRuntime } from "./services/workerRuntime.js";
 import { GrammyTelegramNotifier } from "./telegram/telegramNotifier.js";
 
@@ -20,12 +24,14 @@ export function buildApplication(env: NodeJS.ProcessEnv) {
   const config = loadConfig(env);
   const db = config.databaseUrl ? createDb(createDbPool({ databaseUrl: config.databaseUrl })) : undefined;
   const repository = db ? new PgProjectRepository(db) : new InMemoryProjectRepository();
+  const customEmojiRepository = db ? new PgCustomEmojiRepository(db) : new InMemoryCustomEmojiRepository();
   const jobRepository = db ? new PgJobRepository(db) : undefined;
   const projectService = new ProjectService(repository, new MockModelAdapters(), jobRepository, { sourceAudio: config.sourceAudioJobMaxAttempts, editAudio: config.editAudioJobMaxAttempts, planRevision: config.planRevisionJobMaxAttempts, draftGeneration: config.draftGenerationJobMaxAttempts, formatting: config.formattingJobMaxAttempts }, Boolean(config.openRouterApiKey && config.openRouterFormattingModel), consoleLogger);
   const authService = new TelegramAuthService(config.allowedTelegramIds);
   const router = new BotRouter(authService, projectService);
-  const bot = createBot(config.botToken, router);
-  const workerRuntime = config.jobWorkerEnabled ? createWorkerRuntime({ config, repository, jobRepository, bot }) : undefined;
+  const emojiSetup = new CustomEmojiSetupService({ ownerTelegramId: config.emojiSetupOwnerTelegramId, repository: customEmojiRepository });
+  const bot = createBot(config.botToken, router, emojiSetup);
+  const workerRuntime = config.jobWorkerEnabled ? createWorkerRuntime({ config, repository, customEmojiRepository, jobRepository, bot }) : undefined;
 
   return { config, router, bot, workerRuntime };
 }
@@ -49,6 +55,7 @@ if (isMainModule()) {
 function createWorkerRuntime(input: {
   config: ReturnType<typeof loadConfig>;
   repository: ProjectRepository;
+  customEmojiRepository: CustomEmojiRepository;
   jobRepository: PgJobRepository | undefined;
   bot: ReturnType<typeof createBot>;
 }): WorkerRuntime {
@@ -62,7 +69,7 @@ function createWorkerRuntime(input: {
     throw new Error("OPENROUTER_API_KEY or GEMINI_API_KEY is required when JOB_WORKER_ENABLED=true.");
   }
 
-  const notifier = new GrammyTelegramNotifier(input.bot.api, consoleLogger);
+  const notifier = new GrammyTelegramNotifier(input.bot.api, consoleLogger, input.customEmojiRepository);
   const handlers = createAudioPipelineHandlers({
     config: input.config,
     projects: input.repository,

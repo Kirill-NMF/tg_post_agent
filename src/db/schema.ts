@@ -54,6 +54,13 @@ export const artifactTypeEnum = pgEnum("artifact_type", ["final_txt", "final_mes
 export const artifactStatusEnum = pgEnum("artifact_status", ["pending", "ready", "failed", "deleted"]);
 export const modelProviderEnum = pgEnum("model_provider", ["whisper", "gemini", "claude", "gpt", "mock"]);
 
+export const customEmojiSettings = pgTable("custom_emoji_settings", {
+  scope: text("scope").primaryKey(),
+  mappingsJson: jsonb("mappings_json").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const users = pgTable(
   "users",
   {

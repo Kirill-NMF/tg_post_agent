@@ -246,7 +246,7 @@ OPENROUTER_FORMATTING_MODEL has no direct-provider or automatic fallback. The ha
 
 When `OPENROUTER_FORMATTING_MODEL` and `OPENROUTER_API_KEY` are configured, generated and revised drafts expose formatting. The public choice labels are `Telegram` (Option 1) and `Telegram + emoji` (Option 2). FORMAT_POST is queued only after `formatting` has been persisted. Its successful notification contains a correction action and final acceptance; final acceptance sends the existing text artifact once, without re-sending the formatted body.
 
-Text or voice correction of a formatted result invalidates the stale formatted state and routes through draft revision. A provider, malformed-plan, or notification terminal path restores `draft_editing` rather than stranding the project. Premium/custom emoji remain deferred. Tier 2 transport evidence is still required before owner Option 1/Option 2 review.
+Text or voice correction of a formatted result invalidates the stale formatted state and routes through draft revision. A provider, malformed-plan, or notification terminal path restores `draft_editing` rather than stranding the project. Option 2 delivery may render its validated Unicode role markers as owner-imported custom emoji entities; this never changes stored `formattedText` or `.txt`. Missing or invalid mapping uses base Unicode entities. A definite pre-acceptance custom-entity rejection gets one base-entity fallback; an ambiguous timeout is never auto-resent. Tier 2 entity verification remains required after owner setup.
 
 
 ## Draft regeneration

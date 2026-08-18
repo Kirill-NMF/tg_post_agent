@@ -6,7 +6,7 @@ import { InMemoryJobRepository } from "../src/repositories/inMemoryJobRepository
 import { InMemoryProjectRepository } from "../src/repositories/inMemoryProjectRepository.js";
 import { createFormatPostJobHandler } from "../src/services/formatPostJobHandler.js";
 import { JobWorker } from "../src/services/jobWorker.js";
-import type { TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
+import type { TelegramEntitySendOptions, TelegramNotifier, TelegramSendMessageOptions } from "../src/telegram/telegramNotifier.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
 describe("FORMAT_POST job handler", () => {
@@ -64,6 +64,7 @@ describe("FORMAT_POST job handler", () => {
     expect(legacyCalls).toBe(0);
     expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("📜 **Canonical draft.**");
     expect(notifier.messages).toHaveLength(1);
+    expect(notifier.cryptusMessages).toEqual([{ chatId: "200", canonicalText: "📜 **Canonical draft.**" }]);
   });
 
   it("calls the Option 2 final-text adapter with its bound receiver", async () => {
@@ -331,9 +332,14 @@ class TimingThrowingLogger extends CapturingLogger {
 
 class CapturingNotifier implements TelegramNotifier {
   readonly messages: Array<{ chatId: string; text: string; options?: TelegramSendMessageOptions }> = [];
+  readonly cryptusMessages: Array<{ chatId: string; canonicalText: string }> = [];
   constructor(private readonly error?: Error) {}
   async sendMessage(chatId: string, text: string, options?: TelegramSendMessageOptions): Promise<void> {
     this.messages.push({ chatId, text, options });
     if (this.error) throw this.error;
+  }
+  async sendCryptusOption2(chatId: string, canonicalText: string, options?: TelegramEntitySendOptions): Promise<void> {
+    this.cryptusMessages.push({ chatId, canonicalText });
+    await this.sendMessage(chatId, canonicalText, options);
   }
 }
