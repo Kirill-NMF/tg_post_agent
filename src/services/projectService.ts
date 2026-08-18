@@ -15,8 +15,7 @@ import type {
 } from "../domain/types.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
-import { applyFormattingPlan } from "../domain/formatting.js";
-import { validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
+import { applyFormattingPlan, applySegmentFormattingPlan, deriveCanonicalSegments, type CanonicalFormattingSegment, type SegmentFormattingOperation } from "../domain/formatting.js";
 import { draftActionButtons } from "./draftPresentation.js";
 import { finalActionButtons, formatChoiceButtons } from "./formatPresentation.js";
 import { currentPlan } from "./planSplitJobHandler.js";
@@ -263,22 +262,23 @@ export class ProjectService {
     }
 
     const option2Formatter = this.models as ModelAdapters & Partial<{
-      formatOption2FinalText(input: { projectId: string; draftText: string }): Promise<{
+      formatOption2Segments(input: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<{
         ok: true;
-        value: { formattedText: string };
+        value: { directives: SegmentFormattingOperation[] };
       } | { ok: false; error: { message: string } }>;
     }>;
     let formattedText: string | undefined;
     if (formattingOption === "option_2") {
-      if (!option2Formatter.formatOption2FinalText) {
+      if (!option2Formatter.formatOption2Segments) {
         return [{ kind: "message", text: "Не удалось безопасно применить оформление. Черновик сохранён без изменений." }];
       }
-      const result = await unwrap(option2Formatter.formatOption2FinalText.call(option2Formatter, { projectId: project.id, draftText: post.currentDraft }));
-      const validation = validateCryptusOption2Candidate(post.currentDraft, result.formattedText);
-      if (!validation.ok) {
+      const segments = deriveCanonicalSegments(post.currentDraft);
+      const result = await unwrap(option2Formatter.formatOption2Segments.call(option2Formatter, { projectId: project.id, draftText: post.currentDraft, segments }));
+      const rendered = applySegmentFormattingPlan(post.currentDraft, "option_2", result.directives, segments);
+      if (!rendered.ok) {
         return [{ kind: "message", text: "Не удалось безопасно применить оформление. Черновик сохранён без изменений." }];
       }
-      formattedText = result.formattedText;
+      formattedText = rendered.text;
     } else {
       const rendered = applyFormattingPlan(post.currentDraft, (await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }))).decorationPlan);
       if (rendered.ok) formattedText = rendered.text;

@@ -36,23 +36,24 @@ describe("FORMAT_POST job handler", () => {
     expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
   });
 
-  it("uses validated Option 2 final text to persist a formatted final", async () => {
+  it("renders Option 2 exclusively from canonical segments and persists the result", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedFormattingProject(projects);
     let legacyCalls = 0;
-    let finalTextCalls = 0;
+    let segmentCalls = 0;
     await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
     const worker = new JobWorker(jobs, {
       FORMAT_POST: createFormatPostJobHandler({
         projects,
         formatting: {
           async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
-          async formatOption2FinalText(input: { draftText: string }) {
-            finalTextCalls += 1;
+          async formatOption2Segments(input: { draftText: string; segments: readonly { id: string }[] }) {
+            segmentCalls += 1;
             expect(input.draftText).toBe("Canonical draft.");
-            return { ok: true as const, value: { formattedText: "📜 **Canonical draft.**" }, meta: { provider: "openrouter", modelLabel: "fake-final-text-model" } };
+            expect(input.segments.map((segment) => segment.id)).toEqual(["block_1"]);
+            return { ok: true as const, value: { directives: [{ id: "block_1", kind: "emoji_insertion" as const, position: "before" as const, emoji: "📜" }] }, meta: { provider: "openrouter", modelLabel: "fake-segment-model" } };
           }
         },
         notifier
@@ -60,23 +61,23 @@ describe("FORMAT_POST job handler", () => {
     });
 
     await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
-    expect(finalTextCalls).toBe(1);
+    expect(segmentCalls).toBe(1);
     expect(legacyCalls).toBe(0);
-    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("📜 **Canonical draft.**");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("📜 Canonical draft.");
     expect(notifier.messages).toHaveLength(1);
-    expect(notifier.cryptusMessages).toEqual([{ chatId: "200", canonicalText: "📜 **Canonical draft.**" }]);
+    expect(notifier.cryptusMessages).toEqual([{ chatId: "200", canonicalText: "📜 Canonical draft." }]);
   });
 
-  it("calls the Option 2 final-text adapter with its bound receiver", async () => {
+  it("calls the Option 2 segment adapter with its bound receiver", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const project = await seedFormattingProject(projects);
     const adapter = {
       marker: "bound",
       async formatPost() { throw new Error("legacy path must not be used"); },
-      async formatOption2FinalText() {
-        if (this.marker !== "bound") throw new Error("final_text_adapter_receiver_lost");
-        return { ok: true as const, value: { formattedText: "📜 **Canonical draft.**" }, meta: { provider: "openrouter" as const, modelLabel: "bound-final-text-model" } };
+      async formatOption2Segments() {
+        if (this.marker !== "bound") throw new Error("segment_adapter_receiver_lost");
+        return { ok: true as const, value: { directives: [{ id: "block_1", kind: "emoji_insertion" as const, position: "before" as const, emoji: "📜" }] }, meta: { provider: "openrouter" as const, modelLabel: "bound-segment-model" } };
       }
     };
     await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
@@ -85,25 +86,25 @@ describe("FORMAT_POST job handler", () => {
     });
 
     await expect(worker.processOne({ workerId: "worker-1" })).resolves.toMatchObject({ status: "succeeded" });
-    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("📜 **Canonical draft.**");
+    expect((await projects.findById(project.id))?.posts[0]?.formattedText).toBe("📜 Canonical draft.");
   });
 
-  it("recovers an Option 2 contract-invalid final text without mutating the active draft", async () => {
+  it("rejects a provider-authored lexical field before it can mutate the active draft", async () => {
     const projects = new InMemoryProjectRepository();
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedFormattingProject(projects);
     let legacyCalls = 0;
-    let finalTextCalls = 0;
+    let segmentCalls = 0;
     const job = await jobs.enqueue({ type: "FORMAT_POST", projectId: project.id, payload: { postIndex: 1, formattingOption: "option_2" } });
     const worker = new JobWorker(jobs, {
       FORMAT_POST: createFormatPostJobHandler({
         projects,
         formatting: {
           async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
-          async formatOption2FinalText() {
-            finalTextCalls += 1;
-            return { ok: true as const, value: { formattedText: "✨### *Canonical draft.*" }, meta: { provider: "openrouter", modelLabel: "fake-final-text-model" } };
+          async formatOption2Segments() {
+            segmentCalls += 1;
+            return { ok: true as const, value: { directives: [{ id: "block_1", kind: "replacement", text: "provider words" }] as never }, meta: { provider: "openrouter", modelLabel: "fake-segment-model" } };
           }
         },
         notifier
@@ -113,7 +114,7 @@ describe("FORMAT_POST job handler", () => {
     await worker.processOne({ workerId: "worker-1" });
     const restored = await projects.findById(project.id);
     expect((await jobs.findById(job.id))?.status).toBe("failed");
-    expect(finalTextCalls).toBe(1);
+    expect(segmentCalls).toBe(1);
     expect(legacyCalls).toBe(0);
     expect(restored?.state).toBe("draft_editing");
     expect(restored?.posts[0]?.currentDraft).toBe("Canonical draft.");
@@ -136,7 +137,7 @@ describe("FORMAT_POST job handler", () => {
             legacyCalls += 1;
             return { ok: true as const, value: { decorationPlan: { option: "option_1" as const, operations: [] } }, meta: { provider: "openrouter", modelLabel: "legacy-model" } };
           },
-          async formatOption2FinalText() { segmentCalls += 1; throw new Error("Option 2 only"); }
+          async formatOption2Segments() { segmentCalls += 1; throw new Error("Option 2 only"); }
         }
       })
     });

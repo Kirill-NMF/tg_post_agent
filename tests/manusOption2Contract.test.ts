@@ -98,11 +98,12 @@ describe("Manus Option2 role contract", () => {
       operations: [],
     }), segments);
 
-    expect(directives).toHaveLength(9);
+    expect(directives).toHaveLength(10);
     expect(directives).toEqual(expect.arrayContaining([
       { id: "block_1", kind: "heading_case", mode: "uppercase" },
       { id: "block_1", kind: "markdown_span", style: "bold" },
       { id: "block_3", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "heading_case", mode: "uppercase" },
       { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "⏸" },
       { id: "block_4", kind: "emoji_insertion", position: "before", emoji: "🟠" },
       { id: "block_6", kind: "markdown_span", style: "code" },
@@ -111,6 +112,33 @@ describe("Manus Option2 role contract", () => {
     const rendered = applySegmentFormattingPlan(longDraft, "option_2", directives, segments);
     expect(rendered.ok).toBe(true);
     if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(longDraft);
+  });
+
+  it("turns an ambiguous segment role assignment into source-backed section formatting", () => {
+    const draft = `MAIN TITLE
+
+This deliberately long introductory paragraph contains more than fourteen lexical words and ends as a sentence.
+
+Section before body
+Ordinary body sentence.`;
+    const segments = deriveCanonicalSegments(draft);
+    expect(segments[2]?.role).toBe("list_candidate");
+    const directives = parseOption2SegmentPlan(JSON.stringify({
+      primaryEmoji: { id: "block_2", kind: "emoji_insertion", position: "before", emoji: "📜" },
+      operations: [{ id: "block_3", kind: "list_decoration", role: "section_heading" }],
+    }), segments);
+
+    expect(directives).toEqual(expect.arrayContaining([
+      { id: "block_3", kind: "heading_case", mode: "uppercase" },
+      { id: "block_3", kind: "markdown_span", style: "bold" },
+      { id: "block_3", kind: "emoji_insertion", position: "before", emoji: "⏸" },
+    ]));
+    const rendered = applySegmentFormattingPlan(draft, "option_2", directives, segments);
+    expect(rendered).toMatchObject({ ok: true });
+    if (rendered.ok) {
+      expect(rendered.text).toContain("⏸ *SECTION BEFORE BODY*");
+      expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(draft);
+    }
   });
 
   it("budgets server-owned required roles separately from a bounded production-shaped provider plan", () => {
@@ -130,7 +158,7 @@ describe("Manus Option2 role contract", () => {
       operations,
     }), segments, 30);
 
-    expect(directives).toHaveLength(36);
+    expect(directives).toHaveLength(40);
     const rendered = applySegmentFormattingPlan(draft, "option_2", directives, segments);
     expect(rendered.ok).toBe(true);
     if (rendered.ok) expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(draft);
@@ -169,10 +197,10 @@ describe("Manus Option2 role contract", () => {
     expect(nonCta).toEqual(["main_heading", "intro", "paragraph", "audience_question"]);
   });
 
-  it("permits only reversible uppercase on the main heading", () => {
+  it("permits reversible uppercase only on inferred heading roles", () => {
     const segments = deriveCanonicalSegments(longDraft);
     expectCode(
-      () => parseOption2SegmentPlan(JSON.stringify({ ...validPlan(), operations: validPlan().operations.map((operation) => operation.kind === "heading_case" ? { ...operation, id: "block_3" } : operation) }), segments),
+      () => parseOption2SegmentPlan(JSON.stringify({ ...validPlan(), operations: validPlan().operations.map((operation) => operation.kind === "heading_case" ? { ...operation, id: "block_2" } : operation) }), segments),
       "FORMAT_OPTION2_HEADING_CASE_ROLE_INVALID",
     );
   });

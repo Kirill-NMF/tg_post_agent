@@ -137,16 +137,17 @@ describe("ProjectService mock state machine", () => {
     });
   });
 
-  it("uses the Option 2 final-text path when synchronous formatting adapter support is available", async () => {
+  it("uses the source-backed Option 2 segment path when synchronous formatting support is available", async () => {
     const repository = new InMemoryProjectRepository();
     let legacyCalls = 0;
-    let finalTextCalls = 0;
+    let segmentCalls = 0;
     const models = Object.assign(new MockModelAdapters(), {
       async formatPost() { legacyCalls += 1; throw new Error("legacy path must not be used"); },
-      async formatOption2FinalText(input: { draftText: string }) {
-        finalTextCalls += 1;
+      async formatOption2Segments(input: { draftText: string; segments: readonly { id: string }[] }) {
+        segmentCalls += 1;
         expect(input.draftText).toBe("Current draft");
-        return { ok: true as const, value: { formattedText: "📜 **Current draft**" } };
+        expect(input.segments.map((segment) => segment.id)).toEqual(["block_1"]);
+        return { ok: true as const, value: { directives: [{ id: "block_1", kind: "emoji_insertion" as const, position: "before" as const, emoji: "📜" }] } };
       }
     });
     const projects = new ProjectService(repository, models, undefined, undefined, true);
@@ -156,9 +157,9 @@ describe("ProjectService mock state machine", () => {
 
     await projects.formatCurrentPost("100", "option_2");
 
-    expect(finalTextCalls).toBe(1);
+    expect(segmentCalls).toBe(1);
     expect(legacyCalls).toBe(0);
-    expect((await repository.findById(project.id))?.posts[0]?.formattedText).toBe("📜 **Current draft**");
+    expect((await repository.findById(project.id))?.posts[0]?.formattedText).toBe("📜 Current draft");
   });
 
   it("keeps the no-job mock path revising drafts synchronously", async () => {

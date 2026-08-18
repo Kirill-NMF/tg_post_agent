@@ -147,7 +147,7 @@ describe("Manus offline tuning regressions", () => {
     const draft = "MAIN TITLE\n\nThis deliberately long introductory paragraph contains more than fourteen lexical words and ends as a sentence.\n\nOrdinary body sentence.\n\nWhat will you choose?";
     const segments = deriveCanonicalSegments(draft);
     const schema = JSON.stringify(buildOption2SegmentPlanSchema(segments));
-    expect(schema).toContain("list_decoration");
+    expect(schema).not.toContain("list_decoration");
     try {
       parseOption2SegmentPlan(JSON.stringify({
         primaryEmoji: { id: segments[1]!.id, kind: "emoji_insertion", position: "before", emoji: "📜" },
@@ -155,7 +155,7 @@ describe("Manus offline tuning regressions", () => {
       }), segments);
       throw new Error("expected validation failure");
     } catch (error) {
-      expect(error).toMatchObject({ code: "FORMAT_OPTION2_LIST_ROLE_INVALID" });
+      expect(error).toMatchObject({ code: "FORMAT_SEGMENT_PLAN_SCHEMA_INVALID" });
     }
   });
 });

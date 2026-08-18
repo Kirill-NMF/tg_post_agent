@@ -113,6 +113,43 @@ describe("formatting decoration plans", () => {
     ]);
   });
 
+  it("keeps a paragraph-leading title-case line ambiguous for a typed provider role assignment", () => {
+    const segments = deriveCanonicalSegments(`Главный заголовок
+
+Вводный абзац заканчивается точкой.
+
+Раздел перед содержанием
+Основной абзац достаточно длинный и заканчивается точкой.`);
+
+    expect(segments[2]?.role).toBe("list_candidate");
+  });
+
+  it("uppercases section headings and replaces a canonical bullet from source reversibly", () => {
+    const canonical = `Главный заголовок
+
+Вводный абзац заканчивается точкой.
+
+Раздел перед списком
+
+• Первый пункт`;
+    const segments = deriveCanonicalSegments(canonical);
+    const section = segments[2]!;
+    const item = segments.find((segment) => segment.role === "primary_list")!;
+    const result = applySegmentFormattingPlan(canonical, "option_2", [
+      { id: section.id, kind: "heading_case", mode: "uppercase" },
+      { id: section.id, kind: "markdown_span", style: "bold" },
+      { id: section.id, kind: "emoji_insertion", position: "before", emoji: "⏸" },
+      { id: item.id, kind: "emoji_insertion", position: "before", emoji: "🟠" },
+    ], segments);
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.text).toContain("*РАЗДЕЛ ПЕРЕД СПИСКОМ*");
+    expect(result.text).toContain("🟠 Первый пункт");
+    expect(result.text).not.toContain("🟠 •");
+    expect(recoverCanonicalText(result.text, result.insertions, result.caseTransforms)).toBe(canonical);
+  });
+
   it("does not classify an isolated sentence as a section heading", () => {
     const segments = deriveCanonicalSegments(`Главный заголовок
 

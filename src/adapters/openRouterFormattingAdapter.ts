@@ -332,7 +332,7 @@ const listDecorationSegmentSchema = {
   properties: {
     id: { type: "string" },
     kind: { type: "string", enum: ["list_decoration"] },
-    role: { type: "string", enum: ["primary_list", "nested_list"] }
+    role: { type: "string", enum: ["primary_list", "nested_list", "section_heading"] }
   }
 } as const;
 
@@ -385,6 +385,7 @@ export function buildOption2SegmentPlanSchema(segmentsOrIds?: readonly string[] 
     const segments = segmentsOrIds as readonly Option2SchemaSegment[];
     constrainRoleEmojiSchemas(schema, segments);
     constrainRoleListMarkerSchemas(schema, segments);
+    constrainRoleAssignmentSchemas(schema, segments);
   }
   return schema;
 }
@@ -405,9 +406,9 @@ export function buildOption2SegmentPrompt(segments: readonly CanonicalFormatting
   return [
     "Return exactly one JSON object matching the supplied schema.",
     "Apply the Manus/CRYPTUS Option 2 contract with primary-gold-first precedence.",
-    "Preserve every word, punctuation mark, and order. The only surface change is the explicit reversible uppercase heading_case operation for main_heading.",
-    "The server deterministically applies required role decorations: main_heading=uppercase+bold; section_heading=bold+leading pause; intro=leading scroll; primary_list=leading orange circle; prompt_code=leading low-brightness symbol+code; cta=leading fire; audience_question=leading arrow. Return only role-valid optional directives; required slots are canonicalized server-side.",
-    "For existing nested_list, list_marker may use only the exact segment ID and contextual marker variant exposed by the schema; never guess another ID or marker. For list_candidate, list_decoration may choose primary_list or nested_list; the server inserts only the typed presentation anchor and never rewrites punctuation. Preserve hashtag_footer without invention.",
+    "Preserve every word, punctuation mark, and order. The only surface changes are server-owned reversible uppercase heading_case operations and deterministic replacement of a canonical list marker by its role marker.",
+    "The server deterministically applies required role decorations: main_heading=uppercase+bold; section_heading=uppercase+bold+leading pause; intro=leading scroll; primary_list=leading orange circle (replacing an existing source list marker); prompt_code=leading low-brightness symbol+code; cta=leading fire; audience_question=leading arrow. Return only role-valid optional directives; required slots are canonicalized server-side.",
+    "For existing nested_list, list_marker may use only the exact segment ID and contextual marker variant exposed by the schema; never guess another ID or marker. For list_candidate, list_decoration may assign only primary_list, nested_list, or section_heading; the server performs the corresponding typed marker, bold/pause, and uppercase transform without accepting replacement text. Preserve hashtag_footer without invention.",
     "Bold is dominant. Never use italic, strike, spoiler, custom/Premium emoji, arbitrary emoji soup, or monospace outside prompt_code.",
     "Never invent CTA, audience-question, or hashtag words; those roles only decorate lexical content already present in the canonical segment.",
     "semantic_accent is optional only on section_heading, uses the evidenced allowlist, and is density-bounded.",
@@ -476,15 +477,16 @@ export function parseOption2SegmentPlan(raw: string, segments: readonly Canonica
   }
   const semanticBudget = Math.min(2, Math.ceil(segments.filter((segment) => segment.role === "section_heading").length / 3));
   if (semanticAccentCount > semanticBudget) throw new FormattingPlanValidationError("FORMAT_OPTION2_SEMANTIC_ACCENT_DENSITY_EXCEEDED", rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic"));
-  const completedDirectives = completeRequiredRoleContract(directives, segments);
-  const completedOperationLimit = maxOperations + segments.reduce((count, segment) => count + requiredRoleDirectives(segment).length, 0);
+  const projectedSegments = projectAssignedRoles(directives, segments);
+  const completedDirectives = completeRequiredRoleContract(directives, projectedSegments);
+  const completedOperationLimit = maxOperations + projectedSegments.reduce((count, segment) => count + requiredRoleDirectives(segment).length, 0);
   if (completedDirectives.length > completedOperationLimit) {
     throw new FormattingPlanValidationError(
       "FORMAT_PLAN_OPERATION_LIMIT_EXCEEDED",
       rejectedPlanDiagnostics(responseByteLengthBucket, parsed, undefined, "semantic")
     );
   }
-  validateRequiredRoleContract(completedDirectives, segments, responseByteLengthBucket, parsed);
+  validateRequiredRoleContract(completedDirectives, projectedSegments, responseByteLengthBucket, parsed);
   return completedDirectives;
 }
 
@@ -561,6 +563,26 @@ function constrainRoleListMarkerSchemas(schema: Record<string, unknown>, segment
   const items = operations.items as Record<string, unknown>;
   const branches = items.anyOf as Array<Record<string, unknown>>;
   items.anyOf = branches.flatMap((branch) => isOperationKindSchema(branch, "list_marker") ? structuredClone(variants) : [branch]);
+}
+
+function constrainRoleAssignmentSchemas(schema: Record<string, unknown>, segments: readonly Option2SchemaSegment[]): void {
+  const ids = segments.filter((segment) => segment.role === "list_candidate").map((segment) => segment.id);
+  const properties = schema.properties as Record<string, unknown>;
+  const operations = properties.operations as Record<string, unknown>;
+  const items = operations.items as Record<string, unknown>;
+  const branches = items.anyOf as Array<Record<string, unknown>>;
+  items.anyOf = branches.flatMap((branch) => isOperationKindSchema(branch, "list_decoration")
+    ? ids.length === 0 ? [] : [{
+      type: "object",
+      additionalProperties: false,
+      required: ["id", "kind", "role"],
+      properties: {
+        id: { type: "string", enum: ids },
+        kind: { type: "string", enum: ["list_decoration"] },
+        role: { type: "string", enum: ["primary_list", "nested_list", "section_heading"] },
+      },
+    }]
+    : [branch]);
 }
 
 function isOperationKindSchema(schema: Record<string, unknown>, kindName: string): boolean {
@@ -681,10 +703,16 @@ function completeRequiredRoleContract(
   directives: readonly Option2SegmentDirective[],
   segments: readonly CanonicalFormattingSegment[]
 ): Option2SegmentDirective[] {
-  const required = segments.flatMap(requiredRoleDirectives);
+  const projectedSegments = projectAssignedRoles(directives, segments);
+  const required = projectedSegments.flatMap(requiredRoleDirectives);
   const requiredSlots = new Set(required.map(directiveSlot));
   const optional = directives.filter((directive) => !requiredSlots.has(directiveSlot(directive)));
   return [...required, ...optional];
+}
+
+function projectAssignedRoles(directives: readonly Option2SegmentDirective[], segments: readonly CanonicalFormattingSegment[]): CanonicalFormattingSegment[] {
+  const assigned = new Map(directives.filter((directive) => directive.kind === "list_decoration").map((directive) => [directive.id, directive.role] as const));
+  return segments.map((segment) => assigned.has(segment.id) ? { ...segment, role: assigned.get(segment.id)! } : segment);
 }
 
 function requiredRoleDirectives(segment: CanonicalFormattingSegment): Option2SegmentDirective[] {
@@ -696,6 +724,7 @@ function requiredRoleDirectives(segment: CanonicalFormattingSegment): Option2Seg
   }
   if (segment.role === "section_heading") {
     return [
+      { id: segment.id, kind: "heading_case", mode: "uppercase" },
       { id: segment.id, kind: "markdown_span", style: "bold" },
       { id: segment.id, kind: "emoji_insertion", position: "before", emoji: roleAnchorEmoji.section_heading![0]! }
     ];
@@ -714,7 +743,7 @@ function directiveSlot(directive: Option2SegmentDirective): string {
 }
 
 function validateRoleDirective(operation: Option2SegmentDirective, segment: CanonicalFormattingSegment, diagnostics: RejectedSegmentPlanDiagnostics): void {
-  if (operation.kind === "heading_case" && segment.role !== "main_heading") throw new FormattingPlanValidationError("FORMAT_OPTION2_HEADING_CASE_ROLE_INVALID", diagnostics);
+  if (operation.kind === "heading_case" && segment.role !== "main_heading" && segment.role !== "section_heading") throw new FormattingPlanValidationError("FORMAT_OPTION2_HEADING_CASE_ROLE_INVALID", diagnostics);
   if (operation.kind === "markdown_span" && operation.style === "code" && segment.role !== "prompt_code") throw new FormattingPlanValidationError("FORMAT_OPTION2_CODE_ROLE_INVALID", diagnostics);
   if (operation.kind === "list_marker") {
     if (segment.role !== "nested_list") throw new FormattingPlanValidationError("FORMAT_OPTION2_LIST_ROLE_INVALID", diagnostics);
@@ -755,7 +784,8 @@ function hasRequiredRoleDirectives(
       && has(segment.id, (operation) => operation.kind === "markdown_span" && operation.style === "bold");
   }
   if (segment.role === "section_heading") {
-    return has(segment.id, (operation) => operation.kind === "markdown_span" && operation.style === "bold")
+    return has(segment.id, (operation) => operation.kind === "heading_case" && operation.mode === "uppercase")
+      && has(segment.id, (operation) => operation.kind === "markdown_span" && operation.style === "bold")
       && has(segment.id, (operation) => operation.kind === "emoji_insertion" && roleAnchorEmoji.section_heading!.includes(operation.emoji));
   }
   if (!(segment.role in roleAnchorEmoji)) return true;
