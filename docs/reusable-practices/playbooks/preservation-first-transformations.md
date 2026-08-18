@@ -36,6 +36,12 @@ For ID-addressed Option 2 plans, use OpenRouter's non-streaming `json_schema` re
 
 Canary complexity must match production shape. A one-segment happy path is insufficient when production uses mixed paragraph, Markdown, and emoji operations: deterministic and controlled canaries must include every operation kind and a multi-segment corpus. Apply the same non-streaming strict JSON Schema boundary to OpenRouter-backed Stage 2 draft/revision requests; retain the direct-Gemini legacy request shape only where that SDK requires it. Option 1 remains unchanged. References: [Anthropic Structured Outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs), [OpenRouter Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs), and [Provider Selection](https://openrouter.ai/docs/guides/routing/provider-selection).
 
+### Source-backed rendering rule
+
+The provider may select only closed, typed roles and decorations keyed by server-derived segment IDs. The application reconstructs the post from the immutable canonical segments exactly once and in order; it never accepts provider-authored lexical text. Ambiguous source lines may receive a bounded role assignment, after which uppercase, list-marker replacement, Markdown, and emoji are deterministic server transforms. Record every reversible source transform and prove that removing presentation restores the canonical draft exactly.
+
+Formatting must also be idempotent over canonical source markup. Before adding a complete bold or code wrapper, recognize an already complete source wrapper and reuse it; never create empty adjacent delimiters such as `****`. Exercise the resulting text through the strict Telegram entity renderer, not only the domain renderer. If a provider plan succeeded but delivery failed, persist the raw plan privately with mode `0600`, fix the deterministic layer, and replay the exact plan without another provider call.
+
 ## Terminal acceptance
 
 Transformation success is not established by provider completion or a succeeded job alone. The terminal gate must compare canonical and delivered lexical units in exact order, require option-specific permitted decoration, scope the final by version/cursor, reject stale or duplicate finals, and verify exactly one non-empty export artifact after one Done action. Literary quality and decoration density remain owner judgements only after this technical gate passes.

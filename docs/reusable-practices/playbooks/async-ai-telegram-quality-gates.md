@@ -55,3 +55,15 @@ When Stage 3 sends a safe recovery after a provider response, record only a boun
 3. Emit rejected-output telemetry by category only. It must identify provider envelope, JSON parsing, shape validation, or semantic validation plus bounded structural counts; it must never include content.
 4. Match the canary to production segment count, length, and mixed-operation complexity. A one-block success cannot close a long-form gate.
 5. Require current-version transport evidence: first-click terminal delivery, exact canonical lexical order, required decoration, one Done action, and exactly one non-empty artifact. A succeeded job row alone is insufficient.
+
+## Small-change timebox and layered gate
+
+Timebox a narrow production fix to 30–45 minutes before reassessing the test strategy. Use one pass through these layers:
+
+1. RED fixture at the proven boundary.
+2. Focused domain/adapter/service/transport tests while editing.
+3. One final full suite, typecheck, build, and smoke after the focused matrix is green.
+4. One reviewed commit and controlled deploy.
+5. One bounded external validation only when deterministic gates and ledger preflight are green.
+
+Do not spend one provider call per newly discovered classifier symptom. Capture the provider plan privately on the first bounded attempt, classify the complete structural surface offline, and replay that exact plan after deterministic fixes. Terminal acceptance still requires persisted output, source recovery, validated Telegram entities, exactly one final, exactly one Done export, and a healthy restored runtime.
