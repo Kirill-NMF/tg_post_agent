@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CustomEmojiConfiguration } from "../src/domain/customEmoji.js";
 import { renderCryptusTelegramText } from "../src/telegram/cryptusTelegramRenderer.js";
+import { applySegmentFormattingPlan, deriveCanonicalSegments } from "../src/domain/formatting.js";
 
 function configuration(): CustomEmojiConfiguration {
   const roles = ["post_title", "section_title", "list_item", "copy_block", "cta", "audience_question"] as const;
@@ -12,6 +13,21 @@ function configuration(): CustomEmojiConfiguration {
 }
 
 describe("renderCryptusTelegramText", () => {
+  it("accepts bold markup emitted by the source-backed Option 2 renderer", () => {
+    const canonicalDraft = "Главный заголовок\n\nОбычный абзац.";
+    const segments = deriveCanonicalSegments(canonicalDraft);
+    const formatted = applySegmentFormattingPlan(canonicalDraft, "option_2", [
+      { id: "block_1", kind: "markdown_span", style: "bold" },
+      { id: "block_1", kind: "emoji_insertion", position: "before", emoji: "📜" },
+    ], segments);
+
+    expect(formatted).toMatchObject({ ok: true });
+    if (!formatted.ok) return;
+    const transport = renderCryptusTelegramText(formatted.text, configuration());
+    expect(transport.entities.filter((entity) => entity.type === "bold")).toHaveLength(1);
+    expect(transport.entities.filter((entity) => entity.type === "custom_emoji")).toHaveLength(1);
+  });
+
   it("renders the strict bold/code subset with UTF-16 offsets and no literal delimiters", () => {
     const canonical = "📜 **ЗАГОЛОВОК**\n🔅 `код 🚀`\n🔥 **Действуйте**\n➡️ **Вопрос?**";
     const rendered = renderCryptusTelegramText(canonical, configuration());

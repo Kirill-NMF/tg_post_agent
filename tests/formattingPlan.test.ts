@@ -144,7 +144,7 @@ describe("formatting decoration plans", () => {
 
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
-    expect(result.text).toContain("*РАЗДЕЛ ПЕРЕД СПИСКОМ*");
+    expect(result.text).toContain("**РАЗДЕЛ ПЕРЕД СПИСКОМ**");
     expect(result.text).toContain("🟠 Первый пункт");
     expect(result.text).not.toContain("🟠 •");
     expect(recoverCanonicalText(result.text, result.insertions, result.caseTransforms)).toBe(canonical);

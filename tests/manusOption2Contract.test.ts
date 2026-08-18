@@ -136,7 +136,7 @@ Ordinary body sentence.`;
     const rendered = applySegmentFormattingPlan(draft, "option_2", directives, segments);
     expect(rendered).toMatchObject({ ok: true });
     if (rendered.ok) {
-      expect(rendered.text).toContain("⏸ *SECTION BEFORE BODY*");
+      expect(rendered.text).toContain("⏸ **SECTION BEFORE BODY**");
       expect(recoverCanonicalText(rendered.text, rendered.insertions, rendered.caseTransforms)).toBe(draft);
     }
   });

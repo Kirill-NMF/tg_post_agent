@@ -370,7 +370,7 @@ function buildSegmentInsertions(segments: readonly CanonicalFormattingSegment[],
     const segment = segments.find((item) => item.id === operation.id)!;
     const sourceIndex = (index: number) => index + transforms.reduce((delta, transform) => transform.sourceEnd <= index ? delta + transform.transformedText.length - transform.originalText.length : delta, 0);
     if (operation.kind === "markdown_span") {
-      const marker = operation.style === "bold" ? "*" : "`";
+      const marker = operation.style === "bold" ? "**" : "`";
       insertions.push({ sourceIndex: sourceIndex(segment.start), text: marker, category: "markdown_open" }, { sourceIndex: sourceIndex(segment.end), text: marker, category: "markdown_close" });
     } else if (operation.kind === "paragraph_break") {
       insertions.push({ sourceIndex: sourceIndex(operation.position === "before" ? segment.start : segment.end), text: "\n\n", category: "paragraph_break", position: operation.position });
