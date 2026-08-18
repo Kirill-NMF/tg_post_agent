@@ -3,7 +3,12 @@ import type { BotResponse, SourceAudioInput } from "../domain/types.js";
 import type { CustomEmojiSetupService, IncomingTelegramEntity } from "../services/customEmojiSetupService.js";
 import type { BotRouter } from "./router.js";
 
-export function createBot(token: string, router: BotRouter, emojiSetup?: CustomEmojiSetupService): Bot {
+type BotLogger = {
+  info(fields: Record<string, unknown>, message: string): void;
+  warn(fields: Record<string, unknown>, message: string): void;
+};
+
+export function createBot(token: string, router: BotRouter, emojiSetup?: CustomEmojiSetupService, logger?: BotLogger): Bot {
   const bot = new Bot(token);
 
   bot.command("start", async (ctx) => {
@@ -11,26 +16,48 @@ export function createBot(token: string, router: BotRouter, emojiSetup?: CustomE
   });
 
   bot.command("emoji_setup", async (ctx) => {
-    if (!emojiSetup) {
-      await ctx.reply("Настройка custom emoji отключена: владелец не настроен.");
-      return;
+    let replyText: string;
+    try {
+      if (!emojiSetup) {
+        replyText = "Настройка custom emoji отключена: владелец не настроен.";
+      } else {
+        const message = ctx.message;
+        if (!message?.text) {
+          replyText = "Используйте одну текстовую команду /emoji_setup и шесть custom emoji после неё.";
+        } else {
+          const result = await emojiSetup.configure(
+            {
+              telegramUserId: telegramUserId(ctx),
+              text: message.text,
+              entities: (message.entities ?? []).map((entity) => ({
+                type: entity.type,
+                offset: entity.offset,
+                length: entity.length,
+                custom_emoji_id: entity.type === "custom_emoji" ? entity.custom_emoji_id : undefined
+              } satisfies IncomingTelegramEntity))
+            },
+            async (ids) => ctx.api.getCustomEmojiStickers(ids)
+          );
+          replyText = result.message;
+        }
+      }
+    } catch (error) {
+      logger?.warn(
+        { event: "emoji_setup_handler_failed", errorCode: error instanceof Error ? error.name : "unknown" },
+        "Custom emoji setup handler failed"
+      );
+      replyText = "Настройку custom emoji не удалось завершить. Набор не изменён; повторите одну команду позже.";
     }
-    const message = ctx.message;
-    if (!message) throw new Error("Telegram command update has no message.");
-    const result = await emojiSetup.configure(
-      {
-        telegramUserId: telegramUserId(ctx),
-        text: message.text,
-        entities: (message.entities ?? []).map((entity) => ({
-          type: entity.type,
-          offset: entity.offset,
-          length: entity.length,
-          custom_emoji_id: entity.type === "custom_emoji" ? entity.custom_emoji_id : undefined
-        } satisfies IncomingTelegramEntity))
-      },
-      async (ids) => ctx.api.getCustomEmojiStickers(ids)
-    );
-    await ctx.reply(result.message);
+    try {
+      await ctx.reply(replyText);
+      logger?.info({ event: "emoji_setup_reply_sent" }, "Custom emoji setup reply sent");
+    } catch (error) {
+      logger?.warn(
+        { event: "emoji_setup_reply_failed", errorCode: error instanceof Error ? error.name : "unknown" },
+        "Custom emoji setup reply failed"
+      );
+      throw error;
+    }
   });
 
   bot.on("callback_query:data", async (ctx) => {

@@ -18,28 +18,40 @@ export type ResolvedCustomEmojiSticker = {
 type SetupFailure = { ok: false; code: string; message: string };
 type SetupResult = SetupFailure | { ok: true; code: string; message: string };
 type ResolveStickers = (ids: string[]) => Promise<ResolvedCustomEmojiSticker[]>;
+type SetupLogger = {
+  info(fields: Record<string, unknown>, message: string): void;
+  warn(fields: Record<string, unknown>, message: string): void;
+};
 
 export class CustomEmojiSetupService {
-  constructor(private readonly input: { ownerTelegramId?: string; repository: CustomEmojiRepository }) {}
+  constructor(private readonly input: { ownerTelegramId?: string; repository: CustomEmojiRepository; logger?: SetupLogger }) {}
 
   async configure(
     message: { telegramUserId: string; text: string; entities: IncomingTelegramEntity[] },
     resolveStickers: ResolveStickers
   ): Promise<SetupResult> {
+    const evidence = {
+      entityCount: message.entities.length,
+      commandEntityCount: message.entities.filter((entity) => entity.type === "bot_command").length,
+      customEmojiEntityCount: message.entities.filter((entity) => entity.type === "custom_emoji").length,
+      ownerBoundaryConfigured: Boolean(this.input.ownerTelegramId),
+      ownerMatched: Boolean(this.input.ownerTelegramId && message.telegramUserId === this.input.ownerTelegramId)
+    };
+    this.input.logger?.info({ event: "emoji_setup_received", ...evidence }, "Custom emoji setup command received");
     if (!this.input.ownerTelegramId || message.telegramUserId !== this.input.ownerTelegramId) {
-      return failure("EMOJI_SETUP_FORBIDDEN", "Команда настройки эмодзи доступна только владельцу бота.");
+      return this.record(failure("EMOJI_SETUP_FORBIDDEN", "Команда настройки эмодзи доступна только владельцу бота."), evidence);
     }
     const parsed = parseEntities(message.text, message.entities);
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) return this.record(parsed, evidence);
 
     let stickers: ResolvedCustomEmojiSticker[];
     try {
       stickers = await resolveStickers(parsed.items.map((item) => item.customEmojiId));
     } catch {
-      return failure("EMOJI_SETUP_RESOLUTION_FAILED", "Не удалось проверить эмодзи. Повторите одну команду позже.");
+      return this.record(failure("EMOJI_SETUP_RESOLUTION_FAILED", "Не удалось проверить эмодзи. Повторите одну команду позже."), evidence);
     }
     if (stickers.length !== customEmojiRoles.length || new Set(stickers.map((sticker) => sticker.custom_emoji_id)).size !== customEmojiRoles.length) {
-      return failure("EMOJI_SETUP_RESOLUTION_INCOMPLETE", "Telegram должен подтвердить ровно шесть разных custom emoji.");
+      return this.record(failure("EMOJI_SETUP_RESOLUTION_INCOMPLETE", "Telegram должен подтвердить ровно шесть разных custom emoji."), evidence);
     }
     const byId = new Map(stickers.map((sticker) => [sticker.custom_emoji_id, sticker]));
     const mappings: CustomEmojiMapping[] = [];
@@ -48,29 +60,36 @@ export class CustomEmojiSetupService {
       const item = parsed.items[index]!;
       const sticker = byId.get(item.customEmojiId);
       if (!sticker || sticker.type !== "custom_emoji" || sticker.custom_emoji_id !== item.customEmojiId || !sticker.set_name || !sticker.emoji) {
-        return failure("EMOJI_SETUP_STICKER_INVALID", `Эмодзи для роли ${roleLabel(role)} не удалось подтвердить как Telegram custom emoji.`);
+        return this.record(failure("EMOJI_SETUP_STICKER_INVALID", `Эмодзи для роли ${roleLabel(role)} не удалось подтвердить как Telegram custom emoji.`), evidence);
       }
       if (sticker.emoji !== item.alt) {
-        return failure("EMOJI_SETUP_ENTITY_ALT_MISMATCH", `Эмодзи для роли ${roleLabel(role)} должно оборачивать свой фактический символ.`);
+        return this.record(failure("EMOJI_SETUP_ENTITY_ALT_MISMATCH", `Эмодзи для роли ${roleLabel(role)} должно оборачивать свой фактический символ.`), evidence);
       }
       if (!isValidCustomEmojiRoleAlt(role, item.alt)) {
-        return failure("EMOJI_SETUP_ALT_INVALID", `Неверный символ для роли ${roleLabel(role)}. Пришлите шесть эмодзи в указанном порядке.`);
+        return this.record(failure("EMOJI_SETUP_ALT_INVALID", `Неверный символ для роли ${roleLabel(role)}. Пришлите шесть эмодзи в указанном порядке.`), evidence);
       }
       mappings.push({ role, customEmojiId: item.customEmojiId, alt: item.alt, setName: sticker.set_name });
     }
     if (new Set(mappings.map((item) => item.customEmojiId)).size !== mappings.length) {
-      return failure("EMOJI_SETUP_DUPLICATE_ENTITY", "Каждая из шести ролей должна содержать отдельный custom emoji.");
+      return this.record(failure("EMOJI_SETUP_DUPLICATE_ENTITY", "Каждая из шести ролей должна содержать отдельный custom emoji."), evidence);
     }
     try {
       await this.input.repository.replaceAll(mappings);
     } catch {
-      return failure("EMOJI_SETUP_PERSISTENCE_FAILED", "Не удалось сохранить полный набор эмодзи; прежняя настройка не изменена.");
+      return this.record(failure("EMOJI_SETUP_PERSISTENCE_FAILED", "Не удалось сохранить полный набор эмодзи; прежняя настройка не изменена."), evidence);
     }
-    return {
+    return this.record({
       ok: true,
       code: "EMOJI_SETUP_SAVED",
       message: ["Custom emoji настроены:", ...mappings.map((item) => `${roleLabel(item.role)}: ${item.alt} — готово`)].join("\n")
-    };
+    }, evidence);
+  }
+
+  private record(result: SetupResult, evidence: Record<string, unknown>): SetupResult {
+    const fields = { event: "emoji_setup_completed", outcomeCode: result.code, success: result.ok, ...evidence };
+    if (result.ok) this.input.logger?.info(fields, "Custom emoji setup completed");
+    else this.input.logger?.warn(fields, "Custom emoji setup rejected");
+    return result;
   }
 }
 
@@ -78,7 +97,9 @@ type ParsedItem = { customEmojiId: string; alt: string };
 
 function parseEntities(text: string, entities: IncomingTelegramEntity[]): { ok: true; items: ParsedItem[] } | SetupFailure {
   const commandEntities = entities.filter((entity) => entity.type === "bot_command");
-  const customEntities = entities.filter((entity) => entity.type === "custom_emoji");
+  const customEntities = entities
+    .filter((entity) => entity.type === "custom_emoji")
+    .sort((left, right) => left.offset - right.offset);
   if (customEntities.length !== customEmojiRoles.length) {
     return failure("EMOJI_SETUP_ENTITY_COUNT_INVALID", "Нужно отправить ровно шесть actual custom emoji после /emoji_setup.");
   }

@@ -44,6 +44,35 @@ describe("/emoji_setup bot command", () => {
     expect(customResolver).not.toHaveBeenCalled();
     expect(await repository.get()).toBeUndefined();
   });
+
+  it("sends one actionable response when the setup handler throws unexpectedly", async () => {
+    const setup = { configure: vi.fn().mockRejectedValue(new Error("fixture failure")) };
+    const logger = { info: vi.fn(), warn: vi.fn() };
+    const bot = createBot("0000000000:test-token", unusedRouter(), setup as never, logger);
+    const sentMessages: unknown[] = [];
+    bot.api.config.use((async (_previous: unknown, method: string, payload: unknown) => {
+      if (method === "getMe") return { ok: true, result: { id: 1, is_bot: true, first_name: "bot", username: "fixture_bot" } };
+      if (method === "sendMessage") {
+        sentMessages.push(payload);
+        return { ok: true, result: { message_id: 2, date: 0, chat: { id: 100, type: "private" }, text: "recovery" } };
+      }
+      throw new Error(`unexpected method ${method}`);
+    }) as never);
+    await bot.init();
+
+    await bot.handleUpdate(update(100) as never);
+
+    expect(setup.configure).toHaveBeenCalledTimes(1);
+    expect(sentMessages).toHaveLength(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "emoji_setup_handler_failed", errorCode: "Error" }),
+      expect.any(String)
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "emoji_setup_reply_sent" }),
+      expect.any(String)
+    );
+  });
 });
 
 function update(userId: number) {

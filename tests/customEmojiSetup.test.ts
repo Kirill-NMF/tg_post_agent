@@ -27,6 +27,33 @@ function stickers() {
 }
 
 describe("CustomEmojiSetupService", () => {
+  it("orders realistic Telegram custom-emoji entities by UTF-16 source offsets", async () => {
+    const repository = new InMemoryCustomEmojiRepository();
+    const service = new CustomEmojiSetupService({ ownerTelegramId: ownerId, repository });
+    const text = "/emoji_setup@tgpost_rewrite_bot  📜\n⏸️  🟠 🔅  🔥 🟰";
+    const values = ["📜", "⏸️", "🟠", "🔅", "🔥", "🟰"];
+    const custom = values.map((alt, index) => ({
+      type: "custom_emoji",
+      offset: text.indexOf(alt),
+      length: alt.length,
+      custom_emoji_id: String(1001 + index)
+    } satisfies IncomingTelegramEntity));
+    const realisticEntities: IncomingTelegramEntity[] = [
+      { type: "bot_command", offset: 0, length: "/emoji_setup@tgpost_rewrite_bot".length },
+      custom[2]!, custom[0]!, custom[5]!, custom[1]!, custom[4]!, custom[3]!
+    ];
+
+    const result = await service.configure(
+      { telegramUserId: ownerId, text, entities: realisticEntities },
+      vi.fn().mockResolvedValue(stickers())
+    );
+
+    expect(result).toMatchObject({ ok: true, code: "EMOJI_SETUP_SAVED" });
+    expect((await repository.get())?.mappings.map((mapping) => mapping.role)).toEqual([
+      "post_title", "section_title", "list_item", "copy_block", "cta", "audience_question"
+    ]);
+  });
+
   it("rejects every non-owner before resolving or storing custom emoji", async () => {
     const repository = new InMemoryCustomEmojiRepository();
     const resolve = vi.fn();

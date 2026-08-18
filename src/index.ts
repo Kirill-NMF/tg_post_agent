@@ -29,8 +29,8 @@ export function buildApplication(env: NodeJS.ProcessEnv) {
   const projectService = new ProjectService(repository, new MockModelAdapters(), jobRepository, { sourceAudio: config.sourceAudioJobMaxAttempts, editAudio: config.editAudioJobMaxAttempts, planRevision: config.planRevisionJobMaxAttempts, draftGeneration: config.draftGenerationJobMaxAttempts, formatting: config.formattingJobMaxAttempts }, Boolean(config.openRouterApiKey && config.openRouterFormattingModel), consoleLogger);
   const authService = new TelegramAuthService(config.allowedTelegramIds);
   const router = new BotRouter(authService, projectService);
-  const emojiSetup = new CustomEmojiSetupService({ ownerTelegramId: config.emojiSetupOwnerTelegramId, repository: customEmojiRepository });
-  const bot = createBot(config.botToken, router, emojiSetup);
+  const emojiSetup = new CustomEmojiSetupService({ ownerTelegramId: config.emojiSetupOwnerTelegramId, repository: customEmojiRepository, logger: consoleLogger });
+  const bot = createBot(config.botToken, router, emojiSetup, consoleLogger);
   const workerRuntime = config.jobWorkerEnabled ? createWorkerRuntime({ config, repository, customEmojiRepository, jobRepository, bot }) : undefined;
 
   return { config, router, bot, workerRuntime };
