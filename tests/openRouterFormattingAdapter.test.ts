@@ -5,6 +5,50 @@ import { isOrdinaryEmoji } from "../src/domain/emoji.js";
 import type { Logger, LogFields } from "../src/observability/logger.js";
 
 describe("OpenRouterFormattingAdapter", () => {
+  it("uses the fixed one-shot final-text prompt for Option 2 without the legacy structured plan", async () => {
+    const draft = "### Заголовок\n\nОбычный текст.\n\nПочему?";
+    const candidate = "📜 **Заголовок**\n\nОбычный текст.\n\n➡️ **Почему?**";
+    const client = capturingClient(candidate);
+    const adapter = new OpenRouterFormattingAdapter({ client, model: "owner-selected-format-model" });
+
+    await expect(adapter.formatOption2FinalText({ projectId: "project-1", draftText: draft }))
+      .resolves.toMatchObject({ ok: true, value: { formattedText: candidate } });
+
+    expect(client.requests).toHaveLength(1);
+    expect(client.requests[0]).toMatchObject({
+      model: "owner-selected-format-model",
+      stream: false,
+      provider: { require_parameters: true },
+    });
+    expect(client.requests[0]?.response_format).toBeUndefined();
+    expect(client.requests[0]?.plugins).toBeUndefined();
+    expect(client.requests[0]?.input).toContain("Правила форматирования (Опция 2: CRYPTUS_MEDIA)");
+    expect(client.requests[0]?.input).toContain('POST:\n"""\n' + draft + '\n"""');
+    expect(client.requests[0]?.input).not.toContain("segment_plan");
+  });
+
+  it("rejects an owner-visible invalid final text with its exact safe gate", async () => {
+    const logger = new CapturingLogger();
+    const adapter = new OpenRouterFormattingAdapter({
+      client: capturingClient("✨### *Заголовок*\n\nТекст.\n\n🎉"),
+      model: "owner-selected-format-model",
+      logger,
+    });
+
+    await expect(adapter.formatOption2FinalText({
+      projectId: "project-1",
+      draftText: "### Заголовок\n\nТекст.\n\nПочему?",
+    })).resolves.toMatchObject({
+      ok: false,
+      error: { code: "FORMAT_OPTION2_TITLE_INVALID", retryable: false },
+    });
+    expect(logger.entries.at(-1)?.fields).toMatchObject({
+      event: "formatting_option2_final_text_failed",
+      validationCode: "FORMAT_OPTION2_TITLE_INVALID",
+    });
+    expect(JSON.stringify(logger.entries)).not.toContain("Заголовок");
+  });
+
   it("maps a strict decoration plan and preserves the canonical draft", async () => {
     const client = capturingClient(JSON.stringify({
       option: "option_2",

@@ -114,3 +114,7 @@ Triggers: draft:rerun:clean_up:<draftVersion> and draft:rerun:make_post:<draftVe
 ## Stage 2 reliability matrix
 
 GENERATE_DRAFT deterministic coverage must prove three-attempt cap, retryable provider and output-repair scheduling, permanent auth refusal, no duplicate job/delivery, direct selected-mode retry control, rerun preservation, stale callback refusal, and safe category-only timing.
+
+## Stage 3 Option 2 explicit product gate
+
+Before any style similarity score or owner handoff, the final-text candidate must pass the versioned CRYPTUS_MEDIA contract: `📜` plus bold title first, no Markdown headings, no italics/strike/spoiler, only role-approved emoji, exact source words and punctuation in order after reversible formatting-anchor removal, valid role placement, and no wrapper explanation. A high similarity score cannot compensate for one failed explicit rule. Provider rejection or local validation failure must retain the editable draft and produce one actionable recovery. Literary and visual judgement begins only after this deterministic structural gate is green.

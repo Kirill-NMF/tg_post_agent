@@ -10,20 +10,19 @@ import {
 } from "../src/evaluation/manusStyleEvaluator.js";
 
 const gold = [
-  "**ГЛАВНЫЙ ЗАГОЛОВОК**",
+  "📜 **ГЛАВНЫЙ ЗАГОЛОВОК**",
   "",
-  "📜 Вводный абзац.",
+  "Вводный абзац.",
   "",
-  "⏸ **РАЗДЕЛ**",
+  "⏸️ **РАЗДЕЛ**",
   "",
-  "🟠 Первый пункт.",
-  "— Вложенный пункт.",
+  "🟠 **Первый:** пункт.",
   "",
   "🔅 `Скопируйте этот пример.`",
   "",
   "🔥 **Сделайте шаг.**",
   "",
-  "➡️ Что выберете?",
+  "➡️ **Что выберете?**",
 ].join("\n");
 
 describe("Manus style gold deformatter", () => {
@@ -62,10 +61,8 @@ describe("Manus style annotations", () => {
     const roles = new Set(annotateGold(gold).map((anchor) => anchor.role));
     expect(roles).toEqual(new Set([
       "main_heading",
-      "intro",
       "section_heading",
       "primary_list",
-      "nested_list",
       "bold_span",
       "prompt_code",
       "cta",
@@ -102,6 +99,7 @@ describe("Manus style evaluator", () => {
       inventedHashtagZero: true,
       inventedCtaZero: true,
       inventedQuestionZero: true,
+      explicitProductContract: true,
     });
     expect(result.diagnostics.exactByteEquality).toBe(true);
     expect(result.weightedStyleScore).toBe(1);
@@ -127,9 +125,21 @@ describe("Manus style evaluator", () => {
     expect(result.pass).toBe(false);
   });
 
+  it("cannot pass a high-similarity candidate that violates the explicit owner product contract", () => {
+    const invalid = gold
+      .replace("📜 **", "✨### *")
+      .replace("**\n\nВводный", "*\n\n*Вводный*")
+      + "\n🎉";
+    const result = evaluateManusStyle(deformatGold(gold).plainText, gold, invalid, 0);
+
+    expect(result.hardGates.explicitProductContract).toBe(false);
+    expect(result.diagnostics.productContractCode).toBeDefined();
+    expect(result.pass).toBe(false);
+  });
+
   it("penalizes random emoji, wrong roles, over-density, and missing headings", () => {
     const plain = deformatGold(gold).plainText;
-    const noisy = gold.replace("📜", "🟠").replace("Первый пункт.", "💡🚀🎉 Первый пункт.").replace("**ГЛАВНЫЙ ЗАГОЛОВОК**", "ГЛАВНЫЙ ЗАГОЛОВОК");
+    const noisy = gold.replace("📜", "🟠").replace("Вводный", "💡 Вводный").replace("**ГЛАВНЫЙ ЗАГОЛОВОК**", "ГЛАВНЫЙ ЗАГОЛОВОК");
     const result = evaluateManusStyle(plain, gold, noisy);
     expect(result.metrics.emojiRole.f1).toBeLessThan(1);
     expect(result.metrics.heading.f1).toBeLessThan(1);

@@ -1,5 +1,6 @@
 import type { Job } from "../domain/jobTypes.js";
-import { applyFormattingPlan, applySegmentFormattingPlan, deriveCanonicalSegments, type CanonicalFormattingSegment, type SegmentFormattingOperation } from "../domain/formatting.js";
+import { applyFormattingPlan } from "../domain/formatting.js";
+import { validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
 import type { ModelAdapters } from "../domain/modelContracts.js";
 import type { AdapterMeta, AdapterResult, FormattingOption, Project, ProjectMessageKind } from "../domain/types.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
@@ -8,13 +9,13 @@ import type { TelegramNotifier } from "../telegram/telegramNotifier.js";
 import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWorker.js";
 import { formattedReplyMarkup } from "./formatPresentation.js";
 
-type SegmentFormattingAdapter = {
-  formatOption2Segments(input: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: SegmentFormattingOperation[] }>>
+type Option2FinalTextAdapter = {
+  formatOption2FinalText(input: { projectId: string; draftText: string }): Promise<AdapterResult<{ formattedText: string }>>
 };
 
 export type FormatPostJobHandlerDeps = {
   projects: ProjectRepository;
-  formatting: Pick<ModelAdapters, "formatPost"> & Partial<SegmentFormattingAdapter>;
+  formatting: Pick<ModelAdapters, "formatPost"> & Partial<Option2FinalTextAdapter>;
   notifier?: TelegramNotifier;
   logger?: Logger;
   now?: () => number;
@@ -46,27 +47,31 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
     let providerFailure: { code: string; message: string; retryable: boolean } | undefined;
     let providerMeta: AdapterMeta | undefined;
     let operationCount = 0;
-    let rendered: ReturnType<typeof applyFormattingPlan> | ReturnType<typeof applySegmentFormattingPlan> | undefined;
+    let rendered: ReturnType<typeof applyFormattingPlan> | undefined;
+    let formattedText: string | undefined;
     let providerDurationMs = 0;
     let validationApplicationDurationMs = 0;
 
     if (request.formattingOption === "option_2") {
-      const segments = deriveCanonicalSegments(post.currentDraft);
-      if (!deps.formatting.formatOption2Segments) {
-        providerFailure = { code: "FORMAT_SEGMENT_ADAPTER_UNAVAILABLE", message: "Segment formatting is unavailable.", retryable: false };
+      if (!deps.formatting.formatOption2FinalText) {
+        providerFailure = { code: "FORMAT_OPTION2_FINAL_TEXT_ADAPTER_UNAVAILABLE", message: "Option 2 final-text formatting is unavailable.", retryable: false };
       } else {
         const providerStartedAt = now();
         try {
-          const result = await deps.formatting.formatOption2Segments({ projectId: project.id, draftText: post.currentDraft, segments });
+          const result = await deps.formatting.formatOption2FinalText.call(deps.formatting, { projectId: project.id, draftText: post.currentDraft });
           providerDurationMs = Math.max(0, now() - providerStartedAt);
           if (!result.ok) {
             providerFailure = result.error;
           } else {
             providerMeta = result.meta;
-            operationCount = result.value.directives.length;
             const validationStartedAt = now();
-            rendered = applySegmentFormattingPlan(post.currentDraft, "option_2", result.value.directives, segments);
+            const validation = validateCryptusOption2Candidate(post.currentDraft, result.value.formattedText);
             validationApplicationDurationMs = Math.max(0, now() - validationStartedAt);
+            if (!validation.ok) {
+              providerFailure = { code: validation.code, message: "Option 2 output failed the CRYPTUS_MEDIA contract.", retryable: false };
+            } else {
+              formattedText = result.value.formattedText;
+            }
           }
         } catch {
           providerDurationMs = Math.max(0, now() - providerStartedAt);
@@ -110,19 +115,19 @@ export function createFormatPostJobHandler(deps: FormatPostJobHandlerDeps): JobH
       emitTiming(logger, job, queueWaitMs, providerDurationMs, 0, notifierDurationMs, Math.max(0, now() - startedAt), "provider_or_plan_failure");
       throw new PermanentJobError(providerFailure.code, providerFailure.message);
     }
-    if (!rendered || !providerMeta) {
-      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_SEGMENT_APPLICATION_UNAVAILABLE", now);
-      emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, Math.max(0, now() - startedAt), "validation_application_failure");
-      throw new PermanentJobError("FORMAT_SEGMENT_APPLICATION_UNAVAILABLE", "Formatting application was unavailable.");
-    }
-
-    if (!rendered.ok) {
+    if (rendered && !rendered.ok) {
       const notifierDurationMs = await recoverFromFailure(deps, project, job.id, rendered.code, now);
       emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, Math.max(0, now() - startedAt), "validation_application_failure");
       throw new PermanentJobError(rendered.code, rendered.message);
     }
+    if (request.formattingOption === "option_1" && rendered?.ok) formattedText = rendered.text;
+    if (!formattedText || !providerMeta) {
+      const notifierDurationMs = await recoverFromFailure(deps, project, job.id, "FORMAT_APPLICATION_UNAVAILABLE", now);
+      emitTiming(logger, job, queueWaitMs, providerDurationMs, validationApplicationDurationMs, notifierDurationMs, Math.max(0, now() - startedAt), "validation_application_failure");
+      throw new PermanentJobError("FORMAT_APPLICATION_UNAVAILABLE", "Formatting application was unavailable.");
+    }
 
-    post.formattedText = rendered.text;
+    post.formattedText = formattedText;
     post.formattingOption = request.formattingOption;
     project.state = "formatted_editing";
     project.messages.push(message("formatted_text", post.formattedText));

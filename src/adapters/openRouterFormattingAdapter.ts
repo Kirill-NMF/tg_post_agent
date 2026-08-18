@@ -3,6 +3,7 @@ import type { ModelAdapters } from "../domain/modelContracts.js";
 import { applyFormattingPlan, type CanonicalFormattingSegment, type FormattingDecorationPlan, type SegmentFormattingOperation } from "../domain/formatting.js";
 import type { AdapterResult, FormattingOption } from "../domain/types.js";
 import { isOrdinaryEmoji } from "../domain/emoji.js";
+import { CRYPTUS_OPTION2_PROMPT_VERSION, buildCryptusOption2Prompt, validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
 import { isRetryableProviderError, ProviderResponseError, safeProviderErrorCode } from "./providerErrors.js";
 import type { OpenRouterInteractionRequest } from "./openRouterInteractionClient.js";
@@ -44,6 +45,45 @@ export class OpenRouterFormattingAdapter implements Pick<ModelAdapters, "formatP
   ) {
     if (!input.model.trim()) throw new Error("A formatting model must be configured.");
     this.maxOperations = input.maxOperations ?? 30;
+  }
+
+  async formatOption2FinalText(params: { projectId: string; draftText: string }): Promise<AdapterResult<{ formattedText: string }>> {
+    if (!params.draftText.trim()) return failure("FORMAT_SOURCE_EMPTY", "Canonical draft is required.", false);
+    const logger = this.input.logger ?? noopLogger;
+    logger.info(
+      { event: "formatting_option2_final_text_started", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION },
+      "formatting Option 2 final text started"
+    );
+    try {
+      const interaction = await this.input.client.create({
+        model: this.input.model,
+        input: buildCryptusOption2Prompt(params.draftText),
+        stream: false,
+        provider: { require_parameters: true },
+      });
+      if (typeof interaction.output_text !== "string") {
+        return failure("FORMAT_OPTION2_OUTPUT_INVALID", "Formatting provider output was missing text.", false);
+      }
+      const validation = validateCryptusOption2Candidate(params.draftText, interaction.output_text);
+      if (!validation.ok) {
+        logger.warn(
+          { event: "formatting_option2_final_text_failed", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION, failureBoundary: "validation", validationCode: validation.code },
+          "formatting Option 2 final text failed"
+        );
+        return failure(validation.code, "Formatting provider output failed the CRYPTUS_MEDIA contract.", false);
+      }
+      logger.info(
+        { event: "formatting_option2_final_text_validated", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION },
+        "formatting Option 2 final text validated"
+      );
+      return { ok: true, value: { formattedText: interaction.output_text }, meta: { provider: "openrouter", modelLabel: this.input.model } };
+    } catch (error) {
+      logger.warn(
+        { event: "formatting_option2_final_text_failed", projectId: params.projectId, modelLabel: this.input.model, promptVersion: CRYPTUS_OPTION2_PROMPT_VERSION, failureBoundary: failureBoundary(error), errorCode: safeErrorCode(error), errorName: safeErrorName(error), responseEndpoint: safeResponseMetadata(error)?.endpoint, responseStatusClass: safeResponseMetadata(error)?.statusClass, responseContentType: safeResponseMetadata(error)?.contentType, responseByteLength: safeResponseMetadata(error)?.byteLength },
+        "formatting Option 2 final text failed"
+      );
+      return failure("FORMAT_OPTION2_PROVIDER_FAILED", safeMessage(error), isRetryableProviderError(error));
+    }
   }
 
   async formatOption2Segments(params: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<AdapterResult<{ directives: Option2SegmentDirective[] }>> {

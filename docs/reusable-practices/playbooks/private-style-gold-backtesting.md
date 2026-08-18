@@ -61,3 +61,9 @@ When an operation value depends on segment metadata, encode the valid pair in th
 - Keep holdout IDs out of the floor command entirely. A failed or incomplete primary cannot unlock holdout access.
 - A first line in a multi-line group that already ends in a colon may be a deterministic enumeration lead when every authorized tuning occurrence agrees. Promote only that exact structural class; preserve the colon, require a following line, and leave semicolon/ordinary group members provider-classified.
 - Dynamic role binding applies to non-emoji operations too. A `list_marker` provider branch must enumerate only canonical `nested_list` IDs and marker variants compatible with their existing source punctuation; a generic ID enum followed by semantic rejection recreates provider-valid/runtime-invalid drift.
+
+## Explicit product rules outrank similarity
+
+A style score cannot mark a candidate green when the owner-visible output violates a named rule. For CRYPTUS_MEDIA Option 2, validate the versioned fixed-prompt response as final text before any similarity metric: required `📜` bold title; no Markdown heading markers; no italic, strike, or spoiler; only the role allowlist `📜`, `⏸`, `🟠`, `🔅`, `🔥`, and `➡`; exact source words and punctuation in order after reversible formatting anchors; and no wrapper commentary. Source list markers are removable presentation anchors only when replaced by the documented list marker.
+
+Persist a rejected private candidate before returning the safe category so the owner can inspect it without exposing content in logs or git. Structural contract acceptance is technical evidence; literary, visual, and UX quality remain a separate owner checkpoint.

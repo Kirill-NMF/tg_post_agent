@@ -273,7 +273,7 @@ function baseReport() {
   };
 }
 
-async function appendLedgerEvent(path, event) {
+export async function appendLedgerEvent(path, event) {
   const metadata = await stat(path);
   if (!metadata.isFile() || (metadata.mode & 0o077) !== 0) throw safeError("MANUS_LEDGER_PERMISSIONS_INVALID");
   const ledger = JSON.parse(await readFile(path, "utf8"));
@@ -287,7 +287,7 @@ async function appendLedgerEvent(path, event) {
   await atomicPrivateWrite(path, JSON.stringify(next, null, 2) + "\n");
 }
 
-async function readLedgerSummary(path) {
+export async function readLedgerSummary(path) {
   if (!path) return undefined;
   try {
     const ledger = JSON.parse(await readFile(path, "utf8"));

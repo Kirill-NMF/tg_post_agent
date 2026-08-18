@@ -75,6 +75,30 @@ describe("OpenRouter provider boundary", () => {
     });
   });
 
+  it("sends one-shot final text without injecting a JSON system contract or response_format", async () => {
+    let received: Record<string, unknown> | undefined;
+    const client = createOpenRouterInteractionClient({
+      apiKey: "test-key",
+      providerRoute: { order: ["anthropic"], allow_fallbacks: false },
+      fetchImpl: async (_url, init) => {
+        received = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return new Response(JSON.stringify({ choices: [{ message: { content: "formatted" } }] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+    });
+
+    await client.create({
+      model: "anthropic/claude-sonnet-5",
+      input: "fixed prompt and post",
+      stream: false,
+      provider: { require_parameters: true },
+    });
+
+    expect(received).not.toHaveProperty("response_format");
+    expect(received).not.toHaveProperty("plugins");
+    expect(received?.provider).toEqual({ order: ["anthropic"], allow_fallbacks: false, require_parameters: true });
+    expect(received?.messages).toEqual([{ role: "user", content: "fixed prompt and post" }]);
+  });
+
   it.each([
     ["text/html", "<html>gateway</html>", "RESPONSE_NON_JSON", "html"],
     ["text/plain", "upstream text", "RESPONSE_NON_JSON", "text"],

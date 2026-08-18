@@ -15,7 +15,8 @@ import type {
 } from "../domain/types.js";
 import type { JobRepository } from "../repositories/jobRepository.js";
 import type { ProjectRepository } from "../repositories/projectRepository.js";
-import { applyFormattingPlan, applySegmentFormattingPlan, deriveCanonicalSegments, type CanonicalFormattingSegment, type SegmentFormattingOperation } from "../domain/formatting.js";
+import { applyFormattingPlan } from "../domain/formatting.js";
+import { validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
 import { draftActionButtons } from "./draftPresentation.js";
 import { finalActionButtons, formatChoiceButtons } from "./formatPresentation.js";
 import { currentPlan } from "./planSplitJobHandler.js";
@@ -261,24 +262,32 @@ export class ProjectService {
       return [{ kind: "message", text: "\u041e\u0444\u043e\u0440\u043c\u043b\u044f\u044e \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a; \u043f\u0440\u0438\u0448\u043b\u044e \u0433\u043e\u0442\u043e\u0432\u044b\u0439 \u0442\u0435\u043a\u0441\u0442." }];
     }
 
-    const segmentFormatter = this.models as ModelAdapters & Partial<{
-      formatOption2Segments(input: { projectId: string; draftText: string; segments: readonly CanonicalFormattingSegment[] }): Promise<{
+    const option2Formatter = this.models as ModelAdapters & Partial<{
+      formatOption2FinalText(input: { projectId: string; draftText: string }): Promise<{
         ok: true;
-        value: { directives: SegmentFormattingOperation[] };
+        value: { formattedText: string };
       } | { ok: false; error: { message: string } }>;
     }>;
-    const rendered = formattingOption === "option_2" && segmentFormatter.formatOption2Segments
-      ? applySegmentFormattingPlan(
-          post.currentDraft,
-          "option_2",
-          (await unwrap(segmentFormatter.formatOption2Segments({ projectId: project.id, draftText: post.currentDraft, segments: deriveCanonicalSegments(post.currentDraft) }))).directives
-        )
-      : applyFormattingPlan(post.currentDraft, (await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }))).decorationPlan);
-    if (!rendered.ok) {
+    let formattedText: string | undefined;
+    if (formattingOption === "option_2") {
+      if (!option2Formatter.formatOption2FinalText) {
+        return [{ kind: "message", text: "Не удалось безопасно применить оформление. Черновик сохранён без изменений." }];
+      }
+      const result = await unwrap(option2Formatter.formatOption2FinalText.call(option2Formatter, { projectId: project.id, draftText: post.currentDraft }));
+      const validation = validateCryptusOption2Candidate(post.currentDraft, result.formattedText);
+      if (!validation.ok) {
+        return [{ kind: "message", text: "Не удалось безопасно применить оформление. Черновик сохранён без изменений." }];
+      }
+      formattedText = result.formattedText;
+    } else {
+      const rendered = applyFormattingPlan(post.currentDraft, (await unwrap(this.models.formatPost({ projectId: project.id, draftText: post.currentDraft, formattingOption }))).decorationPlan);
+      if (rendered.ok) formattedText = rendered.text;
+    }
+    if (!formattedText) {
       return [{ kind: "message", text: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e \u043f\u0440\u0438\u043c\u0435\u043d\u0438\u0442\u044c \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435. \u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a \u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d \u0431\u0435\u0437 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439." }];
     }
 
-    post.formattedText = rendered.text;
+    post.formattedText = formattedText;
     post.formattingOption = formattingOption;
     project.state = "formatted_editing";
     await this.projects.save(project);

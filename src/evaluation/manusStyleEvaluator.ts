@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { containsOrdinaryEmoji, isOrdinaryEmoji } from "../domain/emoji.js";
+import { validateCryptusOption2Candidate } from "../domain/cryptusOption2.js";
 
 export const manusAnchorRoles = [
   "main_heading",
@@ -54,6 +55,7 @@ export type ManusEvaluation = {
     inventedHashtagZero: boolean;
     inventedCtaZero: boolean;
     inventedQuestionZero: boolean;
+    explicitProductContract: boolean;
   };
   metrics: {
     heading: RoleMetrics;
@@ -86,6 +88,7 @@ export type ManusEvaluation = {
     candidateTokenCount: number;
     goldFingerprint: string;
     candidateFingerprint: string;
+    productContractCode?: string;
   };
   categories: string[];
 };
@@ -99,8 +102,8 @@ export type ManusStyleProfile = {
 
 const knownAnchors = new Map<string, ManusAnchorRole>([
   ["⏸", "section_heading"],
+  ["⏸️", "section_heading"],
   ["🟠", "primary_list"],
-  ["📜", "intro"],
   ["🔅", "prompt_code"],
   ["🔥", "cta"],
   ["➡", "audience_question"],
@@ -176,7 +179,7 @@ export function annotateGold(formattedText: string): ManusAnchor[] {
     const prefix = leadingGrapheme(trimmed);
     const knownRole = knownAnchors.get(prefix);
     if (knownRole) anchors.push({ role: knownRole, startToken, endToken, lineIndex });
-    else if (prefix && isOrdinaryEmoji(prefix)) anchors.push({ role: "semantic_accent", startToken, endToken, lineIndex });
+    else if (prefix && prefix !== "📜" && isOrdinaryEmoji(prefix)) anchors.push({ role: "semantic_accent", startToken, endToken, lineIndex });
     if (/^(?:—|–|-)\s/u.test(trimmed)) anchors.push({ role: "nested_list", startToken, endToken, lineIndex });
     if (/^#\p{L}/u.test(trimmed)) anchors.push({ role: "hashtag_footer", startToken, endToken, lineIndex });
     const withoutLeadingEmoji = trimmed.replace(/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200D|\uFE0F)+\s*/u, "");
@@ -213,6 +216,7 @@ export function evaluateManusStyle(sourcePlain: string, goldText: string, candid
   const punctuationPreserved = equalArrays(punctuationSequence(sourcePlain), candidate.punctuationSequence);
   const markdown = validateMarkdown(candidateText);
   const emojiValidity = leadingEmojiTokens(candidateText).every((token) => isOrdinaryEmoji(token));
+  const productContract = validateCryptusOption2Candidate(sourcePlain, candidateText);
   const hardGates = {
     lexicalSequenceExact,
     punctuationPreserved,
@@ -222,6 +226,7 @@ export function evaluateManusStyle(sourcePlain: string, goldText: string, candid
     inventedHashtagZero: noExtraRoleAnchors(gold.anchors, candidate.anchors, "hashtag_footer"),
     inventedCtaZero: noExtraRoleAnchors(gold.anchors, candidate.anchors, "cta"),
     inventedQuestionZero: noExtraRoleAnchors(gold.anchors, candidate.anchors, "audience_question"),
+    explicitProductContract: productContract.ok,
   };
   const heading = groupMetrics(gold.anchors, candidate.anchors, roleGroups.heading);
   const section = groupMetrics(gold.anchors, candidate.anchors, roleGroups.section);
@@ -264,6 +269,7 @@ export function evaluateManusStyle(sourcePlain: string, goldText: string, candid
       candidateTokenCount: candidateTokens.length,
       goldFingerprint: fingerprint(goldText),
       candidateFingerprint: fingerprint(candidateText),
+      ...(!productContract.ok ? { productContractCode: productContract.code } : {}),
     },
     categories,
   };

@@ -3,7 +3,7 @@ import { defaultProviderRequestTimeoutMs, fetchWithProviderTimeout, ProviderResp
 export type OpenRouterInteractionRequest = {
   model: string;
   input: string;
-  response_format: OpenRouterLegacyJsonResponseFormat | OpenRouterStrictJsonSchemaResponseFormat;
+  response_format?: OpenRouterLegacyJsonResponseFormat | OpenRouterStrictJsonSchemaResponseFormat;
   stream?: false;
   provider?: { require_parameters: true };
   plugins?: readonly [{ id: "response-healing" }];
@@ -28,12 +28,12 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
   const fetchImpl = input.fetchImpl ?? fetch;
   return {
     async create(request) {
-      let systemContent: string;
-      let responseFormat: Record<string, unknown>;
-      if (request.response_format.type === "json_schema") {
+      let systemContent: string | undefined;
+      let responseFormat: Record<string, unknown> | undefined;
+      if (request.response_format?.type === "json_schema") {
         systemContent = "Return exactly one JSON object that conforms to the requested JSON Schema.";
         responseFormat = { type: "json_schema", json_schema: request.response_format.json_schema };
-      } else {
+      } else if (request.response_format) {
         systemContent = `Return exactly one JSON object that conforms to this JSON Schema: ${JSON.stringify(request.response_format.schema)}`;
         responseFormat = { type: "json_object" };
       }
@@ -53,13 +53,10 @@ export function createOpenRouterInteractionClient(input: { apiKey: string; fetch
           model: request.model,
           stream: false,
           messages: [
-            {
-              role: "system",
-              content: systemContent
-            },
+            ...(systemContent ? [{ role: "system", content: systemContent }] : []),
             { role: "user", content: request.input }
           ],
-          response_format: responseFormat,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
           ...(provider ? { provider } : {}),
           ...(request.plugins ? { plugins: request.plugins } : {})
         })
