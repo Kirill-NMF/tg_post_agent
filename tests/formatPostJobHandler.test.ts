@@ -15,6 +15,8 @@ describe("FORMAT_POST job handler", () => {
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedFormattingProject(projects);
+    project.sourceTelegramMessageId = "88";
+    await projects.save(project);
     const job = await jobs.enqueue({
       type: "FORMAT_POST",
       projectId: project.id,
@@ -33,6 +35,7 @@ describe("FORMAT_POST job handler", () => {
     expect(notifier.messages).toHaveLength(1);
     expect(notifier.messages[0]).toMatchObject({ chatId: "200", text: "*Canonical* draft." });
     expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:edit", "final:accept"]);
+    expect(notifier.messages[0]?.options?.reply_parameters).toEqual({ message_id: 88 });
     expect((await jobs.findById(job.id))?.result).toMatchObject({ notificationStatus: "sent" });
   });
 

@@ -9,6 +9,7 @@ export type TelegramSendMessageOptions = {
   parse_mode?: "MarkdownV2" | "HTML";
   entities?: TelegramMessageEntity[];
   disable_web_page_preview?: boolean;
+  reply_parameters?: { message_id: number };
   reply_markup?: {
     inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
   };

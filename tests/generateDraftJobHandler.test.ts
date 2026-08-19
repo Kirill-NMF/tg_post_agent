@@ -14,6 +14,8 @@ describe("GENERATE_DRAFT job handler", () => {
     const jobs = new InMemoryJobRepository();
     const notifier = new CapturingNotifier();
     const project = await seedDraftProject(projects);
+    project.sourceTelegramMessageId = "77";
+    await projects.save(project);
     await jobs.enqueue({ type: "GENERATE_DRAFT", projectId: project.id, payload: {} });
     const worker = new JobWorker(jobs, {
       GENERATE_DRAFT: createGenerateDraftJobHandler({ projects, drafting: fakeDraftingAdapter({ fullText: "Generated draft text" }), notifier, formattingEnabled: true })
@@ -30,6 +32,7 @@ describe("GENERATE_DRAFT job handler", () => {
     expect(notifier.messages[0]?.text).toBe("Generated draft text");
     expect(notifier.messages[0]?.text).not.toContain("REAL TRANSCRIPT");
     expect(notifier.messages[0]?.options?.reply_markup?.inline_keyboard.flat().map((button) => button.callback_data)).toEqual(["format:open", "draft:rerun:clean_up:1", "draft:rerun:make_post:1"]);
+    expect(notifier.messages[0]?.options?.reply_parameters).toEqual({ message_id: 77 });
   });
 
   it("preserves saved draft and state when notification fails after persistence", async () => {

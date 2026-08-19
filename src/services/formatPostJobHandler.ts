@@ -192,7 +192,10 @@ async function notifyFormatted(deps: FormatPostJobHandlerDeps, project: Project,
   if (!deps.notifier) return { status: "not_configured", durationMs: 0 };
   const notifierStartedAt = now();
   try {
-    const options = { reply_markup: formattedReplyMarkup(project) };
+    const options = {
+      reply_markup: formattedReplyMarkup(project),
+      ...(project.sourceTelegramMessageId ? { reply_parameters: { message_id: Number(project.sourceTelegramMessageId) } } : {})
+    };
     if (formattingOption === "option_2" && deps.notifier.sendCryptusOption2) {
       await deps.notifier.sendCryptusOption2(project.chatId, text, options);
     } else {

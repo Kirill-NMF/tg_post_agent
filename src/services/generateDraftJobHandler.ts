@@ -127,7 +127,10 @@ async function notifyDraft(deps: GenerateDraftJobHandlerDeps, project: Project, 
   if (!deps.notifier) return { status: "not_configured", durationMs: 0 };
   const notifierStartedAt = now();
   try {
-    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion, { projectId: project.id, postIndex: project.currentPostIndex ?? 1 }) });
+    await deps.notifier.sendMessage(project.chatId, draft, {
+      reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion, { projectId: project.id, postIndex: project.currentPostIndex ?? 1 }),
+      ...(project.sourceTelegramMessageId ? { reply_parameters: { message_id: Number(project.sourceTelegramMessageId) } } : {})
+    });
     return { status: "sent", durationMs: Math.max(0, now() - notifierStartedAt) };
   } catch {
     deps.logger?.warn({ event: "draft_generation_notification_failed", jobId, projectId: project.id }, "draft generation notification failed");
