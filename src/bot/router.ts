@@ -1,6 +1,7 @@
 import type { BotResponse, PlanOptionId, RewriteMode, SourceAudioInput, TelegramChatId, TelegramUserId } from "../domain/types.js";
 import { TelegramAuthService } from "../services/authService.js";
 import { ProjectService } from "../services/projectService.js";
+import { parseSourceProcessAction } from "../services/artifactCallback.js";
 
 export type RouterTextEvent = {
   telegramUserId: TelegramUserId;
@@ -18,6 +19,10 @@ export type RouterCallbackEvent = {
   telegramUserId: TelegramUserId;
   chatId: TelegramChatId;
   action: string;
+  callbackQueryId?: string;
+  callbackMessageId?: string;
+  callbackMessageText?: string;
+  replyToMessageText?: string;
 };
 
 export class BotRouter {
@@ -44,7 +49,7 @@ export class BotRouter {
     const activeProject = await this.projects.getActiveProject(event.telegramUserId);
     if (!activeProject) return [{ kind: "message", text: "Отправьте /start перед аудио." }];
 
-    if (activeProject.state === "awaiting_audio") {
+    if (activeProject.state === "awaiting_audio" || (activeProject.state === "transcribing" && activeProject.sourcePoolSealed)) {
       return this.projects.submitSourceAudio(event.telegramUserId, event.audio);
     }
 
@@ -53,6 +58,18 @@ export class BotRouter {
 
   async handleCallback(event: RouterCallbackEvent): Promise<BotResponse[]> {
     if (!this.auth.isAllowed(event.telegramUserId)) return unauthorized();
+    const sourceProjectId = parseSourceProcessAction(event.action);
+    if (sourceProjectId && event.callbackQueryId && event.callbackMessageId) {
+      return this.projects.startSourceProcessing({ telegramUserId: event.telegramUserId, chatId: event.chatId, projectId: sourceProjectId, callbackQueryId: event.callbackQueryId, callbackMessageId: event.callbackMessageId });
+    }
+    if (event.callbackQueryId && event.callbackMessageId) {
+      const historical = await this.projects.handleHistoricalCallback({
+        telegramUserId: event.telegramUserId, chatId: event.chatId, action: event.action,
+        callbackQueryId: event.callbackQueryId, callbackMessageId: event.callbackMessageId,
+        callbackMessageText: event.callbackMessageText, replyToMessageText: event.replyToMessageText
+      });
+      if (historical) return historical;
+    }
     const [group, value] = event.action.split(":");
 
     if (event.action === "plan:show_alternatives") return this.projects.showPlanAlternatives(event.telegramUserId);
@@ -66,6 +83,11 @@ export class BotRouter {
     if (event.action === "final:accept") return this.projects.finalizeCurrentPost(event.telegramUserId);
     if (event.action === "series:next") return this.projects.startNextPost(event.telegramUserId);
     return [{ kind: "message", text: "Неизвестное действие. Продолжите текущий шаг или отправьте /start." }];
+  }
+
+  async recordSourceCollectorMessage(telegramUserId: TelegramUserId, chatId: TelegramChatId, projectId: string, telegramMessageId: string): Promise<void> {
+    if (!this.auth.isAllowed(telegramUserId)) return;
+    await this.projects.recordSourceCollectorMessage(telegramUserId, chatId, projectId, telegramMessageId);
   }
 }
 

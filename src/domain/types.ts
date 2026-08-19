@@ -41,6 +41,16 @@ export type SourceAudioInput = {
   mimeType?: string;
   durationSeconds?: number;
   sizeBytes?: number;
+  telegramMessageId?: string;
+  forwarded?: boolean;
+};
+
+export type SourceAudioPart = {
+  id: string;
+  telegramMessageId: string;
+  source: SourceAudioInput;
+  status: "pending" | "transcribing" | "succeeded" | "failed";
+  transcript?: string;
 };
 
 export type PlanPostSlice = {
@@ -145,10 +155,20 @@ export type Project = {
   messages: ProjectMessage[];
   createdAt: Date;
   updatedAt: Date;
+  parentProjectId?: ProjectId;
+  rootProjectId?: ProjectId;
+  sourceProjectId?: ProjectId;
+  sourcePostId?: PostId;
+  sourceDraftVersion?: number;
+  sourceTelegramMessageId?: string;
+  branchCallbackQueryId?: string;
+  sourceAudioParts?: SourceAudioPart[];
+  sourcePoolSealed?: boolean;
+  sourceCollectorMessageId?: string;
 };
 
 export type BotButton = { label: string; action: string };
 
 export type BotResponse =
-  | { kind: "message"; text: string; buttons?: BotButton[] }
-  | { kind: "document"; filename: string; content: string; caption?: string };
+  | { kind: "message"; text: string; buttons?: BotButton[]; replyToMessageId?: string; editMessageId?: string; captureCollectorForProjectId?: ProjectId }
+  | { kind: "document"; filename: string; content: string; caption?: string; replyToMessageId?: string };

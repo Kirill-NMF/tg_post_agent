@@ -53,7 +53,7 @@ async function recoverFromPermanentPlanFailure(deps: PlanSplitJobHandlerDeps, pr
 }
 async function notifyPlan(deps: PlanSplitJobHandlerDeps, project: Project, plan: PlanningResult, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
-  try { await deps.notifier.sendMessage(project.chatId, renderPlanRecommendationMessage(plan), { reply_markup: planReplyMarkup(plan) }); return "sent"; }
+  try { await deps.notifier.sendMessage(project.chatId, renderPlanRecommendationMessage(plan), { reply_markup: planReplyMarkup(plan, project.id) }); return "sent"; }
   catch { deps.logger?.warn({ event: "plan_split_notification_failed", jobId, projectId: project.id }, "plan split notification failed"); return "failed"; }
 }
 function planningHistory(project: Project): string[] { return project.messages.filter((item) => item.kind === "planning_edit" || item.kind === "plan_options").slice(-5).map((item) => item.text); }

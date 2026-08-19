@@ -35,6 +35,16 @@ type ProjectRow = {
   cancelled_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  parent_project_id: string | null;
+  root_project_id: string | null;
+  source_project_id: string | null;
+  source_post_id: string | null;
+  source_draft_version: number | null;
+  source_telegram_message_id: bigint | null;
+  branch_callback_query_id: string | null;
+  source_audio_parts_json: unknown;
+  source_pool_sealed: boolean;
+  source_collector_message_id: bigint | null;
 };
 
 type PostRow = {
@@ -74,14 +84,22 @@ export class PgProjectRepository implements ProjectRepository {
         insert into projects (
           id, user_id, telegram_chat_id, is_active, active_state, current_post_index,
           post_count, transcript, plan_options_json, selected_plan_json, rewrite_mode,
-          formatting_option, completed_at, cancelled_at, created_at, updated_at
+          formatting_option, completed_at, cancelled_at, created_at, updated_at,
+          parent_project_id, root_project_id, source_project_id, source_post_id,
+          source_draft_version, source_telegram_message_id, branch_callback_query_id,
+          source_audio_parts_json, source_pool_sealed, source_collector_message_id
         )
         values (
           ${project.id}, ${userId}, ${toDbBigInt(project.chatId)}, ${project.isActive},
           ${toStoredState(project.state)}, ${project.currentPostIndex ?? 1}, ${project.selectedPlan?.postCount ?? null},
           ${project.transcript ?? null}, ${toJson(planPayload(project))}, ${toJson(project.selectedPlan)},
           ${project.rewriteMode ?? null}, ${currentFormattingOption(project)}, ${completedAt(project)},
-          ${project.isActive ? null : now}, ${project.createdAt}, ${project.updatedAt}
+          ${project.isActive ? null : now}, ${project.createdAt}, ${project.updatedAt},
+          ${project.parentProjectId ?? null}, ${project.rootProjectId ?? null}, ${project.sourceProjectId ?? null},
+          ${project.sourcePostId ?? null}, ${project.sourceDraftVersion ?? null},
+          ${project.sourceTelegramMessageId ? toDbBigInt(project.sourceTelegramMessageId) : null}, ${project.branchCallbackQueryId ?? null},
+          ${toJson(project.sourceAudioParts)}, ${project.sourcePoolSealed === true},
+          ${project.sourceCollectorMessageId ? toDbBigInt(project.sourceCollectorMessageId) : null}
         )
         on conflict (id) do update set
           telegram_chat_id = excluded.telegram_chat_id,
@@ -96,6 +114,16 @@ export class PgProjectRepository implements ProjectRepository {
           formatting_option = excluded.formatting_option,
           completed_at = excluded.completed_at,
           cancelled_at = excluded.cancelled_at,
+          parent_project_id = excluded.parent_project_id,
+          root_project_id = excluded.root_project_id,
+          source_project_id = excluded.source_project_id,
+          source_post_id = excluded.source_post_id,
+          source_draft_version = excluded.source_draft_version,
+          source_telegram_message_id = excluded.source_telegram_message_id,
+          branch_callback_query_id = excluded.branch_callback_query_id,
+          source_audio_parts_json = excluded.source_audio_parts_json,
+          source_pool_sealed = excluded.source_pool_sealed,
+          source_collector_message_id = excluded.source_collector_message_id,
           updated_at = excluded.updated_at
       `);
 
@@ -172,7 +200,14 @@ export class PgProjectRepository implements ProjectRepository {
     return rows[0] ? this.hydrate(rows[0]) : undefined;
   }
 
-  async deactivateActiveForUser(telegramUserId: TelegramUserId): Promise<void> {
+  async deactivateActiveForUser(telegramUserId: TelegramUserId, options?: { preserveState?: boolean }): Promise<void> {
+    if (options?.preserveState) {
+      await this.db.execute(sql`
+        update projects set is_active = false, updated_at = now()
+        where user_id = (select id from users where telegram_user_id = ${toDbBigInt(telegramUserId)}) and is_active = true
+      `);
+      return;
+    }
     await this.db.execute(sql`
       update projects
       set is_active = false,
@@ -182,6 +217,21 @@ export class PgProjectRepository implements ProjectRepository {
       where user_id = (select id from users where telegram_user_id = ${toDbBigInt(telegramUserId)})
         and is_active = true
     `);
+  }
+
+  async activateProjectForUser(projectId: ProjectId, telegramUserId: TelegramUserId): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const owned = rowsOf<{ id: string }>(await tx.execute(sql`
+        select p.id from projects p join users u on u.id = p.user_id
+        where p.id = ${projectId} and u.telegram_user_id = ${toDbBigInt(telegramUserId)} for update
+      `));
+      if (owned.length !== 1) throw new Error("PROJECT_ACTIVATION_SCOPE_INVALID");
+      await tx.execute(sql`
+        update projects set is_active = false, updated_at = now()
+        where user_id = (select id from users where telegram_user_id = ${toDbBigInt(telegramUserId)}) and is_active = true
+      `);
+      await tx.execute(sql`update projects set is_active = true, cancelled_at = null, updated_at = now() where id = ${projectId}`);
+    });
   }
 
   async findById(projectId: ProjectId): Promise<Project | undefined> {
@@ -195,6 +245,35 @@ export class PgProjectRepository implements ProjectRepository {
       `)
     );
     return rows[0] ? this.hydrate(rows[0]) : undefined;
+  }
+
+  async findAllByTelegramUser(telegramUserId: TelegramUserId): Promise<Project[]> {
+    const rows = rowsOf<ProjectRow>(await this.db.execute(sql`
+      select p.*, u.telegram_user_id from projects p join users u on u.id = p.user_id
+      where u.telegram_user_id = ${toDbBigInt(telegramUserId)} order by p.created_at desc
+    `));
+    return Promise.all(rows.map((row) => this.hydrate(row)));
+  }
+
+  async findByBranchCallbackQueryId(callbackQueryId: string): Promise<Project | undefined> {
+    const rows = rowsOf<ProjectRow>(await this.db.execute(sql`
+      select p.*, u.telegram_user_id from projects p join users u on u.id = p.user_id
+      where p.branch_callback_query_id = ${callbackQueryId} limit 1
+    `));
+    return rows[0] ? this.hydrate(rows[0]) : undefined;
+  }
+
+  async claimCallback(input: { callbackQueryId: string; telegramUserId: TelegramUserId; chatId: string }): Promise<boolean> {
+    const rows = rowsOf<{ callback_query_id: string }>(await this.db.execute(sql`
+      insert into callback_actions (callback_query_id, telegram_user_id, telegram_chat_id)
+      values (${input.callbackQueryId}, ${toDbBigInt(input.telegramUserId)}, ${toDbBigInt(input.chatId)})
+      on conflict (callback_query_id) do nothing returning callback_query_id
+    `));
+    return rows.length === 1;
+  }
+
+  async releaseCallback(callbackQueryId: string): Promise<void> {
+    await this.db.execute(sql`delete from callback_actions where callback_query_id = ${callbackQueryId}`);
   }
 
   private async hydrate(row: ProjectRow): Promise<Project> {
@@ -235,6 +314,16 @@ export class PgProjectRepository implements ProjectRepository {
       messages,
       createdAt: row.created_at,
       updatedAt: row.updated_at
+      ,parentProjectId: row.parent_project_id ?? undefined
+      ,rootProjectId: row.root_project_id ?? undefined
+      ,sourceProjectId: row.source_project_id ?? undefined
+      ,sourcePostId: row.source_post_id ?? undefined
+      ,sourceDraftVersion: row.source_draft_version ?? undefined
+      ,sourceTelegramMessageId: row.source_telegram_message_id?.toString()
+      ,branchCallbackQueryId: row.branch_callback_query_id ?? undefined
+      ,sourceAudioParts: Array.isArray(row.source_audio_parts_json) ? row.source_audio_parts_json as Project["sourceAudioParts"] : undefined
+      ,sourcePoolSealed: row.source_pool_sealed
+      ,sourceCollectorMessageId: row.source_collector_message_id?.toString()
     };
   }
 }

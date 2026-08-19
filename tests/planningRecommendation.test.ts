@@ -17,13 +17,16 @@ describe("planning recommendation UX", () => {
     await projects.start("100", "200");
     const initial = await projects.submitSourceAudio("100", { kind: "voice", telegramFileId: "voice" });
     expect(message(initial[0]).text).toContain("Рекомендую: 3 поста");
-    expect(message(initial[0]).buttons?.map((button) => button.action)).toEqual(["plan:recommended", "plan:show_alternatives"]);
+    expect(message(initial[0]).buttons?.[0]?.action).toMatch(/^a:[0-9a-f]{32}:p:0$/u);
+    expect(message(initial[0]).buttons?.[1]?.action).toBe("plan:show_alternatives");
 
     const blocked = await projects.choosePlan("100", "alternative_2");
     expect(message(blocked[0]).text).toContain("Сначала откройте");
 
     const alternatives = await projects.showPlanAlternatives("100");
-    expect(message(alternatives[0]).buttons?.map((button) => button.action)).toEqual(["plan:alternative_2", "plan:alternative_3"]);
+    expect(message(alternatives[0]).buttons?.map((button) => button.action)).toEqual([
+      expect.stringMatching(/^a:[0-9a-f]{32}:p:1$/u), expect.stringMatching(/^a:[0-9a-f]{32}:p:2$/u)
+    ]);
 
     const selected = await projects.choosePlan("100", "alternative_2");
     expect(message(selected[0]).text).toContain("режим");

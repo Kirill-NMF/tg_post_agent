@@ -1,13 +1,15 @@
 import type { BotButton, PlanOption, PlanningResult } from "../domain/types.js";
+import { bindPlan, canBindArtifactProjectId } from "./artifactCallback.js";
 
-export function planButtons(plan: PlanningResult): BotButton[] {
-  const buttons: BotButton[] = [{ label: "Взять в работу", action: `plan:${plan.recommendation.recommendedOptionId}` }];
+export function planButtons(plan: PlanningResult, projectId?: string): BotButton[] {
+  const recommendedIndex = plan.options.findIndex((option) => option.optionId === plan.recommendation.recommendedOptionId);
+  const buttons: BotButton[] = [{ label: "Взять в работу", action: canBindArtifactProjectId(projectId) ? bindPlan(projectId, recommendedIndex) : `plan:${plan.recommendation.recommendedOptionId}` }];
   if (alternatives(plan).length) buttons.push({ label: "Показать другие разбивки", action: "plan:show_alternatives" });
   return buttons;
 }
 
-export function alternativePlanButtons(plan: PlanningResult): BotButton[] {
-  return alternatives(plan).map((option) => ({ label: `Выбрать: ${option.postCount} ${postWord(option.postCount)}`, action: `plan:${option.optionId}` }));
+export function alternativePlanButtons(plan: PlanningResult, projectId?: string): BotButton[] {
+  return alternatives(plan).map((option) => ({ label: `Выбрать: ${option.postCount} ${postWord(option.postCount)}`, action: canBindArtifactProjectId(projectId) ? bindPlan(projectId, plan.options.indexOf(option)) : `plan:${option.optionId}` }));
 }
 
 export function renderPlanRecommendationMessage(plan: PlanningResult): string {
@@ -29,8 +31,8 @@ export function renderPlanOptionsHistory(plan: PlanningResult): string {
   return `recommended:${plan.recommendation.recommendedOptionId}; confidence:${plan.recommendation.confidence}; options:${plan.options.map((option) => `${option.optionId}:${option.title}`).join(", ")}`;
 }
 
-export function planReplyMarkup(plan: PlanningResult) {
-  return { inline_keyboard: planButtons(plan).map((button) => [{ text: button.label, callback_data: button.action }]) };
+export function planReplyMarkup(plan: PlanningResult, projectId?: string) {
+  return { inline_keyboard: planButtons(plan, projectId).map((button) => [{ text: button.label, callback_data: button.action }]) };
 }
 
 export function recommendedPlan(plan: PlanningResult): PlanOption {

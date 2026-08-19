@@ -98,7 +98,7 @@ function parseLatestUserEdit(payload: Record<string, unknown>): string {
 async function notifyDraft(deps: ReviseDraftJobHandlerDeps, project: Project, draft: string, draftVersion: number, jobId: string): Promise<"not_configured" | "sent" | "failed"> {
   if (!deps.notifier) return "not_configured";
   try {
-    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion) });
+    await deps.notifier.sendMessage(project.chatId, draft, { reply_markup: draftReplyMarkup(deps.formattingEnabled, draftVersion, { projectId: project.id, postIndex: project.currentPostIndex ?? 1 }) });
     return "sent";
   } catch {
     deps.logger?.warn({ event: "draft_revision_notification_failed", jobId, projectId: project.id }, "draft revision notification failed");

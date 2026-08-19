@@ -86,12 +86,22 @@ export const projects = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     telegramChatId: bigint("telegram_chat_id", { mode: "bigint" }).notNull(),
     sourceMessageId: bigint("source_message_id", { mode: "bigint" }),
+    parentProjectId: uuid("parent_project_id"),
+    rootProjectId: uuid("root_project_id"),
+    sourceProjectId: uuid("source_project_id"),
+    sourcePostId: uuid("source_post_id"),
+    sourceDraftVersion: integer("source_draft_version"),
+    sourceTelegramMessageId: bigint("source_telegram_message_id", { mode: "bigint" }),
+    branchCallbackQueryId: text("branch_callback_query_id"),
     isActive: boolean("is_active").notNull().default(true),
     activeState: projectStateEnum("active_state").notNull(),
     currentPostIndex: integer("current_post_index").notNull().default(1),
     postCount: integer("post_count"),
     transcript: text("transcript"),
     transcriptMetadataJson: jsonb("transcript_metadata_json"),
+    sourceAudioPartsJson: jsonb("source_audio_parts_json"),
+    sourcePoolSealed: boolean("source_pool_sealed").notNull().default(false),
+    sourceCollectorMessageId: bigint("source_collector_message_id", { mode: "bigint" }),
     planOptionsJson: jsonb("plan_options_json"),
     selectedPlanJson: jsonb("selected_plan_json"),
     rewriteMode: rewriteModeEnum("rewrite_mode"),
@@ -106,6 +116,7 @@ export const projects = pgTable(
   (table) => ({
     oneActivePerUserIdx: uniqueIndex("projects_one_active_per_user_idx").on(table.userId).where(sql`${table.isActive} = true`),
     userCreatedAtIdx: index("projects_user_created_at_idx").on(table.userId, table.createdAt),
+    branchCallbackUnique: uniqueIndex("projects_branch_callback_query_id_idx").on(table.branchCallbackQueryId),
     currentPostIndexCheck: check("projects_current_post_index_check", sql`${table.currentPostIndex} >= 1`),
     postCountCheck: check("projects_post_count_check", sql`${table.postCount} is null or ${table.postCount} between 1 and 3`)
   })
@@ -134,6 +145,13 @@ export const projectPosts = pgTable(
     indexCheck: check("project_posts_index_check", sql`${table.index} between 1 and 3`)
   })
 );
+
+export const callbackActions = pgTable("callback_actions", {
+  callbackQueryId: text("callback_query_id").primaryKey(),
+  telegramUserId: bigint("telegram_user_id", { mode: "bigint" }).notNull(),
+  telegramChatId: bigint("telegram_chat_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
 
 export const projectMessages = pgTable(
   "project_messages",

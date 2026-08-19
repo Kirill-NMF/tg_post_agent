@@ -11,6 +11,7 @@ import { PermanentJobError, RetryableJobError, type JobHandler } from "./jobWork
 
 export type TranscribeAudioJobPayload = {
   source: AudioSourceMetadata;
+  sourcePartId?: string;
 };
 
 export type TranscribeAudioJobHandlerDeps = {
@@ -57,15 +58,31 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
         chunks: prepared.chunks
       });
 
-      project.transcript = result.transcript;
-      project.state = "planning";
+      const sourcePart = payload.sourcePartId ? project.sourceAudioParts?.find((part) => part.id === payload.sourcePartId) : undefined;
+      if (payload.sourcePartId && !sourcePart) throw new PermanentJobError("SOURCE_PART_NOT_FOUND", "Source audio part is missing.");
+      if (sourcePart) {
+        sourcePart.transcript = result.transcript;
+        sourcePart.status = "succeeded";
+        const completed = project.sourceAudioParts?.every((part) => part.status === "succeeded" && Boolean(part.transcript)) === true;
+        project.state = completed ? "planning" : "transcribing";
+        if (completed) {
+          project.transcript = [...(project.sourceAudioParts ?? [])]
+            .sort((left, right) => BigInt(left.telegramMessageId) < BigInt(right.telegramMessageId) ? -1 : 1)
+            .map((part) => part.transcript)
+            .join("\n\n");
+        }
+      } else {
+        project.transcript = result.transcript;
+        project.state = "planning";
+      }
       await deps.projects.save(project);
       deps.logger?.info(
         { event: "audio_transcription_saved", jobId: job.id, projectId: job.projectId, chunkCount: result.meta.chunkCount, transcriptLength: result.transcript.length },
         "audio transcript saved"
       );
 
-      const planningJob = deps.jobs
+      const readyForPlanning = project.state === "planning" && Boolean(project.transcript);
+      const planningJob = deps.jobs && readyForPlanning
         ? await deps.jobs.enqueue({
             type: "PLAN_SPLIT",
             projectId: project.id,
@@ -74,7 +91,7 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
             maxAttempts: deps.planSplitJobMaxAttempts ?? 3
           })
         : undefined;
-      const notificationStatus = await notifyTranscriptionComplete(deps, project.chatId, job.id, job.projectId);
+      const notificationStatus = readyForPlanning ? await notifyTranscriptionComplete(deps, project.chatId, job.id, job.projectId) : "not_configured";
 
       return {
         provider: result.meta.provider,
@@ -87,17 +104,26 @@ export function createTranscribeAudioJobHandler(deps: TranscribeAudioJobHandlerD
         notificationStatus
       };
     } catch (error) {
+      if (payload.sourcePartId) {
+        const part = project.sourceAudioParts?.find((item) => item.id === payload.sourcePartId);
+        if (part && !part.transcript) {
+          part.status = "failed";
+          project.state = "transcribing";
+          await deps.projects.save(project);
+        }
+      }
       if (error instanceof PermanentJobError) {
-        project.state = "awaiting_audio";
-        await deps.projects.save(project);
+        if (!payload.sourcePartId) { project.state = "awaiting_audio"; await deps.projects.save(project); }
         await notifyTranscriptionFailure(deps, project.chatId, job.id, job.projectId);
         throw error;
       }
       if (error instanceof RetryableJobError) throw error;
       const classified = classifyTranscriptionError(error);
       if (classified instanceof PermanentJobError) {
-        project.state = "awaiting_audio";
-        await deps.projects.save(project);
+        if (!payload.sourcePartId) {
+          project.state = "awaiting_audio";
+          await deps.projects.save(project);
+        }
         await notifyTranscriptionFailure(deps, project.chatId, job.id, job.projectId);
       }
       throw classified;
@@ -140,6 +166,7 @@ function parseTranscribePayload(payload: Record<string, unknown>): TranscribeAud
     throw new PermanentJobError("INVALID_TELEGRAM_FILE_ID", "Transcription job source is missing Telegram file id.");
   }
   return {
+    sourcePartId: optionalString(payload.sourcePartId),
     source: {
       kind: candidate.kind,
       telegramFileId: candidate.telegramFileId,

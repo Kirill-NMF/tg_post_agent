@@ -62,13 +62,24 @@ export function createBot(token: string, router: BotRouter, emojiSetup?: CustomE
 
   bot.on("callback_query:data", async (ctx) => {
     await ctx.answerCallbackQuery();
-    await sendResponses(ctx, await router.handleCallback({ telegramUserId: telegramUserId(ctx), chatId: chatId(ctx), action: ctx.callbackQuery.data }));
+    const message = ctx.callbackQuery.message;
+    await sendResponses(ctx, await router.handleCallback({
+      telegramUserId: telegramUserId(ctx), chatId: chatId(ctx), action: ctx.callbackQuery.data,
+      callbackQueryId: ctx.callbackQuery.id,
+      callbackMessageId: message ? String(message.message_id) : undefined,
+      callbackMessageText: message && "text" in message ? message.text : undefined,
+      replyToMessageText: message && "reply_to_message" in message && message.reply_to_message && "text" in message.reply_to_message ? message.reply_to_message.text : undefined
+    }));
   });
 
   bot.on("message", async (ctx) => {
     const audio = sourceAudioFromMessage(ctx.message);
     if (audio) {
-      await sendResponses(ctx, await router.handleAudio({ telegramUserId: telegramUserId(ctx), chatId: chatId(ctx), audio }));
+      const userId = telegramUserId(ctx);
+      const recipient = chatId(ctx);
+      await sendResponses(ctx, await router.handleAudio({ telegramUserId: userId, chatId: recipient, audio }), async (projectId, messageId) => {
+        await router.recordSourceCollectorMessage(userId, recipient, projectId, messageId);
+      });
       return;
     }
 
@@ -84,11 +95,14 @@ export function createBot(token: string, router: BotRouter, emojiSetup?: CustomE
 }
 
 function sourceAudioFromMessage(message: {
+  message_id: number;
+  forward_origin?: unknown;
   voice?: { file_id: string; duration?: number; file_size?: number };
   audio?: { file_id: string; file_name?: string; mime_type?: string; duration?: number; file_size?: number };
   document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
 }): SourceAudioInput | undefined {
-  if (message.voice) return { kind: "voice", telegramFileId: message.voice.file_id, durationSeconds: message.voice.duration, sizeBytes: message.voice.file_size };
+  const binding = { telegramMessageId: String(message.message_id), forwarded: Boolean(message.forward_origin) };
+  if (message.voice) return { kind: "voice", telegramFileId: message.voice.file_id, durationSeconds: message.voice.duration, sizeBytes: message.voice.file_size, ...binding };
   if (message.audio) {
     return {
       kind: "audio",
@@ -97,6 +111,7 @@ function sourceAudioFromMessage(message: {
       mimeType: message.audio.mime_type,
       durationSeconds: message.audio.duration,
       sizeBytes: message.audio.file_size
+      ,...binding
     };
   }
   if (message.document?.mime_type?.startsWith("audio/")) {
@@ -106,17 +121,37 @@ function sourceAudioFromMessage(message: {
       fileName: message.document.file_name,
       mimeType: message.document.mime_type,
       sizeBytes: message.document.file_size
+      ,...binding
     };
   }
   return undefined;
 }
 
-async function sendResponses(ctx: { reply(text: string, options?: object): Promise<unknown>; replyWithDocument(file: InputFile, options?: object): Promise<unknown> }, responses: BotResponse[]) {
+async function sendResponses(
+  ctx: { chat?: { id: number }; api: { editMessageText(chatId: number, messageId: number, text: string, options?: object): Promise<unknown> }; reply(text: string, options?: object): Promise<unknown>; replyWithDocument(file: InputFile, options?: object): Promise<unknown> },
+  responses: BotResponse[],
+  onCollector?: (projectId: string, messageId: string) => Promise<void>
+) {
   for (const response of responses) {
     if (response.kind === "message") {
-      await ctx.reply(response.text, response.buttons ? { reply_markup: keyboard(response.buttons) } : undefined);
+      const options = {
+        ...(response.buttons ? { reply_markup: keyboard(response.buttons) } : {}),
+        ...(response.replyToMessageId ? { reply_parameters: { message_id: Number(response.replyToMessageId) } } : {})
+      };
+      if (response.editMessageId) {
+        if (!ctx.chat) throw new Error("Telegram update has no chat id.");
+        await ctx.api.editMessageText(ctx.chat.id, Number(response.editMessageId), response.text, options);
+      } else {
+        const sent = await ctx.reply(response.text, options);
+        if (response.captureCollectorForProjectId && onCollector && sent && typeof sent === "object" && "message_id" in sent) {
+          await onCollector(response.captureCollectorForProjectId, String(sent.message_id));
+        }
+      }
     } else {
-      await ctx.replyWithDocument(new InputFile(Buffer.from(response.content), response.filename), { caption: response.caption });
+      await ctx.replyWithDocument(new InputFile(Buffer.from(response.content), response.filename), {
+        caption: response.caption,
+        ...(response.replyToMessageId ? { reply_parameters: { message_id: Number(response.replyToMessageId) } } : {})
+      });
     }
   }
 }

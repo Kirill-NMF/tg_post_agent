@@ -30,7 +30,7 @@ describe("BotRouter", () => {
       audio: { kind: "audio_document", telegramFileId: "doc-id", mimeType: "audio/mpeg" }
     });
     expect(message(planning[0]).text).toContain("Рекомендую: 1 пост");
-    expect(message(planning[0]).buttons?.map((button) => button.action)).toEqual(["plan:recommended"]);
+    expect(message(planning[0]).buttons?.[0]?.action).toMatch(/^a:[0-9a-f]{32}:p:0$/u);
   });
 
   it("routes callback actions without Telegram network", async () => {

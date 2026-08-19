@@ -21,6 +21,17 @@ import { finalActionButtons, formatChoiceButtons } from "./formatPresentation.js
 import { currentPlan } from "./planSplitJobHandler.js";
 import { alternativePlanButtons, planButtons, renderAlternativePlansMessage, renderPlanRecommendationMessage } from "./planningPresentation.js";
 import { noopLogger, type Logger } from "../observability/logger.js";
+import { bindSourceProcess, parseBoundArtifactAction } from "./artifactCallback.js";
+
+export type HistoricalCallbackInput = {
+  telegramUserId: TelegramUserId;
+  chatId: TelegramChatId;
+  callbackQueryId: string;
+  callbackMessageId: string;
+  callbackMessageText?: string;
+  replyToMessageText?: string;
+  action: string;
+};
 
 export class ProjectService {
   constructor(
@@ -43,6 +54,8 @@ export class ProjectService {
       isActive: true,
       posts: [],
       messages: [{ kind: "command", text: "/start", createdAt: now }],
+      sourceAudioParts: [],
+      sourcePoolSealed: false,
       createdAt: now,
       updatedAt: now
     };
@@ -54,8 +67,91 @@ export class ProjectService {
     return this.projects.findActiveByTelegramUser(telegramUserId);
   }
 
+  async handleHistoricalCallback(input: HistoricalCallbackInput): Promise<BotResponse[] | undefined> {
+    if (!isHistoricalArtifactAction(input.action)) return undefined;
+    if (!/^[A-Za-z0-9_-]{1,160}$/u.test(input.callbackQueryId) || !/^\d{1,20}$/u.test(input.callbackMessageId)) {
+      return [{ kind: "message", text: "Историческое действие недоступно: некорректная привязка сообщения." }];
+    }
+    if (!await this.projects.claimCallback(input)) return [];
+    try {
+      const resolved = await resolveHistoricalArtifact(this.projects, input);
+      if (!resolved) return [{ kind: "message", text: "Историческое действие недоступно: артефакт не найден или привязка неоднозначна.", replyToMessageId: input.callbackMessageId }];
+      if (resolved.project.telegramUserId !== input.telegramUserId || resolved.project.chatId !== input.chatId) {
+        return [{ kind: "message", text: "Историческое действие недоступно для этого пользователя или чата.", replyToMessageId: input.callbackMessageId }];
+      }
+      if (resolved.kind === "done") {
+        return [{ kind: "document", filename: `post-${resolved.post.index}.txt`, content: resolved.post.finalText!, caption: "Готово.", replyToMessageId: input.callbackMessageId }];
+      }
+
+      const branch = createHistoricalBranch(resolved.project, input, "post" in resolved ? resolved.post : undefined);
+      if (resolved.kind === "plan") {
+        branch.transcript = resolved.project.transcript;
+        branch.planOptions = resolved.project.planOptions?.map((option) => structuredClone(option));
+        branch.planRecommendation = resolved.project.planRecommendation ? structuredClone(resolved.project.planRecommendation) : undefined;
+        branch.selectedPlan = structuredClone(resolved.plan);
+        branch.currentPostIndex = 1;
+        branch.posts = resolved.plan.posts.map((slice) => ({ id: randomUUID(), index: slice.index, planSlice: structuredClone(slice) }));
+        branch.state = "rewrite_mode";
+        await this.projects.save(branch);
+        await this.projects.activateProjectForUser(branch.id, input.telegramUserId);
+        return [{ kind: "message", text: "Выберите режим переписывания.", buttons: rewriteButtons(), replyToMessageId: input.callbackMessageId }];
+      }
+
+      if (!resolved.post || !resolved.draftText) throw new Error("HISTORICAL_DRAFT_MISSING");
+      const branchPost = branch.posts[0]!;
+      branchPost.currentDraft = resolved.draftText;
+      branchPost.draftVersion = resolved.draftVersion;
+      if (resolved.kind === "open_format") {
+        branch.state = "format_choice";
+        await this.projects.save(branch);
+        await this.projects.activateProjectForUser(branch.id, input.telegramUserId);
+        return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatChoiceButtons({ projectId: branch.id, postIndex: branchPost.index, draftVersion: branchPost.draftVersion ?? 1 }), replyToMessageId: input.callbackMessageId }];
+      }
+      if (resolved.kind === "rerun") {
+        branch.rewriteMode = resolved.rewriteMode;
+        branch.state = "draft_generating";
+        await this.projects.save(branch);
+        await this.projects.activateProjectForUser(branch.id, input.telegramUserId);
+        try { await this.enqueueDraftRerun(branch, branchPost, resolved.rewriteMode, resolved.draftVersion); }
+        catch (error) { await this.projects.releaseCallback(input.callbackQueryId); throw error; }
+        return [{ kind: "message", text: "Генерирую новый вариант по выбранному плану и исходной расшифровке.", replyToMessageId: input.callbackMessageId }];
+      }
+      branch.state = "formatting";
+      await this.projects.save(branch);
+      await this.projects.activateProjectForUser(branch.id, input.telegramUserId);
+      try { await this.enqueueFormatting(branch, branchPost, resolved.formattingOption); }
+      catch (error) { await this.projects.releaseCallback(input.callbackQueryId); throw error; }
+      return [{ kind: "message", text: "Оформляю черновик; пришлю готовый текст.", replyToMessageId: input.callbackMessageId }];
+    } catch (error) {
+      await this.projects.releaseCallback(input.callbackQueryId);
+      throw error;
+    }
+  }
+
   async submitSourceAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
     const project = await this.requireActive(telegramUserId);
+    if (source.telegramMessageId) {
+      if (project.sourcePoolSealed || project.state === "transcribing") {
+        return [{ kind: "message", text: "Набор источников уже запечатан и обрабатывается. Новое аудио в этот пакет не добавлено." }];
+      }
+      if (project.state !== "awaiting_audio") {
+        return [{ kind: "message", text: "Сейчас исходные аудио не собираются. Продолжите текущий шаг или отправьте /start." }];
+      }
+      if (!/^\d{1,20}$/u.test(source.telegramMessageId)) return [{ kind: "message", text: "Не удалось привязать аудио к исходному сообщению." }];
+      project.sourceAudioParts ??= [];
+      if (!project.sourceAudioParts.some((part) => part.telegramMessageId === source.telegramMessageId)) {
+        project.sourceAudioParts.push({ id: randomUUID(), telegramMessageId: source.telegramMessageId, source: { ...source }, status: "pending" });
+        project.sourceAudioParts.sort((left, right) => compareTelegramMessageIds(left.telegramMessageId, right.telegramMessageId));
+        project.messages.push(message("source_audio", source.telegramFileId));
+        await this.projects.save(project);
+      }
+      const count = project.sourceAudioParts.length;
+      return [{
+        kind: "message", text: `Добавлено аудио: ${count}. Когда все источники собраны, нажмите «Начать обработку».`,
+        buttons: [{ label: "Начать обработку", action: bindSourceProcess(project.id) }],
+        ...(project.sourceCollectorMessageId ? { editMessageId: project.sourceCollectorMessageId } : { captureCollectorForProjectId: project.id })
+      }];
+    }
     if (project.state !== "awaiting_audio") {
       return [{ kind: "message", text: "Сейчас аудио-источник не ожидается. Продолжите текущий шаг или отправьте /start." }];
     }
@@ -85,7 +181,55 @@ export class ProjectService {
     project.messages.push(message("plan_options", "recommended:" + plan.recommendation.recommendedOptionId));
     await this.projects.save(project);
 
-    return [{ kind: "message", text: renderPlanRecommendationMessage(plan), buttons: planButtons(plan) }];
+    return [{ kind: "message", text: renderPlanRecommendationMessage(plan), buttons: planButtons(plan, project.id) }];
+  }
+
+  async recordSourceCollectorMessage(telegramUserId: TelegramUserId, chatId: TelegramChatId, projectId: string, telegramMessageId: string): Promise<void> {
+    if (!/^\d{1,20}$/u.test(telegramMessageId)) return;
+    const project = await this.projects.findById(projectId);
+    if (!project || project.telegramUserId !== telegramUserId || project.chatId !== chatId || project.sourceCollectorMessageId) return;
+    project.sourceCollectorMessageId = telegramMessageId;
+    await this.projects.save(project);
+  }
+
+  async startSourceProcessing(input: { telegramUserId: TelegramUserId; chatId: TelegramChatId; projectId: string; callbackQueryId: string; callbackMessageId: string }): Promise<BotResponse[]> {
+    if (!await this.projects.claimCallback(input)) return [];
+    try {
+      const project = await this.projects.findById(input.projectId);
+      if (!project || project.telegramUserId !== input.telegramUserId || project.chatId !== input.chatId || !project.isActive) {
+        return [{ kind: "message", text: "Этот набор аудио недоступен.", replyToMessageId: input.callbackMessageId }];
+      }
+      const parts = project.sourceAudioParts ?? [];
+      if (parts.length === 0) return [{ kind: "message", text: "Сначала добавьте хотя бы одно аудио.", replyToMessageId: input.callbackMessageId }];
+      const processable = parts.filter((part) => !part.transcript && (part.status === "pending" || part.status === "failed"));
+      if (project.sourcePoolSealed && processable.length === 0) return [{ kind: "message", text: "Этот набор уже обрабатывается.", replyToMessageId: input.callbackMessageId }];
+      project.sourcePoolSealed = true;
+      project.state = "transcribing";
+      for (const part of processable) part.status = "transcribing";
+      await this.projects.save(project);
+      try {
+        if (!this.jobs) throw new Error("SOURCE_POOL_JOBS_REQUIRED");
+        for (const part of processable) {
+          await this.jobs.enqueue({
+            type: "TRANSCRIBE_AUDIO", projectId: project.id,
+            dedupeKey: `project:${project.id}:source-part:${part.id}`,
+            payload: { source: toAudioSourceMetadata(part.source), sourcePartId: part.id },
+            maxAttempts: this.jobAttempts.sourceAudio ?? 3
+          });
+        }
+      } catch (error) {
+        for (const part of processable) part.status = "pending";
+        project.sourcePoolSealed = false;
+        project.state = "awaiting_audio";
+        await this.projects.save(project);
+        await this.projects.releaseCallback(input.callbackQueryId);
+        throw error;
+      }
+      return [{ kind: "message", text: `Начинаю обработку ${processable.length} аудио. План появится после сохранения всех расшифровок.`, replyToMessageId: input.callbackMessageId }];
+    } catch (error) {
+      await this.projects.releaseCallback(input.callbackQueryId);
+      throw error;
+    }
   }
 
   async revisePlan(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
@@ -114,7 +258,7 @@ export class ProjectService {
     project.planRecommendation = revised.recommendation;
     project.planAlternativesRevealed = false;
     await this.projects.save(project);
-    return [{ kind: "message", text: renderPlanRecommendationMessage(revised), buttons: planButtons(revised) }];
+    return [{ kind: "message", text: renderPlanRecommendationMessage(revised), buttons: planButtons(revised, project.id) }];
   }
 
   async showPlanAlternatives(telegramUserId: TelegramUserId): Promise<BotResponse[]> {
@@ -125,7 +269,7 @@ export class ProjectService {
     }
     project.planAlternativesRevealed = true;
     await this.projects.save(project);
-    return [{ kind: "message", text: renderAlternativePlansMessage(plan), buttons: alternativePlanButtons(plan) }];
+    return [{ kind: "message", text: renderAlternativePlansMessage(plan), buttons: alternativePlanButtons(plan, project.id) }];
   }
 
   async choosePlan(telegramUserId: TelegramUserId, optionId: PlanOptionId): Promise<BotResponse[]> {
@@ -174,7 +318,7 @@ export class ProjectService {
 
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled, currentPost(project)?.draftVersion) }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled, currentPost(project)?.draftVersion, { projectId: project.id, postIndex: project.currentPostIndex ?? 1 }) }];
   }
 
   async reviseDraft(telegramUserId: TelegramUserId, latestUserEdit: string): Promise<BotResponse[]> {
@@ -206,7 +350,7 @@ export class ProjectService {
     post.draftVersion = nextDraftVersion(post);
     project.messages.push(message("draft", post.currentDraft));
     await this.projects.save(project);
-    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled, post.draftVersion) }];
+    return [{ kind: "message", text: post.currentDraft, buttons: draftActionButtons(this.formattingEnabled, post.draftVersion, { projectId: project.id, postIndex: post.index }) }];
   }
 
   async rerunDraft(telegramUserId: TelegramUserId, rewriteMode: RewriteMode, sourceDraftVersion: number): Promise<BotResponse[]> {
@@ -237,7 +381,8 @@ export class ProjectService {
     }
     project.state = "format_choice";
     await this.projects.save(project);
-    return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatChoiceButtons() }];
+    const post = currentPost(project)!;
+    return [{ kind: "message", text: "Выберите вариант оформления.", buttons: formatChoiceButtons({ projectId: project.id, postIndex: post.index, draftVersion: post.draftVersion ?? 1 }) }];
   }
 
   async formatCurrentPost(telegramUserId: TelegramUserId, formattingOption: FormattingOption): Promise<BotResponse[]> {
@@ -358,7 +503,7 @@ export class ProjectService {
 
     const draft = await this.generateDraftForCurrentPost(project);
     await this.projects.save(project);
-    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled) }];
+    return [{ kind: "message", text: draft, buttons: draftActionButtons(this.formattingEnabled, currentPost(project)?.draftVersion, { projectId: project.id, postIndex: project.currentPostIndex ?? 1 }) }];
   }
 
   async handleEditAudio(telegramUserId: TelegramUserId, source: SourceAudioInput): Promise<BotResponse[]> {
@@ -555,3 +700,96 @@ function recentEditMessages(project: Project): string[] {
 
 
 function rewriteButtons() { return [{ label: "Почистить", action: "rewrite:clean_up" }, { label: "Сделать пост", action: "rewrite:make_post" }]; }
+function compareTelegramMessageIds(left: string, right: string): number { return BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0; }
+
+type HistoricalArtifact =
+  | { kind: "plan"; project: Project; plan: NonNullable<Project["selectedPlan"]> }
+  | { kind: "open_format"; project: Project; post: Project["posts"][number]; draftText: string; draftVersion: number }
+  | { kind: "rerun"; project: Project; post: Project["posts"][number]; draftText: string; draftVersion: number; rewriteMode: RewriteMode }
+  | { kind: "format"; project: Project; post: Project["posts"][number]; draftText: string; draftVersion: number; formattingOption: FormattingOption }
+  | { kind: "done"; project: Project; post: Project["posts"][number] };
+
+function isHistoricalArtifactAction(action: string): boolean {
+  return action.startsWith("a:") || action.startsWith("plan:") || action === "format:open" || action.startsWith("draft:rerun:")
+    || action === "format:option_1" || action === "format:option_2" || action === "final:accept";
+}
+
+async function resolveHistoricalArtifact(repository: ProjectRepository, input: HistoricalCallbackInput): Promise<HistoricalArtifact | undefined> {
+  const bound = parseBoundArtifactAction(input.action);
+  if (bound) {
+    const project = await repository.findById(bound.projectId);
+    if (!project) return undefined;
+    if (bound.kind === "plan") {
+      const plan = project.planOptions?.[bound.optionIndex];
+      return plan && project.transcript ? { kind: "plan", project, plan } : undefined;
+    }
+    const post = project.posts.find((item) => item.index === bound.postIndex);
+    if (!post) return undefined;
+    if (bound.kind === "done") return post.finalText ? { kind: "done", project, post } : undefined;
+    const draftText = input.replyToMessageText ?? input.callbackMessageText;
+    const persisted = Boolean(draftText && (post.currentDraft === draftText || project.messages.some((item) => item.kind === "draft" && item.text === draftText)));
+    if (!draftText || !persisted || (post.draftVersion ?? 1) < bound.draftVersion) return undefined;
+    if (bound.kind === "open_format") return { kind: "open_format", project, post, draftText, draftVersion: bound.draftVersion };
+    if (bound.kind === "rerun") return { kind: "rerun", project, post, draftText, draftVersion: bound.draftVersion, rewriteMode: bound.rewriteMode };
+    return { kind: "format", project, post, draftText, draftVersion: bound.draftVersion, formattingOption: bound.formattingOption };
+  }
+  const projects = (await repository.findAllByTelegramUser(input.telegramUserId)).filter((project) => project.chatId === input.chatId);
+  const planMatch = /^plan:(.+)$/u.exec(input.action);
+  if (planMatch && planMatch[1] !== "show_alternatives") {
+    const matches = projects.flatMap((project) => {
+      if (!project.transcript || !project.planOptions || !project.planRecommendation || !input.callbackMessageText) return [];
+      const rendered = [renderPlanRecommendationMessage({ options: project.planOptions, recommendation: project.planRecommendation }), renderAlternativePlansMessage({ options: project.planOptions, recommendation: project.planRecommendation })];
+      if (!rendered.includes(input.callbackMessageText)) return [];
+      const optionId = planMatch[1] === "recommended" ? project.planRecommendation.recommendedOptionId : planMatch[1];
+      const plan = project.planOptions.find((option) => option.optionId === optionId);
+      return plan ? [{ kind: "plan" as const, project, plan }] : [];
+    });
+    return unique(matches);
+  }
+
+  const rerun = /^draft:rerun:(clean_up|make_post):(\d+)$/u.exec(input.action);
+  if (rerun) {
+    const draftVersion = Number(rerun[2]);
+    const match = unique(findDraftArtifacts(projects, input.callbackMessageText));
+    return match ? { kind: "rerun", ...match, draftVersion, rewriteMode: rerun[1] as RewriteMode } : undefined;
+  }
+  if (input.action === "format:open") {
+    const match = unique(findDraftArtifacts(projects, input.callbackMessageText));
+    return match ? { kind: "open_format", ...match } : undefined;
+  }
+  if (input.action === "format:option_1" || input.action === "format:option_2") {
+    const match = unique(findDraftArtifacts(projects, input.replyToMessageText));
+    return match ? { kind: "format", ...match, formattingOption: input.action.endsWith("option_2") ? "option_2" : "option_1" } : undefined;
+  }
+  if (input.action === "final:accept" && input.callbackMessageText) {
+    const matches = projects.flatMap((project) => project.posts.filter((post) => post.finalText === input.callbackMessageText || post.formattedText === input.callbackMessageText).map((post) => ({ kind: "done" as const, project, post })));
+    return unique(matches);
+  }
+  return undefined;
+}
+
+function findDraftArtifacts(projects: Project[], text?: string): Array<{ project: Project; post: Project["posts"][number]; draftText: string; draftVersion: number }> {
+  if (!text) return [];
+  return projects.flatMap((project) => project.posts.flatMap((post) => {
+    const persisted = post.currentDraft === text || project.messages.some((item) => item.kind === "draft" && item.text === text);
+    return persisted ? [{ project, post, draftText: text, draftVersion: post.draftVersion ?? 1 }] : [];
+  }));
+}
+
+function unique<T>(items: T[]): T | undefined { return items.length === 1 ? items[0] : undefined; }
+
+function createHistoricalBranch(source: Project, input: HistoricalCallbackInput, sourcePost?: Project["posts"][number]): Project {
+  const now = new Date();
+  const selectedPlan = source.selectedPlan ? structuredClone(source.selectedPlan) : undefined;
+  const planSlice = sourcePost?.planSlice ?? selectedPlan?.posts[0];
+  return {
+    id: randomUUID(), telegramUserId: input.telegramUserId, chatId: input.chatId, state: "rewrite_mode", isActive: false,
+    transcript: source.transcript, outputLanguage: source.outputLanguage, planOptions: source.planOptions?.map((option) => structuredClone(option)),
+    planRecommendation: source.planRecommendation ? structuredClone(source.planRecommendation) : undefined, selectedPlan,
+    rewriteMode: source.rewriteMode, currentPostIndex: 1,
+    posts: planSlice ? [{ id: randomUUID(), index: 1, planSlice: structuredClone(planSlice) }] : [], messages: [],
+    parentProjectId: source.id, rootProjectId: source.rootProjectId ?? source.id, sourceProjectId: source.id,
+    sourcePostId: sourcePost?.id, sourceDraftVersion: sourcePost?.draftVersion, sourceTelegramMessageId: input.callbackMessageId,
+    branchCallbackQueryId: input.callbackQueryId, createdAt: now, updatedAt: now
+  };
+}
